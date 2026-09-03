@@ -74,7 +74,7 @@ mcp-docker-build:
       artifacts: false
   variables:
     DOCKERFILE: backend/apps/mcp-server/Dockerfile
-    CONTAINER_IMAGE: agentic-commerce/mcp-server:$CI_COMMIT_SHA
+    CONTAINER_IMAGE: copenhagen/mcp-server:$CI_COMMIT_SHA
     IMAGE_ARCHIVE: docker-images/mcp-server.tar.gz
 
 mcp-deploy-dev:
@@ -89,5 +89,5 @@ mcp-deploy-dev:
   variables:
     COMPOSE_SERVICE: mcp-server
     DEPLOY_IMAGE_VARIABLE: MCP_IMAGE
-    CONTAINER_IMAGE: agentic-commerce/mcp-server:$CI_COMMIT_SHA
+    CONTAINER_IMAGE: copenhagen/mcp-server:$CI_COMMIT_SHA
     IMAGE_ARCHIVE: docker-images/mcp-server.tar.gz

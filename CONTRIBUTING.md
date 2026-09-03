@@ -161,7 +161,7 @@ cd backend
 ```bash
 docker build \
   --file backend/apps/core-service/Dockerfile \
-  --tag agentic-commerce/core-service:local \
+  --tag copenhagen/core-service:local \
   backend
 ```
 

@@ -1,4 +1,4 @@
-name: agentic-commerce
+name: copenhagen
 
 services:
   nginx:
@@ -17,7 +17,7 @@ services:
     restart: unless-stopped
 
   core-service:
-    image: ${CORE_IMAGE:-agentic-commerce/core-service:local}
+    image: ${CORE_IMAGE:-copenhagen/core-service:local}
     build:
       context: ./backend
       dockerfile: apps/core-service/Dockerfile
@@ -43,7 +43,7 @@ services:
     restart: unless-stopped
 
   mcp-server:
-    image: ${MCP_IMAGE:-agentic-commerce/mcp-server:local}
+    image: ${MCP_IMAGE:-copenhagen/mcp-server:local}
     build:
       context: ./backend
       dockerfile: apps/mcp-server/Dockerfile
@@ -61,7 +61,7 @@ services:
     restart: unless-stopped
 
   pay-service:
-    image: ${PAY_IMAGE:-agentic-commerce/pay-service:local}
+    image: ${PAY_IMAGE:-copenhagen/pay-service:local}
     build:
       context: ./backend
       dockerfile: apps/pay-service/Dockerfile
@@ -84,7 +84,7 @@ services:
     restart: unless-stopped
 
   ucp-merchant-mock:
-    image: ${MERCHANT_MOCK_IMAGE:-agentic-commerce/ucp-merchant-mock:local}
+    image: ${MERCHANT_MOCK_IMAGE:-copenhagen/ucp-merchant-mock:local}
     build:
       context: ./backend
       dockerfile: mocks/ucp-merchant-mock/Dockerfile
@@ -107,7 +107,7 @@ services:
     restart: unless-stopped
 
   pg-mock:
-    image: ${PG_MOCK_IMAGE:-agentic-commerce/pg-mock:local}
+    image: ${PG_MOCK_IMAGE:-copenhagen/pg-mock:local}
     build:
       context: ./backend
       dockerfile: mocks/pg-mock/Dockerfile

@@ -36,11 +36,11 @@ MR에서는 `lint`, `test`, `build`까지만 실행합니다. Docker image 생�
 
 | Pipeline | 대표 변경 감지 경로 | EC2에 저장되는 image |
 | --- | --- | --- |
-| Core | `backend/apps/core-service/**`, `ucp-contract`, `internal-api-contract` | `agentic-commerce/core-service:<commit-sha>` |
-| MCP | `backend/apps/mcp-server/**`, `internal-api-contract` | `agentic-commerce/mcp-server:<commit-sha>` |
-| Pay | `backend/apps/pay-service/**`, `payment-handler-contract`, `internal-api-contract` | `agentic-commerce/pay-service:<commit-sha>` |
-| Merchant Mock | `backend/mocks/ucp-merchant-mock/**`와 관련 계약 | `agentic-commerce/ucp-merchant-mock:<commit-sha>` |
-| PG Mock | `backend/mocks/pg-mock/**`와 관련 계약 | `agentic-commerce/pg-mock:<commit-sha>` |
+| Core | `backend/apps/core-service/**`, `ucp-contract`, `internal-api-contract` | `copenhagen/core-service:<commit-sha>` |
+| MCP | `backend/apps/mcp-server/**`, `internal-api-contract` | `copenhagen/mcp-server:<commit-sha>` |
+| Pay | `backend/apps/pay-service/**`, `payment-handler-contract`, `internal-api-contract` | `copenhagen/pay-service:<commit-sha>` |
+| Merchant Mock | `backend/mocks/ucp-merchant-mock/**`와 관련 계약 | `copenhagen/ucp-merchant-mock:<commit-sha>` |
+| PG Mock | `backend/mocks/pg-mock/**`와 관련 계약 | `copenhagen/pg-mock:<commit-sha>` |
 
 Core만 바뀌면 Core의 test, build, Docker image 생성, EC2 재시작만 실행됩니다. 정확한 변경 경로는 각 `*.gitlab-ci.yml`의 `rules:changes`가 기준입니다. Gradle 공통 설정이나 `test-support`처럼 여러 서비스에 영향을 주는 파일은 관련 pipeline을 모두 실행할 수 있습니다.
 

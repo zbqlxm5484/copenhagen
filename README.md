@@ -1,7 +1,16 @@
-# Project Copenhagen
-Agentic Commerce 플랫폼을 위한 모노레포입니다. 현재는 첫 개발을 시작할 수 있는 서비스 경계, 빌드, 로컬 실행, Docker, GitLab CI/CD 기반만 준비되어 있으며 상품·주문·결제 같은 비즈니스 기능은 아직 구현하지 않았습니다.
+# Copenhagen
+
+Copenhagen 프로젝트의 모노레포입니다. 현재는 첫 개발을 시작할 수 있는 서비스 경계, 빌드, 로컬 실행, Docker, GitLab CI/CD 기반만 준비되어 있으며 상품·주문·결제 같은 비즈니스 기능은 아직 구현하지 않았습니다.
 
 처음 참여한 팀원이라면 이 문서로 프로젝트를 실행한 뒤 [팀 개발 가이드](CONTRIBUTING.md)를 읽어주세요.
+
+프로젝트 이름은 다음 표기를 기준으로 사용합니다.
+
+| 용도 | 표기 |
+| --- | --- |
+| 문서와 화면 표시명 | `Copenhagen` |
+| Docker, Gradle 등 기계 식별자 | `copenhagen` |
+| Java 기본 package | `com.copenhagen` |
 
 ## 기술 구성
 

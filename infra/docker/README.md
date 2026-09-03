@@ -37,7 +37,7 @@ docker compose down
 | `merchant-db` | 해당 없음 | Merchant Mock 전용 PostgreSQL |
 | `redis` | 해당 없음 | 아직 용도가 정해지지 않은 공유 인프라 |
 
-로컬에서는 image 환경변수가 없으면 `agentic-commerce/<service>:local`을 빌드합니다. 개발 EC2에서는 CI가 load한 `agentic-commerce/<service>:<commit-sha>`를 `.env`에 기록합니다.
+로컬에서는 image 환경변수가 없으면 `copenhagen/<service>:local`을 빌드합니다. 개발 EC2에서는 CI가 load한 `copenhagen/<service>:<commit-sha>`를 `.env`에 기록합니다.
 
 ## 내부 통신 원칙
 
@@ -140,7 +140,7 @@ GitLab에서 서비스별 `deploy-dev` job이 성공했는지 확인한 뒤 EC2�
 ```bash
 cd <DEV_DEPLOY_PATH>
 docker compose --env-file .env ps
-docker image ls 'agentic-commerce/*'
+docker image ls 'copenhagen/*'
 ```
 
 Core, MCP, Pay, Merchant Mock, PG Mock이 모두 `healthy`가 된 다음 Nginx를 최초 한 번 시작합니다.
@@ -173,7 +173,7 @@ GitLab CI에서 core-service image 생성
 cd <DEV_DEPLOY_PATH>
 docker compose --env-file .env ps
 docker compose --env-file .env logs --tail=200 <service-name>
-docker image ls 'agentic-commerce/*'
+docker image ls 'copenhagen/*'
 docker system df
 ```
 

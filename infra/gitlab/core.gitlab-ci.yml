@@ -76,7 +76,7 @@ core-docker-build:
       artifacts: false
   variables:
     DOCKERFILE: backend/apps/core-service/Dockerfile
-    CONTAINER_IMAGE: agentic-commerce/core-service:$CI_COMMIT_SHA
+    CONTAINER_IMAGE: copenhagen/core-service:$CI_COMMIT_SHA
     IMAGE_ARCHIVE: docker-images/core-service.tar.gz
 
 core-deploy-dev:
@@ -91,5 +91,5 @@ core-deploy-dev:
   variables:
     COMPOSE_SERVICE: core-service
     DEPLOY_IMAGE_VARIABLE: CORE_IMAGE
-    CONTAINER_IMAGE: agentic-commerce/core-service:$CI_COMMIT_SHA
+    CONTAINER_IMAGE: copenhagen/core-service:$CI_COMMIT_SHA
     IMAGE_ARCHIVE: docker-images/core-service.tar.gz

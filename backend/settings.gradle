@@ -16,7 +16,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = 'agentic-commerce-backend'
+rootProject.name = 'copenhagen-backend'
 
 include(
     'apps:core-service',

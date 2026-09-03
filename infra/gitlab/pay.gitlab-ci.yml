@@ -76,7 +76,7 @@ pay-docker-build:
       artifacts: false
   variables:
     DOCKERFILE: backend/apps/pay-service/Dockerfile
-    CONTAINER_IMAGE: agentic-commerce/pay-service:$CI_COMMIT_SHA
+    CONTAINER_IMAGE: copenhagen/pay-service:$CI_COMMIT_SHA
     IMAGE_ARCHIVE: docker-images/pay-service.tar.gz
 
 pay-deploy-dev:
@@ -91,5 +91,5 @@ pay-deploy-dev:
   variables:
     COMPOSE_SERVICE: pay-service
     DEPLOY_IMAGE_VARIABLE: PAY_IMAGE
-    CONTAINER_IMAGE: agentic-commerce/pay-service:$CI_COMMIT_SHA
+    CONTAINER_IMAGE: copenhagen/pay-service:$CI_COMMIT_SHA
     IMAGE_ARCHIVE: docker-images/pay-service.tar.gz
