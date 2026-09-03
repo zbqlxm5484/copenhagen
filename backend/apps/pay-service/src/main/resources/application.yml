@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: pay-service
+  datasource:
+    url: ${PAY_DB_URL:jdbc:postgresql://pay-db:5432/pay-db}
+    username: ${PAY_DB_USER:pay}
+    password: ${PAY_DB_PASSWORD:pay-dev-password}
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+services:
+  pg:
+    base-url: ${PG_SERVICE_URL:http://pg-mock:8080}

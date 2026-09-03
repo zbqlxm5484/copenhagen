@@ -1,0 +1,92 @@
+.pay-verify-rules:
+  rules:
+    - if: >-
+        ($CI_PIPELINE_SOURCE == "merge_request_event" &&
+        $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "develop") ||
+        ($CI_PIPELINE_SOURCE == "push" &&
+        $CI_COMMIT_BRANCH == "develop")
+      changes:
+        - backend/apps/pay-service/**/*
+        - backend/libs/payment-handler-contract/**/*
+        - backend/libs/internal-api-contract/**/*
+        - backend/libs/test-support/**/*
+        - backend/build.gradle
+        - backend/settings.gradle
+        - backend/gradle/**/*
+        - backend/gradlew
+        - backend/gradlew.bat
+        - .gitlab-ci.yml
+        - docker-compose.yml
+        - scripts/deploy-dev-service.sh
+        - infra/gitlab/common.gitlab-ci.yml
+        - infra/gitlab/pay.gitlab-ci.yml
+    - when: never
+
+.pay-delivery-rules:
+  rules:
+    - if: >-
+        $CI_PIPELINE_SOURCE == "push" &&
+        $CI_COMMIT_BRANCH == "develop"
+      changes:
+        - backend/apps/pay-service/**/*
+        - backend/libs/payment-handler-contract/**/*
+        - backend/libs/internal-api-contract/**/*
+        - backend/libs/test-support/**/*
+        - backend/build.gradle
+        - backend/settings.gradle
+        - backend/gradle/**/*
+        - backend/gradlew
+        - backend/gradlew.bat
+        - .gitlab-ci.yml
+        - docker-compose.yml
+        - scripts/deploy-dev-service.sh
+        - infra/gitlab/common.gitlab-ci.yml
+        - infra/gitlab/pay.gitlab-ci.yml
+    - when: never
+
+pay-test:
+  extends:
+    - .gradle-job
+    - .pay-verify-rules
+  stage: test
+  variables:
+    GRADLE_TASK: :apps:pay-service:test
+
+pay-build:
+  extends:
+    - .gradle-job
+    - .pay-verify-rules
+  stage: build
+  needs:
+    - pay-test
+  variables:
+    GRADLE_TASK: :apps:pay-service:bootJar
+  artifacts:
+    paths:
+      - backend/apps/pay-service/build/libs/app.jar
+    expire_in: 1 day
+
+pay-docker-build:
+  extends:
+    - .docker-build-job
+    - .pay-delivery-rules
+  stage: docker-build
+  needs:
+    - job: pay-build
+      artifacts: false
+  variables:
+    DOCKERFILE: backend/apps/pay-service/Dockerfile
+    CONTAINER_IMAGE: $CI_REGISTRY_IMAGE/pay-service:$CI_COMMIT_SHA
+
+pay-deploy-dev:
+  extends:
+    - .deploy-dev-job
+    - .pay-delivery-rules
+  stage: deploy-dev
+  needs:
+    - pay-docker-build
+  resource_group: development-ec2
+  variables:
+    COMPOSE_SERVICE: pay-service
+    DEPLOY_IMAGE_VARIABLE: PAY_IMAGE
+    CONTAINER_IMAGE: $CI_REGISTRY_IMAGE/pay-service:$CI_COMMIT_SHA

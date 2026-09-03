@@ -1,0 +1,6 @@
+include:
+  - local: /infra/gitlab/common.gitlab-ci.yml
+  - local: /infra/gitlab/core.gitlab-ci.yml
+  - local: /infra/gitlab/mcp.gitlab-ci.yml
+  - local: /infra/gitlab/pay.gitlab-ci.yml
+  - local: /infra/gitlab/mocks.gitlab-ci.yml
