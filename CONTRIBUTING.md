@@ -198,7 +198,7 @@ backend-lint(Checkstyle, Backend 변경 시)
 변경 영향 서비스 build
 ```
 
-MR에서는 Docker image push와 EC2 배포가 실행되지 않습니다. Pipeline이 모두 성공하고 review가 끝난 뒤 merge합니다.
+MR에서는 Docker image 생성과 EC2 배포가 실행되지 않습니다. Pipeline이 모두 성공하고 review가 끝난 뒤 merge합니다.
 
 MR 설명에는 최소한 다음 내용을 적습니다.
 
@@ -226,8 +226,8 @@ MR 설명에는 최소한 다음 내용을 적습니다.
 변경이 `develop`에 들어가면 관련 서비스만 다음 순서로 배포됩니다.
 
 ```text
-검증 → commit SHA Docker image 생성 → GitLab Registry push
-     → EC2에서 해당 image만 pull → 해당 container만 재실행 → health check
+검증 → commit SHA Docker image 생성 → 압축 artifact 생성
+     → EC2로 해당 artifact만 전송 → docker load → 해당 container만 재실행 → health check
 ```
 
 배포가 실패하면 GitLab Job log와 EC2의 `docker compose logs <service-name>`을 확인합니다. CI는 이전 이미지가 `.env`에 기록되어 있으면 복구를 시도하지만, 복구 성공 여부도 반드시 확인하세요.

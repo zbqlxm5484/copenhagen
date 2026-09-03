@@ -74,7 +74,8 @@ mcp-docker-build:
       artifacts: false
   variables:
     DOCKERFILE: backend/apps/mcp-server/Dockerfile
-    CONTAINER_IMAGE: $CI_REGISTRY_IMAGE/mcp-server:$CI_COMMIT_SHA
+    CONTAINER_IMAGE: agentic-commerce/mcp-server:$CI_COMMIT_SHA
+    IMAGE_ARCHIVE: docker-images/mcp-server.tar.gz
 
 mcp-deploy-dev:
   extends:
@@ -82,9 +83,11 @@ mcp-deploy-dev:
     - .mcp-delivery-rules
   stage: deploy-dev
   needs:
-    - mcp-docker-build
+    - job: mcp-docker-build
+      artifacts: true
   resource_group: development-ec2
   variables:
     COMPOSE_SERVICE: mcp-server
     DEPLOY_IMAGE_VARIABLE: MCP_IMAGE
-    CONTAINER_IMAGE: $CI_REGISTRY_IMAGE/mcp-server:$CI_COMMIT_SHA
+    CONTAINER_IMAGE: agentic-commerce/mcp-server:$CI_COMMIT_SHA
+    IMAGE_ARCHIVE: docker-images/mcp-server.tar.gz

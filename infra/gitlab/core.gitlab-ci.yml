@@ -76,7 +76,8 @@ core-docker-build:
       artifacts: false
   variables:
     DOCKERFILE: backend/apps/core-service/Dockerfile
-    CONTAINER_IMAGE: $CI_REGISTRY_IMAGE/core-service:$CI_COMMIT_SHA
+    CONTAINER_IMAGE: agentic-commerce/core-service:$CI_COMMIT_SHA
+    IMAGE_ARCHIVE: docker-images/core-service.tar.gz
 
 core-deploy-dev:
   extends:
@@ -84,9 +85,11 @@ core-deploy-dev:
     - .core-delivery-rules
   stage: deploy-dev
   needs:
-    - core-docker-build
+    - job: core-docker-build
+      artifacts: true
   resource_group: development-ec2
   variables:
     COMPOSE_SERVICE: core-service
     DEPLOY_IMAGE_VARIABLE: CORE_IMAGE
-    CONTAINER_IMAGE: $CI_REGISTRY_IMAGE/core-service:$CI_COMMIT_SHA
+    CONTAINER_IMAGE: agentic-commerce/core-service:$CI_COMMIT_SHA
+    IMAGE_ARCHIVE: docker-images/core-service.tar.gz

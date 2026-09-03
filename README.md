@@ -1,4 +1,3 @@
-# 
 # Project Copenhagen
 Agentic Commerce 플랫폼을 위한 모노레포입니다. 현재는 첫 개발을 시작할 수 있는 서비스 경계, 빌드, 로컬 실행, Docker, GitLab CI/CD 기반만 준비되어 있으며 상품·주문·결제 같은 비즈니스 기능은 아직 구현하지 않았습니다.
 
@@ -114,8 +113,8 @@ GET /actuator/health
 ## CI/CD 요약
 
 - `develop` 대상 MR: repository lint, Java Checkstyle, 변경 영향 서비스의 test와 build
-- `develop` push 또는 merge: 검증 후 변경된 서비스 이미지만 commit SHA로 생성하고 Registry에 push
-- EC2 배포: 변경된 이미지만 pull하고 해당 컨테이너만 health check와 함께 재실행
+- `develop` push 또는 merge: 검증 후 변경된 서비스 이미지만 commit SHA로 생성하고 압축 artifact로 저장
+- EC2 배포: 해당 artifact만 SSH로 전송하고 image를 load한 뒤 해당 컨테이너만 health check와 함께 재실행
 - MR pipeline에서는 Docker 이미지 생성과 EC2 배포를 실행하지 않음
 
 CI가 성공해야 merge되도록 만드는 GitLab 프로젝트 설정은 레포 밖에서 별도로 켜야 합니다. 자세한 설정은 [GitLab CI/CD 문서](infra/gitlab/README.md)를 확인하세요.

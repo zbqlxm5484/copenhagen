@@ -2,23 +2,25 @@
 
 레포 루트의 `docker-compose.yml` 하나로 로컬 환경과 개발 EC2를 구성합니다. 애플리케이션 5개, PostgreSQL 3개, Redis, Nginx가 각각 별도 컨테이너로 실행됩니다.
 
+개발 EC2의 애플리케이션 image는 Registry에서 pull하지 않습니다. GitLab CI가 `.tar.gz` 파일로 직접 전송하고 EC2에서 `docker image load`합니다. PostgreSQL, Redis, Nginx 같은 공개 기반 image만 Docker Hub에서 pull합니다.
+
 ## 로컬에서 실행하기
 
-필요한 것은 Docker Engine과 Docker Compose v2입니다. 레포 루트에서 실행합니다.
+Docker Engine과 Docker Compose v2가 필요합니다. 레포 루트에서 실행합니다.
 
 ```bash
 docker compose up --build
 docker compose ps
 ```
 
-처음 실행할 때 이미지를 만들고 DB volume을 생성하므로 시간이 걸릴 수 있습니다. 각 애플리케이션이 `healthy`인지 확인합니다.
+처음 실행할 때 image를 만들고 DB volume을 생성하므로 시간이 걸릴 수 있습니다. 각 애플리케이션이 `healthy`인지 확인합니다.
 
 ```bash
 docker compose logs -f core-service
 docker compose down
 ```
 
-`docker compose down`은 DB 데이터를 보존합니다. `docker compose down --volumes`는 세 PostgreSQL과 Redis 데이터를 삭제하므로 초기화가 필요할 때만 실행합니다.
+`docker compose down`은 DB 데이터를 보존합니다. `docker compose down --volumes`는 PostgreSQL과 Redis 데이터를 삭제하므로 초기화가 필요할 때만 실행합니다.
 
 ## Compose 구성
 
@@ -35,84 +37,155 @@ docker compose down
 | `merchant-db` | 해당 없음 | Merchant Mock 전용 PostgreSQL |
 | `redis` | 해당 없음 | 아직 용도가 정해지지 않은 공유 인프라 |
 
-로컬에서는 image 환경변수가 없으면 `agentic-commerce/<service>:local`을 만들고 사용합니다. EC2의 `.env`에는 CI가 Registry image의 commit SHA tag를 기록합니다.
+로컬에서는 image 환경변수가 없으면 `agentic-commerce/<service>:local`을 빌드합니다. 개발 EC2에서는 CI가 load한 `agentic-commerce/<service>:<commit-sha>`를 `.env`에 기록합니다.
 
 ## 내부 통신 원칙
 
 컨테이너끼리는 Compose service name을 DNS 이름으로 사용합니다.
 
 ```text
-mcp-server       → http://core-service:8080
-core-service      → http://pay-service:8080
-core-service      → http://ucp-merchant-mock:8080
+mcp-server        → http://core-service:8080
+core-service       → http://pay-service:8080
+core-service       → http://ucp-merchant-mock:8080
 ucp-merchant-mock → http://pay-service:8080
-pay-service       → http://pg-mock:8080
+pay-service        → http://pg-mock:8080
 ```
 
 내부 통신에 EC2 public IP, `localhost`, Nginx 주소를 사용하지 않습니다. Nginx는 외부 요청만 받습니다.
 
-## 개발 EC2 최초 준비
+## 사용자가 EC2에서 최초 한 번 할 일
 
-이 과정은 EC2 한 대당 최초 한 번 사람이 실행합니다.
+첫 `develop` 배포 pipeline을 실행하기 전에 완료해야 합니다.
 
-1. Docker Engine과 Docker Compose v2 plugin을 설치합니다.
-2. 배포 전용 Linux 사용자를 준비하고 Docker 실행 권한을 부여합니다.
-3. 이 레포를 GitLab CI 변수 `DEV_DEPLOY_PATH`로 사용할 절대 경로에 clone하고 `develop`을 checkout합니다.
-4. `infra/docker/ec2.env.example`을 그 경로의 `.env`로 복사합니다.
-5. `.env`의 모든 `CHANGE_ME`를 실제 개발용 비밀번호로 교체하고 권한을 `600`으로 설정합니다.
-6. 배포 사용자가 `DEV_DEPLOY_PATH`, `infra/nginx`, `scripts`에 쓸 수 있는지 확인합니다.
-7. `read_registry` 권한의 GitLab Deploy Token으로 EC2의 Docker를 Container Registry에 login합니다.
+### 1. Docker 준비
 
-환경파일 준비 예시입니다. 경로와 값은 실제 환경에 맞게 사용합니다.
+EC2에 Docker Engine과 Docker Compose v2 plugin을 설치합니다. 설치 방법은 사용하는 AMI에 맞는 Docker 공식 절차를 따릅니다.
+
+다음 두 명령이 모두 성공해야 합니다.
 
 ```bash
-cd <DEV_DEPLOY_PATH>
+docker version
+docker compose version
+```
+
+배포 SSH 사용자가 `sudo` 없이 Docker를 실행할 수 있는지도 확인합니다.
+
+```bash
+docker ps
+```
+
+### 2. SSH와 네트워크 준비
+
+- GitLab CI가 사용할 SSH private key에 대응하는 public key를 EC2 배포 사용자의 `authorized_keys`에 등록합니다.
+- EC2 Security Group은 GitLab Runner가 SSH port에 접근할 수 있게 설정합니다.
+- 불필요하게 SSH를 전 세계에 공개하지 말고 가능한 범위로 제한합니다.
+- 배포 사용자가 `DEV_DEPLOY_PATH`에 파일을 만들고 수정할 수 있어야 합니다.
+
+### 3. 배포 디렉터리 준비
+
+첫 merge 전에는 현재 기능 branch를 EC2에 clone하거나 필요한 파일을 안전하게 복사하여 초기 구성을 준비합니다. 배포 디렉터리는 GitLab 변수 `DEV_DEPLOY_PATH`와 정확히 같아야 하며 공백이 없는 절대 경로를 권장합니다.
+
+필요한 초기 파일은 다음과 같습니다.
+
+```text
+docker-compose.yml
+infra/docker/ec2.env.example
+infra/nginx/nginx.conf
+scripts/bootstrap-dev-infra.sh
+scripts/deploy-dev-service.sh
+```
+
+### 4. EC2 `.env` 만들기
+
+배포 디렉터리에서 실행합니다.
+
+```bash
 cp infra/docker/ec2.env.example .env
 chmod 600 .env
 ```
 
-실제 비밀번호를 채운 `.env`는 Git에 commit하지 않습니다. 개발 서버에는 production credential을 사용하지 않습니다.
+`.env`의 `CORE_DB_PASSWORD`, `PAY_DB_PASSWORD`, `MERCHANT_DB_PASSWORD`에 있는 모든 `CHANGE_ME`를 개발 서버용 비밀번호로 바꿉니다.
 
-## 공유 인프라 최초 실행
+- 실제 `.env`를 Git에 commit하지 않습니다.
+- production 비밀번호를 개발 서버에 사용하지 않습니다.
+- `CORE_IMAGE` 같은 애플리케이션 image 값은 직접 작성하지 않아도 됩니다. 첫 배포 때 CI가 기록합니다.
 
-DB와 Redis는 애플리케이션 image 배포 대상이 아니므로 최초에 수동으로 한 번 시작합니다.
+### 5. DB와 Redis 시작
 
 ```bash
-cd <DEV_DEPLOY_PATH>
 ./scripts/bootstrap-dev-infra.sh
 ```
 
-이 스크립트는 `.env`가 존재하고 `CHANGE_ME`가 남아 있지 않은지 검사한 뒤 `core-db`, `pay-db`, `merchant-db`, `redis`만 pull하고 시작합니다.
+이 스크립트는 `.env`와 비밀번호를 검사하고 다음 공유 인프라만 시작합니다.
 
-그다음 `develop` pipeline이 애플리케이션들을 배포하도록 최초 변경을 merge합니다. Core, MCP, Pay, Mock 컨테이너가 모두 배포된 뒤 Nginx를 한 번 시작합니다.
+```text
+core-db
+pay-db
+merchant-db
+redis
+```
+
+확인합니다.
+
+```bash
+docker compose --env-file .env ps
+```
+
+DB 3개와 Redis가 `healthy`이면 GitLab의 첫 `develop` 배포를 실행할 준비가 된 것입니다.
+
+## 첫 자동 배포 후 할 일
+
+GitLab에서 서비스별 `deploy-dev` job이 성공했는지 확인한 뒤 EC2에서 실행합니다.
+
+```bash
+cd <DEV_DEPLOY_PATH>
+docker compose --env-file .env ps
+docker image ls 'agentic-commerce/*'
+```
+
+Core, MCP, Pay, Merchant Mock, PG Mock이 모두 `healthy`가 된 다음 Nginx를 최초 한 번 시작합니다.
 
 ```bash
 docker compose --env-file .env up -d --wait nginx
 ```
 
-## 이후 자동 배포 방식
+이후 서비스 배포는 GitLab CI가 자동으로 수행합니다.
 
-`develop`에 변경이 들어오면 CI는 영향받은 서비스에 대해서만 다음 작업을 합니다.
+## 자동 배포가 하는 일
+
+Core만 변경된 예시는 다음과 같습니다.
 
 ```text
-Docker image 생성 → GitLab Registry push → EC2 SSH 접속
-→ 새 image만 pull → 해당 service만 재생성 → health check
+GitLab CI에서 core-service image 생성
+→ core-service.tar.gz를 EC2의 .deploy/로 전송
+→ EC2 Docker에 image load
+→ .env의 CORE_IMAGE만 새 commit SHA로 변경
+→ core-service 컨테이너만 재생성
+→ health check
+→ 전송한 tar.gz 삭제
 ```
 
-배포는 `docker compose up -d --no-deps --no-build --wait <service>`를 사용합니다. 따라서 Core 배포 때문에 Pay나 DB가 다시 시작되지 않습니다. 성공한 image tag는 EC2의 `.env`에 저장됩니다. health check가 실패하면 스크립트가 이전에 기록된 image로 복구를 시도합니다.
+`--no-deps --no-build`를 사용하므로 Core 배포 때문에 Pay, DB 등의 컨테이너를 재시작하지 않습니다. 실패하면 `.env`는 이전 image를 유지하고, 그 image가 EC2에 남아 있으면 복구를 시도합니다.
 
-## 문제 확인
+## 운영 중 확인 명령
 
 ```bash
 cd <DEV_DEPLOY_PATH>
 docker compose --env-file .env ps
 docker compose --env-file .env logs --tail=200 <service-name>
-docker compose --env-file .env config
+docker image ls 'agentic-commerce/*'
+docker system df
 ```
 
-- `pull access denied`: EC2의 Registry login과 Deploy Token의 `read_registry` 권한을 확인합니다.
-- `unhealthy`: 해당 서비스 로그, DB 상태, `.env`의 연결 값을 확인합니다.
-- `port is already allocated`: `.env`의 `NGINX_PORT`와 EC2에서 사용 중인 port를 확인합니다.
-- SSH 또는 파일 복사 실패: GitLab의 배포 변수, `known_hosts`, 배포 경로 권한을 확인합니다.
+commit SHA image가 계속 쌓이면 EC2 disk 사용량도 증가합니다. 자동으로 삭제하면 rollback image까지 지울 수 있으므로 현재 pipeline은 image prune을 수행하지 않습니다. 팀이 보관 기간을 정한 뒤 사용하지 않는 오래된 image를 정리합니다.
 
-CI 변수와 GitLab 설정은 [GitLab CI/CD 문서](../gitlab/README.md)를 참고합니다.
+## 문제 해결
+
+- `Cannot connect to the Docker daemon`: Docker 실행 상태와 배포 사용자의 Docker 권한을 확인합니다.
+- `Image archive not found`: GitLab artifact 전달과 `needs:artifacts` 설정을 확인합니다.
+- `docker image load` 실패: EC2 disk 여유 공간과 전송된 artifact 상태를 확인합니다.
+- `unhealthy`: 해당 서비스 로그, DB 상태, `.env` 연결 값을 확인합니다.
+- SSH 또는 SCP 실패: GitLab CI 변수, Security Group, `known_hosts`, 배포 경로 권한을 확인합니다.
+- `port is already allocated`: `.env`의 `NGINX_PORT`와 EC2에서 이미 사용하는 port를 확인합니다.
+
+GitLab 변수 등록 방법은 [GitLab CI/CD와 EC2 직접 배포](../gitlab/README.md)를 참고합니다.

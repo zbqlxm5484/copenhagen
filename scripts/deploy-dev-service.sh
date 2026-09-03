@@ -2,16 +2,17 @@
 
 set -eu
 
-if [ "$#" -lt 3 ] || [ "$#" -gt 5 ]; then
-    echo "Usage: $0 <compose-service> <image-variable> <image> [compose-file] [wait-timeout]" >&2
+if [ "$#" -lt 4 ] || [ "$#" -gt 6 ]; then
+    echo "Usage: $0 <compose-service> <image-variable> <image> <image-archive> [compose-file] [wait-timeout]" >&2
     exit 2
 fi
 
 compose_service=$1
 image_variable=$2
 container_image=$3
-compose_file=${4:-docker-compose.yml}
-wait_timeout=${5:-120}
+image_archive=$4
+compose_file=${5:-docker-compose.yml}
+wait_timeout=${6:-120}
 
 case "$compose_service:$image_variable" in
     core-service:CORE_IMAGE|mcp-server:MCP_IMAGE|pay-service:PAY_IMAGE|ucp-merchant-mock:MERCHANT_MOCK_IMAGE|pg-mock:PG_MOCK_IMAGE)
@@ -34,11 +35,26 @@ if [ ! -f "$compose_file" ]; then
     exit 1
 fi
 
+if [ ! -f "$image_archive" ]; then
+    echo "Image archive not found: $image_archive" >&2
+    exit 1
+fi
+
 env_file=.env
 temporary_env="${env_file}.tmp.$$"
 touch "$env_file"
 chmod 600 "$env_file"
-trap 'rm -f "$temporary_env"' 0 1 2 15
+trap 'rm -f "$temporary_env" "$image_archive"' 0 1 2 15
+
+previous_image=$(awk -v key="$image_variable" '
+    index($0, key "=") == 1 {
+        print substr($0, length(key) + 2)
+        exit
+    }
+' "$env_file")
+
+docker image load --input "$image_archive"
+docker image inspect "$container_image" >/dev/null
 
 awk -v key="$image_variable" -v value="$container_image" '
     BEGIN { replaced = 0 }
@@ -57,8 +73,6 @@ awk -v key="$image_variable" -v value="$container_image" '
 
 chmod 600 "$temporary_env"
 
-docker compose --env-file "$temporary_env" --file "$compose_file" pull "$compose_service"
-
 if ! docker compose --env-file "$temporary_env" --file "$compose_file" up \
     -d \
     --no-deps \
@@ -66,9 +80,8 @@ if ! docker compose --env-file "$temporary_env" --file "$compose_file" up \
     --wait \
     --wait-timeout "$wait_timeout" \
     "$compose_service"; then
-    if grep -q "^${image_variable}=" "$env_file"; then
+    if [ -n "$previous_image" ] && docker image inspect "$previous_image" >/dev/null 2>&1; then
         echo "Deployment failed; attempting to restore the previously recorded image." >&2
-        docker compose --env-file "$env_file" --file "$compose_file" pull "$compose_service" || true
         docker compose --env-file "$env_file" --file "$compose_file" up \
             -d \
             --no-deps \
