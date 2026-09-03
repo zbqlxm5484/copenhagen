@@ -138,6 +138,7 @@ repository-lint:
     GIT_DEPTH: "0"
   before_script:
     - apk add --no-cache git
+    - git config core.whitespace "blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol"
   script:
     - |
       if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
