@@ -9,16 +9,17 @@
 | v3 | Merchant Cart 단계를 제거하고 Core Cart에서 Merchant별 `line_items`를 직접 Checkout 생성에 사용하도록 수정. Complete Checkout의 중복 `amount`/`currency` 전달을 제거하고 Checkout 변경 시 재생성 대신 Update Checkout을 사용하도록 변경. |
 | v4 | UCP Profile Discovery 및 Capability Negotiation을 명시하고 Core를 Platform, Merchant를 Business로 정의. UCP Cart Capability는 사용하지 않고 Catalog / Checkout / Order Capability를 사용하도록 확정. Core Platform Profile과 Order Webhook을 추가하여 주문 생성 이후 Merchant의 Order lifecycle 변경을 Core에 전달하도록 확장. |
 | v5 | Pay 승인 세션·Payment·대사 작업의 종료 조건, 결제 중복 방지, KRW 단일 통화, Checkout Evidence와 사용자 승인 스냅샷의 역할을 명시. |
+| v5.1 | 자체 ID/PW 로그인 순서, 실패·잠금·만료 처리, 최종 로그인 성공과 JWT 발급 경계를 12장에 추가. |
 
 > **프로젝트 설계 기준:** 프로젝트 설계서 v2.1
-> **Technical Flow 문서 버전:** v5
-> API, DTO, DB 및 서비스 간 연동 설계는 별도 명시가 없는 한 v5 Technical Flow를 기준으로 한다.
+> **Technical Flow 문서 버전:** v5.1
+> API, DTO, DB 및 서비스 간 연동 설계는 별도 명시가 없는 한 v5.1 Technical Flow를 기준으로 한다.
 
 ---
 
 # 1. 목적 및 책임 경계
 
-본 문서는 Core, Merchant, Pay 간 기술 흐름과 책임 경계를 정의한다.
+본 문서는 Core, Merchant, Pay 간 기술 흐름과 책임 경계 및 앱의 자체 ID/PW 로그인 흐름을 정의한다.
 
 UCP 관점에서 역할은 다음과 같다.
 
@@ -31,6 +32,7 @@ Merchant = Business
 
 Core는 Orchestrator + Validation / Policy Layer 역할을 수행한다.
 
+- 자체 ID/PW 로그인 인증 및 로그인 토큰 발급 연계(Core Auth Service)
 - UCP Platform Profile 제공
 - Merchant Profile Discovery
 - Capability Negotiation
@@ -695,3 +697,69 @@ RUNNING → FAILED   재시도 가능
 - Pay의 만료 스위퍼 또는 상태 조회 시 `expires_at`이 지난 `ISSUED` Mandate를 `EXPIRED`로 판정한다.
 - Checkout 변경·사용자 거부·Credential 폐기·확정적인 Payment 실패가 발생하면 Pay가 관련 Mandate를 `REVOKED`로 변경한다.
 - Credential은 결제 요청에서 원자적으로 `ISSUED → CONSUMED`가 되며, Mandate는 승인 이력으로 남는다.
+
+---
+
+# 12. 자체 ID/PW 로그인
+
+## 12.1 정상 흐름과 책임 경계
+
+1. Client가 Core의 `POST /api/v1/auth/login`에 `loginId`, `password`를 전달한다.
+2. Core Auth Service가 `local_account`를 조회한다.
+3. 연결된 `users.status`가 `ACTIVE`인지 확인한다.
+4. `local_account.locked_until`로 자체 로그인 일시 잠금을 확인하고, 만료된 잠금이면 아래 만료 처리를 수행한다.
+5. Spring Security BCrypt로 비밀번호를 검증한다.
+6. Core Auth Service가 내부 JWT Service를 호출하여 JWT / Refresh Token을 발급한다.
+7. 토큰 발급까지 성공한 뒤 최종 로그인 성공 DB 처리를 수행한다.
+8. `200 OK`와 Access Token / Refresh Token 및 사용자 정보를 응답한다. Token 상세 DTO는 후속 설계에서 확정한다.
+
+Client가 로그인 후 별도 `/auth/token`을 호출하지 않는다. 위 흐름은 JWT 연동까지 완료된 최종 구조다. 현재 자체 로그인 구현 단계에서는 JWT/Refresh Token 자체 구현을 하지 않고, credential(ID/PW) 인증 결과와 최종 성공 처리 로직을 분리 가능한 구조로 작성한다. JWT 연동 시 6~7단계를 최종 성공 지점에 연결한다.
+
+## 12.2 계정 조회·상태 확인 실패
+
+- 존재하지 않는 `loginId`: `401 AUTH_INVALID_CREDENTIALS`. 연결된 `local_account`가 없으므로 실패 횟수를 저장하지 않는다.
+- `users.status = LOCKED` 또는 `WITHDRAWN`: `403 AUTH_ACCOUNT_UNAVAILABLE`. 두 상태는 외부에서 같은 오류로 처리한다.
+- `users.status`는 사용자 전체 계정 상태다. 자체 로그인 5회 실패에 따른 일시 잠금은 `local_account.locked_until`로 관리하며 사용자 전체 상태와 분리한다.
+
+## 12.3 일시 잠금 확인과 만료
+
+- `locked_until > 현재 시각`이면 비밀번호를 검증하지 않고 즉시 `423 AUTH_LOGIN_LOCKED`로 거부한다. 올바른 비밀번호를 입력해도 동일하다.
+- `locked_until`이 설정되어 있고 `locked_until <= 현재 시각`이면 다음 로그인 요청에서 `failed_login_attempts = 0`, `locked_until = NULL`로 초기화한 뒤 BCrypt 검증으로 진행한다.
+- 잠금 만료 처리 시 `last_failed_login_at`은 삭제하지 않고 유지한다.
+- Redis나 별도 스케줄러로 잠금을 해제하지 않는다.
+
+## 12.4 비밀번호 불일치와 실패 누적
+
+존재하는 계정에서 비밀번호가 틀린 경우에만 `failed_login_attempts`를 1 증가시키고 `last_failed_login_at = 현재 시각`으로 갱신한다.
+
+| 연속 실패 횟수 | 저장 및 응답 |
+|---|---|
+| 1회 | `failed_login_attempts = 1`, `401 AUTH_INVALID_CREDENTIALS` |
+| 2회 | `failed_login_attempts = 2`, `401 AUTH_INVALID_CREDENTIALS` |
+| 3회 | `failed_login_attempts = 3`, `401 AUTH_INVALID_CREDENTIALS` |
+| 4회 | `failed_login_attempts = 4`, `401 AUTH_INVALID_CREDENTIALS` |
+| 5회 | `failed_login_attempts = 5`, `locked_until = 현재 시각 + 15분`, `423 AUTH_LOGIN_LOCKED` |
+
+없는 ID와 잘못된 비밀번호를 외부 오류에서 구분하지 않는다. 단, 5번째 실패는 잠금이 시작되므로 잠금 오류를 반환한다.
+
+## 12.5 최종 로그인 성공 처리
+
+비밀번호 일치와 JWT/Refresh Token 발급 성공을 모두 충족한 뒤 다음 값을 저장한다.
+
+| 컬럼 | 처리 |
+|---|---|
+| `failed_login_attempts` | `0`으로 초기화 |
+| `locked_until` | `NULL`로 해제 |
+| `last_login_at` | 현재 시각으로 갱신 |
+| `last_failed_login_at` | 마지막 실패 기록 유지 |
+
+예를 들어 마지막 실패가 `2026-09-08 17:30`, 최종 성공이 `2026-09-08 17:50`이면 실패 횟수는 0, 잠금 종료 시각은 NULL이지만 두 이력 시각은 각각 유지된다. 실제 저장 타입은 `TIMESTAMPTZ`다.
+
+비밀번호 일치만으로 최종 로그인 성공으로 처리하지 않는다. 토큰 발급이 실패하면 `last_login_at`을 성공 시각으로 갱신하지 않는다.
+
+## 12.6 관련 문서
+
+- API 명세: 요청 필드, 성공 응답 범위, HTTP 상태와 오류 JSON.
+- 기술정의서: 사용자 인증 방식·인증 실패 차단·범위 외 결정·구현 기준 행.
+- 기능 요구사항: INIT-02 및 INIT-02.1~02.3의 로그인 요구사항, INIT-05 및 INIT-05.1~05.2의 차단 요구사항. 필수 테스트 7개는 기술정의서의 자체 로그인 최소 검증 행을 따른다.
+- 논리 ERD·물리 SQL·매핑 CSV: 자체 로그인 계정 필드, 타입, 기본값과 제약.
