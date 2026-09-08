@@ -12,6 +12,9 @@ pay:
   auth:
     user-tokens: {}
     service-tokens: {}
+  reconciliation:
+    max-attempts: ${PAY_RECONCILIATION_MAX_ATTEMPTS:5}
+    lease-duration-seconds: ${PAY_RECONCILIATION_LEASE_SECONDS:60}
 
 management:
   endpoints:
