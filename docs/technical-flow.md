@@ -8,10 +8,11 @@
 | v2 | v1의 세부 흐름을 기능·책임 단위로 재구성하여 7개 핵심 단계로 축약. 중복된 내부 처리 단계를 통합하고 시스템 간 책임 경계를 명확히 함. |
 | v3 | Merchant Cart 단계를 제거하고 Core Cart에서 Merchant별 `line_items`를 직접 Checkout 생성에 사용하도록 수정. Complete Checkout의 중복 `amount`/`currency` 전달을 제거하고 Checkout 변경 시 재생성 대신 Update Checkout을 사용하도록 변경. |
 | v4 | UCP Profile Discovery 및 Capability Negotiation을 명시하고 Core를 Platform, Merchant를 Business로 정의. UCP Cart Capability는 사용하지 않고 Catalog / Checkout / Order Capability를 사용하도록 확정. Core Platform Profile과 Order Webhook을 추가하여 주문 생성 이후 Merchant의 Order lifecycle 변경을 Core에 전달하도록 확장. |
+| v5 | Pay 승인 세션·Payment·대사 작업의 종료 조건, 결제 중복 방지, KRW 단일 통화, Checkout Evidence와 사용자 승인 스냅샷의 역할을 명시. |
 
 > **프로젝트 설계 기준:** 프로젝트 설계서 v2.1
-> **Technical Flow 문서 버전:** v4
-> API, DTO, DB 및 서비스 간 연동 설계는 별도 명시가 없는 한 v4 Technical Flow를 기준으로 한다.
+> **Technical Flow 문서 버전:** v5
+> API, DTO, DB 및 서비스 간 연동 설계는 별도 명시가 없는 한 v5 Technical Flow를 기준으로 한다.
 
 ---
 
@@ -72,6 +73,8 @@ Pay는 사용자 승인과 Payment의 원본이다.
 - Credential 검증
 - 실제 Payment 실행
 - Payment 상태 관리
+
+Pay의 승인·결제 상태는 DB 제약조건과 애플리케이션 전이 검증을 함께 사용한다. 결제 성공 이후의 주문 상태 원본은 Merchant지만, 승인 세션과 Payment 상태의 원본은 Pay다.
 
 ---
 
@@ -636,3 +639,59 @@ Merchant
  ↓ 최신 Order
 Core
 ```
+
+# 11. Pay MVP 상태·무결성 정책
+
+## 11.1 승인 세션
+
+승인 세션은 사용자에게 보여준 결제 대상을 고정하고, 결제 결과에 따라 종료한다.
+
+```text
+PAYMENT_METHOD_REQUIRED → PENDING
+PAYMENT_METHOD_REQUIRED → EXPIRED / INVALIDATED
+
+PENDING → APPROVED
+PENDING → REJECTED / EXPIRED / INVALIDATED
+
+APPROVED → COMPLETED       Payment SUCCESS
+APPROVED → INVALIDATED     확정적인 Payment 실패·Checkout 변경·취소
+APPROVED → EXPIRED         승인 후 Credential이 사용되지 않고 TTL 경과
+```
+
+`UNKNOWN`은 결제 결과가 아직 확정되지 않은 상태이므로 승인 세션을 즉시 종료하지 않는다. 해당 세션과 Payment의 중복 실행을 막고, 대사 결과가 확정된 뒤 종료한다. `COMPLETED`, `REJECTED`, `EXPIRED`, `INVALIDATED`는 종료 상태다.
+
+구매 요청별 활성 승인 세션은 `merchant_account_id + purchase_request_id` 기준으로 한 건만 허용한다. 종료 상태가 된 뒤에만 동일 구매 요청의 새 승인 세션을 만들 수 있다.
+
+## 11.2 Evidence와 사용자 승인 스냅샷
+
+- `pay_verified_checkout_evidence`: Merchant가 서명한 Checkout을 Pay가 검증한 기술적 사실이다.
+- `authorization_sessions`: 사용자가 실제로 확인하고 승인한 금액·통화·Checkout Digest의 동의 스냅샷이다.
+- `payments`: 실행 시점에 위 두 값이 일치했음을 확인한 결제 기록이다.
+
+Pay는 승인 세션 생성 시 Evidence와 사용자에게 보여줄 값을 비교하고, Merchant의 Payment 요청 시 다시 금액·통화·Checkout Digest·Credential 범위를 검증한다. 불일치는 단순 재시도가 아니라 승인 대상 위조 또는 Checkout 변경으로 처리한다.
+
+MVP의 통화는 KRW 하나로 제한하며, DB `CHECK` 제약과 애플리케이션 검증을 함께 사용한다.
+
+## 11.3 Payment와 구매 요청 중복 방지
+
+하나의 `merchant_account_id + purchase_request_id`에는 `READY`, `PROCESSING`, `SUCCESS`, `UNKNOWN` 상태의 Payment를 한 건만 둘 수 있다. `FAILED`만 새 승인·Credential로 재시도할 수 있다. 이 규칙은 애플리케이션 검사와 DB 부분 유니크 인덱스로 이중 보호한다.
+
+## 11.4 대사 작업 lease와 종료 조건
+
+`payment_reconciliation_jobs`는 동일한 `(payment_attempt_id, reason)` 작업을 한 행으로 유지하고 재시도 횟수만 증가시킨다.
+
+```text
+PENDING → RUNNING → SUCCEEDED
+FAILED  → RUNNING  재시도 시각 도달
+RUNNING → FAILED   재시도 가능
+        → EXHAUSTED 최대 횟수 초과
+        → CANCELLED
+```
+
+워커가 `RUNNING`에서 중단되면 `lease_expires_at`이 지난 작업을 다른 워커가 다시 가져간다. `FAILED` 작업은 `next_run_at`이 되면 다시 `RUNNING`으로 가져간다. 최대 재시도 횟수는 Pay 설정값으로 관리하고, 초과한 작업은 `EXHAUSTED`로 종료한다. 이때 Payment는 자동 재결제하지 않으며 운영 확인 대상으로 남긴다.
+
+## 11.5 Mandate 전이 주체
+
+- Pay의 만료 스위퍼 또는 상태 조회 시 `expires_at`이 지난 `ISSUED` Mandate를 `EXPIRED`로 판정한다.
+- Checkout 변경·사용자 거부·Credential 폐기·확정적인 Payment 실패가 발생하면 Pay가 관련 Mandate를 `REVOKED`로 변경한다.
+- Credential은 결제 요청에서 원자적으로 `ISSUED → CONSUMED`가 되며, Mandate는 승인 이력으로 남는다.

@@ -24,6 +24,16 @@ public enum PayErrorCode {
             "INVALID_REQUEST",
             "요청 형식이 올바르지 않습니다.",
             "CHECK_REQUEST"),
+    RESOURCE_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "RESOURCE_NOT_FOUND",
+            "요청한 결제 리소스를 찾을 수 없습니다.",
+            "CHECK_RESOURCE_ID"),
+    STATE_CONFLICT(
+            HttpStatus.CONFLICT,
+            "STATE_CONFLICT",
+            "현재 상태에서는 요청을 처리할 수 없습니다.",
+            "REFRESH_CURRENT_STATE"),
     IDEMPOTENCY_KEY_REQUIRED(
             HttpStatus.BAD_REQUEST,
             "IDEMPOTENCY_KEY_REQUIRED",
