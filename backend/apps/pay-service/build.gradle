@@ -8,6 +8,7 @@ dependencies {
     implementation project(':libs:payment-handler-contract')
     implementation project(':libs:internal-api-contract')
     implementation libs.spring.boot.starter.web
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation libs.spring.boot.starter.actuator
     implementation libs.spring.boot.starter.jdbc
     implementation libs.flyway.core

@@ -8,6 +8,11 @@ spring:
   flyway:
     enabled: true
 
+pay:
+  auth:
+    user-tokens: {}
+    service-tokens: {}
+
 management:
   endpoints:
     web:
