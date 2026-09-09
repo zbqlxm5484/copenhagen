@@ -75,7 +75,6 @@ mcp-docker-build:
   variables:
     DOCKERFILE: backend/apps/mcp-server/Dockerfile
     CONTAINER_IMAGE: copenhagen/mcp-server:$CI_COMMIT_SHA
-    IMAGE_ARCHIVE: docker-images/mcp-server.tar.gz
 
 mcp-deploy-dev:
   extends:
@@ -84,10 +83,9 @@ mcp-deploy-dev:
   stage: deploy-dev
   needs:
     - job: mcp-docker-build
-      artifacts: true
+      artifacts: false
   resource_group: development-ec2
   variables:
     COMPOSE_SERVICE: mcp-server
     DEPLOY_IMAGE_VARIABLE: MCP_IMAGE
     CONTAINER_IMAGE: copenhagen/mcp-server:$CI_COMMIT_SHA
-    IMAGE_ARCHIVE: docker-images/mcp-server.tar.gz
