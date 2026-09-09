@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools==84.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "copenhagen-fds"
+version = "0.1.0"
+description = "Payment MCP FDS evaluation contracts"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic==2.13.5",
+    "iso4217==1.16.20260101",
+]
+
+[project.optional-dependencies]
+test = ["pytest==9.1.1"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib -ra"
