@@ -196,9 +196,10 @@ repository-lint
 backend-lint(Checkstyle, Backend 변경 시)
 변경 영향 서비스 test
 변경 영향 서비스 build
+deploy-smoke(Backend·배포 설정 변경 시)
 ```
 
-MR에서는 Docker image 생성과 EC2 배포가 실행되지 않습니다. Pipeline이 모두 성공하고 review가 끝난 뒤 merge합니다.
+MR에서는 임시 환경의 Docker image 빌드·기동·업데이트·복구 스모크 테스트를 실행하며, EC2 배포는 실행하지 않습니다. [배포 스모크 테스트](infra/gitlab/README.md#mr-배포-스모크-테스트)와 나머지 Pipeline이 모두 성공하고 review가 끝난 뒤 merge합니다.
 
 MR 설명에는 최소한 다음 내용을 적습니다.
 
