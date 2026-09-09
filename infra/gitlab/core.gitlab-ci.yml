@@ -49,8 +49,17 @@ core-test:
     - .gradle-job
     - .core-verify-rules
   stage: test
+  services:
+    - name: postgres:17-alpine
+      alias: postgres
   variables:
     GRADLE_TASK: :apps:core-service:test
+    POSTGRES_DB: core-test
+    POSTGRES_USER: core
+    POSTGRES_PASSWORD: core-dev-password
+    CORE_TEST_DB_URL: jdbc:postgresql://postgres:5432/core-test
+    CORE_TEST_DB_USER: core
+    CORE_TEST_DB_PASSWORD: core-dev-password
 
 core-build:
   extends:

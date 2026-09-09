@@ -10,6 +10,8 @@ dependencies {
     implementation libs.spring.boot.starter.web
     implementation libs.spring.boot.starter.actuator
     implementation libs.spring.boot.starter.jdbc
+    implementation 'org.springframework.security:spring-security-crypto'
+    implementation libs.spring.boot.flyway
     implementation libs.flyway.core
     runtimeOnly libs.flyway.postgresql
     runtimeOnly libs.postgresql
