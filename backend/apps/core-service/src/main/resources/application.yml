@@ -18,6 +18,12 @@ management:
       probes:
         enabled: true
 
+fraud:
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    model: ${OPENAI_FRAUD_MODEL:gpt-5.4-mini}
+    timeout-seconds: ${OPENAI_TIMEOUT_SECONDS:5}
+
 services:
   pay:
     base-url: ${PAY_SERVICE_URL:http://pay-service:8080}
