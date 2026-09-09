@@ -2,7 +2,7 @@
 
 백엔드에서 Java 코드를 작성할 때 적용하는 공통 규칙입니다.
 
-현재 프로젝트의 Java 21, Spring Boot, JDBC, PostgreSQL 및 기존 EditorConfig·Checkstyle 설정을 기준으로 작성했습니다. 패키지 구조와 서비스 경계는 기존 문서를 따르고, 이 문서는 코드 작성 방식에 집중합니다.
+현재 프로젝트의 Java 21, Spring Boot, Spring Data JPA, PostgreSQL 및 기존 EditorConfig·Checkstyle 설정을 기준으로 작성했습니다. 패키지 구조와 서비스 경계는 기존 문서를 따르고, 이 문서는 코드 작성 방식에 집중합니다.
 
 - 상태: 팀 검토용 초안
 - 적용 대상: `backend/apps`, `backend/mocks`, `backend/libs`의 Java 코드
@@ -19,7 +19,7 @@
 | --- | --- | --- |
 | 작업 위치·공유 범위 | 2. 작업 위치 / 3. 모듈 경계 | DTO·import·공통 예외 코드 작성 |
 | 서비스 간 계약 | 4. 계약 변경 순서 | DTO 네이밍·변환·검증 |
-| DB | 5. DB 변경 규칙 | SQL 작성·마이그레이션 작성 및 검증 |
+| DB | 5. DB 변경 규칙 | JPA 데이터 접근·SQL 작성·마이그레이션 작성 및 검증 |
 | 설정·비밀정보 | 6. 설정과 비밀정보 | 설정값 사용·민감정보 로깅 방지 |
 | 테스트·검증 | 8. 개발 중 검증 / 9. 테스트 위치 | 테스트 이름·fixture·시간·동시성 검증 |
 | 브랜치·MR·배포 | 7. 브랜치 / 10~12. MR·Merge 이후 | 별도 규칙을 추가하지 않고 원문 준수 |
@@ -304,17 +304,34 @@ log.error("PG request failed: paymentId={}", paymentId, exception);
 | WARN | 복구 가능하지만 확인이 필요한 상황 |
 | ERROR | 처리 실패 또는 운영 확인이 필요한 예상 밖 오류 |
 
-## JDBC·SQL 작성
+## JPA·데이터 접근
 
-현재 데이터 접근 설정은 JDBC입니다. JPA 애너테이션·flush·fetch join 규칙은 이 문서의 전제로 두지 않습니다.
+현재 기본 데이터 접근 기술은 Spring Data JPA입니다. JPA를 기본으로 사용하되, JPA로 표현하기 어렵거나 성능상 명확한 이점이 있는 경우에는 JPQL, Native Query 또는 JdbcTemplate 사용을 허용합니다.
 
-- SQL과 결과 매핑은 Repository에 모읍니다.
+- 기본 CRUD와 단순 조회는 Spring Data JPA Repository를 사용합니다.
+- `@Entity`를 별도 영속성 전용 모델로 분리하지 않고 우선 도메인 객체로 함께 사용합니다. 필요성이 확인되기 전에는 Entity와 Domain을 기계적으로 이중화하지 않습니다.
+- DB 스키마가 기준이며 Entity가 스키마를 결정하지 않습니다. 테이블·컬럼·제약·인덱스 변경은 Flyway migration으로 관리합니다.
+- Hibernate의 자동 스키마 변경 기능을 사용하지 않습니다. `spring.jpa.hibernate.ddl-auto`는 기본적으로 `validate`를 사용해 Entity와 실제 스키마의 불일치를 확인합니다.
+- Entity를 Controller 요청·응답 DTO로 직접 사용하지 않습니다. API 경계에서는 별도 Request·Response DTO를 사용합니다.
+- 외래 키가 있다는 이유만으로 모든 관계를 JPA 연관관계로 매핑하지 않습니다. 실제 업무 코드에서 객체 탐색이 필요한 관계만 `@ManyToOne`, `@OneToMany` 등으로 매핑하고, 그 외에는 식별자 값으로 참조할 수 있습니다.
+- 컬렉션 연관관계에 EAGER 로딩을 기본으로 사용하지 않습니다.
+- 조회 과정에서 N+1 문제가 발생하는지 확인하고, 필요하면 fetch join, `@EntityGraph`, projection 등을 사용합니다.
+- 단순 조건 조회는 Repository 메서드 이름 기반 쿼리를 우선합니다. 복잡한 조회는 JPQL을 사용할 수 있고, 필요한 경우 fetch join이나 `@EntityGraph`를 적용합니다.
+- QueryDSL은 기본 의존성으로 두지 않습니다. 실제로 복잡한 동적 조회 요구가 확인된 경우 별도로 도입 여부를 결정합니다.
+- 영속 상태 Entity의 변경 감지를 이해하고 사용합니다. 변경 감지가 적용되는 경우 불필요하게 `save()`를 반복 호출하지 않습니다.
+- 대량 UPDATE·DELETE나 조건부 갱신은 변경 감지보다 명시적인 bulk query를 검토합니다.
+- JPA로 불필요하게 복잡해지는 조회나 성능상 명확한 이점이 있는 경우에만 Native Query 또는 JdbcTemplate을 사용합니다.
+
+### 직접 SQL 작성
+
+JPQL·Native Query·JdbcTemplate 등으로 직접 SQL 또는 쿼리를 작성하는 경우 다음 규칙을 따릅니다.
+
 - 사용자 입력을 문자열로 이어 붙여 SQL을 만들지 않습니다.
 - 조건값은 파라미터로 바인딩합니다.
 - 동적 정렬 컬럼처럼 바인딩할 수 없는 SQL 구성요소는 허용 목록으로 제한합니다.
-- 조회 컬럼을 명시하고 `SELECT *`를 기본으로 사용하지 않습니다.
+- Native SQL에서는 조회 컬럼을 명시하고 `SELECT *`를 기본으로 사용하지 않습니다.
 - SQL 키워드는 대문자, 테이블·컬럼 이름은 기존 `snake_case`를 사용합니다.
-- 여러 줄 SQL은 Java 텍스트 블록으로 작성합니다.
+- JdbcTemplate에서 여러 줄 SQL을 작성할 때는 Java 텍스트 블록을 사용합니다.
 - 조건부 UPDATE·DELETE는 영향받은 행 수를 확인해 충돌·부재를 처리합니다.
 
 ```java
@@ -342,7 +359,7 @@ DB 소유권, migration 위치, 이미 적용한 파일을 수정하지 않는 �
 - 기존 데이터가 있는 컬럼에 NOT NULL·UNIQUE 등 제약을 추가할 때는 기존 데이터 처리 순서도 SQL에 반영합니다.
 - DB 변경과 관련 ERD·API 계약이 달라지면 해당 문서를 같은 MR에서 갱신합니다.
 
-JDBC는 데이터 조회·변경 코드의 방식이고 Flyway는 DB 구조 변경 이력의 관리 방식입니다. 향후 데이터 접근 기술이 달라져도 스키마 변경은 기존 Flyway 절차를 따릅니다.
+JPA는 애플리케이션의 기본 데이터 조회·변경 방식이고 Flyway는 DB 구조 변경 이력의 관리 방식입니다. Native Query나 JdbcTemplate을 사용하더라도 스키마 변경은 기존 Flyway 절차를 따릅니다.
 
 ## 트랜잭션 코드
 
@@ -353,6 +370,8 @@ JDBC는 데이터 조회·변경 코드의 방식이고 Flyway는 DB 구조 변�
 - 외부 HTTP 호출을 포함한 메서드에 무조건 긴 트랜잭션을 걸지 않습니다.
 - 기본 Spring 프록시 방식에서는 같은 객체 내부 호출로 새 트랜잭션 설정이 적용된다고 가정하지 않습니다.
 - 롤백이 필요한 예외를 삼키지 않고, 예외 종류에 따른 롤백 정책을 확인합니다.
+- Entity 변경 감지는 트랜잭션 내부에서 의도적으로 사용합니다. 트랜잭션 범위 밖의 변경이 자동 저장된다고 가정하지 않습니다.
+- LAZY 연관관계를 트랜잭션 종료 후 접근하는 구조에 의존하지 않습니다. 필요한 데이터는 조회 단계에서 명시적으로 준비합니다.
 
 ## 설정값 사용
 
