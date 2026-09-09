@@ -1,0 +1,303 @@
+package com.copenhagen.pay.payment.authorization;
+
+import com.copenhagen.pay.common.error.PayErrorCode;
+import com.copenhagen.pay.common.error.PayException;
+import com.copenhagen.pay.common.idempotency.IdempotencyGuard;
+import com.copenhagen.pay.common.validation.RequestValidation;
+import com.copenhagen.pay.payment.merchant.MerchantAccount;
+import com.copenhagen.pay.payment.merchant.MerchantAccountRepository;
+import com.copenhagen.pay.payment.paymentmethod.PaymentMethod;
+import com.copenhagen.pay.payment.paymentmethod.PaymentMethodRepository;
+import com.copenhagen.pay.payment.policy.AuthorizationSessionStatus;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.Duration;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.regex.Pattern;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+
+@Service
+public class AuthorizationSessionService {
+
+    private static final String KRW = "KRW";
+    private static final String BIOMETRIC = "BIOMETRIC";
+    private static final Pattern CHECKOUT_DIGEST_PATTERN =
+            Pattern.compile("[0-9a-fA-F]{64}");
+    private static final int MAX_SUMMARY_ITEMS = 100;
+    private static final int MAX_ITEM_NAME_LENGTH = 200;
+    private static final int MAX_OPTION_LENGTH = 200;
+
+    private final AuthorizationSessionStore store;
+    private final MerchantAccountRepository merchantAccountRepository;
+    private final PaymentMethodRepository paymentMethodRepository;
+    private final IdempotencyGuard idempotencyGuard;
+    private final ObjectMapper objectMapper;
+    private final Clock clock;
+    private final ApprovalProperties approvalProperties;
+
+    public AuthorizationSessionService(
+            AuthorizationSessionStore store,
+            MerchantAccountRepository merchantAccountRepository,
+            PaymentMethodRepository paymentMethodRepository,
+            IdempotencyGuard idempotencyGuard,
+            ObjectMapper objectMapper,
+            Clock clock,
+            ApprovalProperties approvalProperties) {
+        this.store = store;
+        this.merchantAccountRepository = merchantAccountRepository;
+        this.paymentMethodRepository = paymentMethodRepository;
+        this.idempotencyGuard = idempotencyGuard;
+        this.objectMapper = objectMapper;
+        this.clock = clock;
+        this.approvalProperties = approvalProperties;
+    }
+
+    @Transactional
+    public CreateResult create(
+            CreateAuthorizationSessionCommand command,
+            String idempotencyKey,
+            String requestHash) {
+        validate(command, idempotencyKey, requestHash);
+
+        MerchantAccount merchantAccount = merchantAccountRepository
+                .findActiveByMerchantId(command.merchantId())
+                .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
+
+        Optional<AuthorizationSession> existing = store.findByMerchantAndIdempotencyKey(
+                merchantAccount.id(),
+                idempotencyKey);
+        if (existing.isPresent()) {
+            IdempotencyGuard.Decision decision = idempotencyGuard.check(
+                    existing.get().requestHash(),
+                    requestHash,
+                    existing.get().status().name());
+            if (decision == IdempotencyGuard.Decision.REPLAY) {
+                return new CreateResult(existing.get(), true);
+            }
+        }
+
+        store.findActiveByMerchantAndPurchaseRequest(
+                        merchantAccount.id(),
+                        command.purchaseRequestId())
+                .ifPresent(session -> {
+                    throw stateConflict(session.status());
+                });
+
+        String displaySnapshotJson = serializeDisplaySnapshot(command.displaySnapshot());
+        PaymentMethod selectedPaymentMethod = selectPaymentMethod(command.userId());
+        AuthorizationSessionStatus status = selectedPaymentMethod == null
+                ? AuthorizationSessionStatus.PAYMENT_METHOD_REQUIRED
+                : AuthorizationSessionStatus.PENDING;
+        Instant now = clock.instant();
+        AuthorizationSession session = new AuthorizationSession(
+                UUID.randomUUID().toString(),
+                command.purchaseRequestId(),
+                command.userId(),
+                merchantAccount.id(),
+                merchantAccount.merchantId(),
+                merchantAccount.displayName(),
+                command.checkoutId(),
+                command.checkoutDigest().toLowerCase(java.util.Locale.ROOT),
+                displaySnapshotJson,
+                command.amountMinor(),
+                command.currency(),
+                selectedPaymentMethod == null ? null : selectedPaymentMethod.id(),
+                status,
+                idempotencyKey,
+                requestHash,
+                BIOMETRIC,
+                now.plus(Duration.ofSeconds(approvalProperties.expirationSeconds())),
+                null,
+                null,
+                now,
+                now,
+                0);
+
+        if (store.insert(session)) {
+            return new CreateResult(session, false);
+        }
+
+        return resolveConcurrentInsert(
+                merchantAccount.id(),
+                command.purchaseRequestId(),
+                idempotencyKey,
+                requestHash);
+    }
+
+    @Transactional
+    public List<AuthorizationSession> findForUser(
+            String userId,
+            AuthorizationSessionStatus status) {
+        RequestValidation.requireLengthAtMost(userId, "userId", 36);
+        Instant now = clock.instant();
+        store.expireOverdueForUser(userId, now);
+        return store.findByUserId(userId, status);
+    }
+
+    @Transactional
+    public AuthorizationSession findDetail(String userId, String authorizationSessionId) {
+        RequestValidation.requireLengthAtMost(userId, "userId", 36);
+        RequestValidation.requireLengthAtMost(
+                authorizationSessionId,
+                "approvalId",
+                36);
+        Instant now = clock.instant();
+        store.expireOverdueByIdAndUser(authorizationSessionId, userId, now);
+        return store.findByIdAndUserId(authorizationSessionId, userId)
+                .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
+    }
+
+    public AuthorizationDisplaySnapshot displaySnapshot(AuthorizationSession session) {
+        try {
+            return objectMapper.readValue(
+                    session.displaySnapshotJson(),
+                    AuthorizationDisplaySnapshot.class);
+        } catch (JacksonException exception) {
+            throw new PayException(
+                    PayErrorCode.INTERNAL_ERROR,
+                    PayErrorCode.INTERNAL_ERROR.defaultMessage(),
+                    null,
+                    PayErrorCode.INTERNAL_ERROR.defaultNextAction(),
+                    exception);
+        }
+    }
+
+    private CreateResult resolveConcurrentInsert(
+            String merchantAccountId,
+            String purchaseRequestId,
+            String idempotencyKey,
+            String requestHash) {
+        Optional<AuthorizationSession> existing = store.findByMerchantAndIdempotencyKey(
+                merchantAccountId,
+                idempotencyKey);
+        if (existing.isPresent()) {
+            IdempotencyGuard.Decision decision = idempotencyGuard.check(
+                    existing.get().requestHash(),
+                    requestHash,
+                    existing.get().status().name());
+            if (decision == IdempotencyGuard.Decision.REPLAY) {
+                return new CreateResult(existing.get(), true);
+            }
+        }
+
+        Optional<AuthorizationSession> active = store.findActiveByMerchantAndPurchaseRequest(
+                merchantAccountId,
+                purchaseRequestId);
+        if (active.isPresent()) {
+            throw stateConflict(active.get().status());
+        }
+        throw new PayException(PayErrorCode.INTERNAL_ERROR);
+    }
+
+    private PaymentMethod selectPaymentMethod(String userId) {
+        List<PaymentMethod> paymentMethods = paymentMethodRepository.findActiveByUserId(userId);
+        return paymentMethods.stream()
+                .filter(PaymentMethod::defaultMethod)
+                .findFirst()
+                .orElseGet(() -> paymentMethods.stream().findFirst().orElse(null));
+    }
+
+    private String serializeDisplaySnapshot(AuthorizationDisplaySnapshot displaySnapshot) {
+        try {
+            return objectMapper.writeValueAsString(displaySnapshot);
+        } catch (JacksonException exception) {
+            throw new PayException(
+                    PayErrorCode.INVALID_REQUEST,
+                    "표시용 상품 요약을 저장할 수 없습니다.",
+                    null,
+                    "CHECK_DISPLAY_SNAPSHOT",
+                    exception);
+        }
+    }
+
+    private void validate(
+            CreateAuthorizationSessionCommand command,
+            String idempotencyKey,
+            String requestHash) {
+        if (command == null) {
+            throw new PayException(PayErrorCode.INVALID_REQUEST);
+        }
+        RequestValidation.requireLengthAtMost(command.purchaseRequestId(), "purchaseRequestId", 36);
+        RequestValidation.requireLengthAtMost(command.userId(), "userId", 36);
+        RequestValidation.requireLengthAtMost(command.merchantId(), "merchantId", 100);
+        RequestValidation.requireLengthAtMost(command.checkoutId(), "checkoutId", 150);
+        RequestValidation.requireLengthAtMost(command.checkoutDigest(), "checkoutDigest", 64);
+        RequestValidation.requireLengthAtMost(idempotencyKey, "idempotencyKey", 100);
+        RequestValidation.requireLengthAtMost(requestHash, "requestHash", 64);
+        if (command.checkoutArtifact() == null || !command.checkoutArtifact().isObject()) {
+            throw new PayException(
+                    PayErrorCode.INVALID_REQUEST,
+                    "checkoutArtifact는 JSON 객체여야 합니다.",
+                    null,
+                    "CHECK_CHECKOUT_ARTIFACT");
+        }
+        if (!CHECKOUT_DIGEST_PATTERN.matcher(command.checkoutDigest()).matches()) {
+            throw new PayException(
+                    PayErrorCode.INVALID_REQUEST,
+                    "checkoutDigest 형식이 올바르지 않습니다.",
+                    null,
+                    "CHECK_CHECKOUT_DIGEST");
+        }
+        if (command.amountMinor() < 0) {
+            throw new PayException(PayErrorCode.INVALID_REQUEST);
+        }
+        if (!KRW.equals(command.currency())) {
+            throw new PayException(
+                    PayErrorCode.INVALID_REQUEST,
+                    "MVP에서는 KRW 통화만 사용할 수 있습니다.",
+                    null,
+                    "USE_KRW_CURRENCY");
+        }
+        validateDisplaySnapshot(command.displaySnapshot());
+    }
+
+    private void validateDisplaySnapshot(AuthorizationDisplaySnapshot displaySnapshot) {
+        if (displaySnapshot == null
+                || displaySnapshot.merchantName() == null
+                || displaySnapshot.merchantName().isBlank()
+                || displaySnapshot.merchantName().length() > 200
+                || displaySnapshot.summary().isEmpty()
+                || displaySnapshot.summary().size() > MAX_SUMMARY_ITEMS) {
+            throw new PayException(
+                    PayErrorCode.INVALID_REQUEST,
+                    "display 요약 형식이 올바르지 않습니다.",
+                    null,
+                    "CHECK_DISPLAY_SNAPSHOT");
+        }
+        displaySnapshot.summary().forEach(this::validateSummaryItem);
+    }
+
+    private void validateSummaryItem(AuthorizationDisplaySnapshot.SummaryItem item) {
+        if (item == null
+                || item.name() == null
+                || item.name().isBlank()
+                || item.name().length() > MAX_ITEM_NAME_LENGTH
+                || item.option() != null && item.option().length() > MAX_OPTION_LENGTH
+                || item.quantity() <= 0
+                || item.amountMinor() < 0) {
+            throw new PayException(
+                    PayErrorCode.INVALID_REQUEST,
+                    "display.summary 항목 형식이 올바르지 않습니다.",
+                    null,
+                    "CHECK_DISPLAY_SNAPSHOT");
+        }
+    }
+
+    private PayException stateConflict(AuthorizationSessionStatus currentStatus) {
+        return new PayException(
+                PayErrorCode.STATE_CONFLICT,
+                PayErrorCode.STATE_CONFLICT.defaultMessage(),
+                currentStatus.name(),
+                PayErrorCode.STATE_CONFLICT.defaultNextAction());
+    }
+
+    public record CreateResult(
+            AuthorizationSession session,
+            boolean replay) {
+    }
+}
