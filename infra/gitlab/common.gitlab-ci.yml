@@ -12,6 +12,7 @@ stages:
   - lint
   - test
   - build
+  - deploy-smoke
   - docker-build
   - deploy-dev
 

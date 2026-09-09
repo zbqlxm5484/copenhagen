@@ -1,0 +1,7 @@
+services:
+  nginx:
+    image: ${SMOKE_NGINX_IMAGE:?Smoke Nginx image is required}
+    # CI의 Docker daemon은 job 컨테이너의 파일 경로를 공유하지 않습니다.
+    # 동일 nginx.conf를 이미지에 복사하고 공개 포트 없이 내부망에서 검증합니다.
+    volumes: !reset []
+    ports: !reset []

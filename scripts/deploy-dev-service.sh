@@ -66,24 +66,31 @@ awk -v key="$image_variable" -v value="$container_image" '
 
 chmod 600 "$temporary_env"
 
-if ! docker compose --env-file "$temporary_env" --file "$compose_file" up \
-    -d \
-    --no-deps \
-    --no-build \
-    --pull never \
-    --wait \
-    --wait-timeout "$wait_timeout" \
-    "$compose_service"; then
+deploy_with_env() {
+    docker compose --env-file "$1" --file "$compose_file" up \
+        -d \
+        --no-deps \
+        --no-build \
+        --pull never \
+        --wait \
+        --wait-timeout "$wait_timeout" \
+        "$compose_service" || return 1
+
+    running_nginx=$(docker compose --env-file "$1" --file "$compose_file" \
+        ps --status running --quiet nginx) || return 1
+    if [ -n "$running_nginx" ]; then
+        # 컨테이너 교체로 바뀐 upstream IP를 다시 읽습니다. 최초 배포는 Nginx 없이도 가능합니다.
+        docker compose --env-file "$1" --file "$compose_file" exec -T nginx nginx -t &&
+            docker compose --env-file "$1" --file "$compose_file" exec -T nginx nginx -s reload
+    fi
+}
+
+if ! deploy_with_env "$temporary_env"; then
+    docker compose --env-file "$temporary_env" --file "$compose_file" \
+        logs --no-color --tail 100 "$compose_service" >&2 || true
     if [ -n "$previous_image" ] && docker image inspect "$previous_image" >/dev/null 2>&1; then
         echo "Deployment failed; attempting to restore the previously recorded image." >&2
-        docker compose --env-file "$env_file" --file "$compose_file" up \
-            -d \
-            --no-deps \
-            --no-build \
-            --pull never \
-            --wait \
-            --wait-timeout "$wait_timeout" \
-            "$compose_service" || true
+        deploy_with_env "$env_file" || true
     fi
     exit 1
 fi
