@@ -1,15 +1,20 @@
 [versions]
 spring-boot = "4.1.1"
 spring-dependency-management = "1.1.7"
+nimbus-jose-jwt = "9.41.1"
+json-canonicalization = "1.1"
 
 [libraries]
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
 spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-starter-jdbc" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
+spring-boot-flyway = { module = "org.springframework.boot:spring-boot-flyway" }
 flyway-core = { module = "org.flywaydb:flyway-core" }
 flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
 postgresql = { module = "org.postgresql:postgresql" }
+nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
+json-canonicalization = { module = "io.github.erdtman:java-json-canonicalization", version.ref = "json-canonicalization" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }

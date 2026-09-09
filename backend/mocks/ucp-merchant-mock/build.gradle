@@ -10,7 +10,10 @@ dependencies {
     implementation libs.spring.boot.starter.web
     implementation libs.spring.boot.starter.actuator
     implementation libs.spring.boot.starter.jdbc
+    implementation libs.spring.boot.flyway
     implementation libs.flyway.core
+    implementation libs.nimbus.jose.jwt
+    implementation libs.json.canonicalization
     runtimeOnly libs.flyway.postgresql
     runtimeOnly libs.postgresql
 
