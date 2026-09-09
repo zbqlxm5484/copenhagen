@@ -1,14 +1,13 @@
 # GitLab CI/CD와 EC2 직접 배포
 
-이 레포는 GitHub Actions가 아니라 GitLab CI/CD를 사용합니다. SSAFY GitLab에 Container Registry가 없으므로 Docker image를 Registry에 push하지 않습니다. GitLab CI가 image를 압축파일로 만들고 SSH를 통해 개발 EC2에 직접 전송합니다.
+이 레포는 GitHub Actions가 아니라 GitLab CI/CD를 사용합니다. SSAFY GitLab에 Container Registry가 없으므로 Docker image를 Registry에 push하지 않습니다. GitLab Runner가 image를 빌드하고 압축 스트림을 SSH로 개발 EC2의 Docker에 직접 적재합니다. Docker image artifact는 생성하지 않습니다.
 
 ```text
 develop merge
   → 변경 서비스 test/build
   → Docker image 생성
-  → image.tar.gz artifact 생성
-  → SCP로 EC2 전송
-  → EC2에서 docker image load
+  → docker save | gzip | SSH 스트림 전송
+  → EC2에서 gunzip | docker load
   → 해당 컨테이너만 재생성
   → health check
 ```
@@ -17,7 +16,7 @@ production 배포는 정의되어 있지 않습니다.
 
 ## 언제 무엇이 실행되는가
 
-| 발생한 일 | lint/test/build | Docker image artifact | 개발 EC2 배포 |
+| 발생한 일 | lint/test/build | Docker image 빌드·전송 | 개발 EC2 배포 |
 | --- | --- | --- | --- |
 | `develop` 대상 MR 생성·갱신 | 변경 영향 job만 실행 | 실행 안 함 | 실행 안 함 |
 | MR이 `develop`에 merge됨 | 변경 영향 job만 다시 실행 | 변경 영향 image만 생성 | 변경 영향 service만 갱신 |
@@ -50,13 +49,13 @@ Core만 바뀌면 Core의 test, build, Docker image 생성, EC2 재시작만 실
 
 1. 변경 서비스의 Dockerfile로 image를 만듭니다.
 2. commit SHA를 image tag로 사용합니다.
-3. `docker image save`와 gzip으로 `docker-images/<service>.tar.gz`를 만듭니다.
-4. 압축파일을 GitLab job artifact로 하루 동안 보관합니다.
+3. `docker save "$CONTAINER_IMAGE" | gzip -1 | ssh ... "bash -o pipefail -c 'gunzip | docker load'"`로 EC2에 직접 적재합니다.
+4. Runner와 EC2 양쪽에서 `pipefail`을 적용해 저장·압축·SSH·압축 해제·적재 실패를 job 실패로 처리합니다.
 
-`deploy-dev` job은 해당 artifact만 내려받아 EC2로 전송합니다. EC2에서는 `docker image load` 후 다음 명령과 같은 방식으로 대상 서비스만 재생성합니다.
+`deploy-dev` job은 해당 서비스의 빌드·전송 성공을 기다리고 artifact를 내려받지 않습니다. EC2에 이미 적재된 image를 확인한 뒤 다음 명령과 같은 방식으로 대상 서비스만 재생성합니다.
 
 ```bash
-docker compose up -d --no-deps --no-build --wait <service-name>
+docker compose up -d --no-deps --no-build --pull never --wait <service-name>
 ```
 
 GitLab Container Registry, AWS ECR, Docker Hub login은 필요하지 않습니다. 다만 image 전체를 매번 전송하므로 Registry 방식보다 전송량이 클 수 있습니다.
@@ -99,16 +98,17 @@ DEV_DEPLOY_WAIT_TIMEOUT=120
 
 SSH private key는 여러 줄 값이므로 **File 타입**으로 등록하고 마지막에 줄바꿈을 포함합니다. GitLab 정책상 masked 설정이 불가능할 수 있으므로 key 내용을 job log에 출력하지 않습니다. `DEV_SSH_KNOWN_HOSTS`도 File 타입으로 등록하며, 신뢰할 수 있는 환경에서 host fingerprint를 확인한 값을 사용합니다.
 
-Container Registry 관련 변수와 Deploy Token은 등록하지 않습니다.
+Container Registry 관련 변수와 Deploy Token은 등록하지 않습니다. 빌드·전송 job도 `development` 환경의 `prepare` 작업으로 실행하므로 기존 환경 범위 배포 변수를 재사용합니다.
 
 ## GitLab Runner 요구사항
 
 - Gradle job을 실행할 수 있어야 합니다.
 - Docker build job은 Docker-in-Docker를 사용하므로 runner가 privileged 실행을 지원해야 합니다.
-- job artifact로 각 `.tar.gz` image를 업로드할 수 있어야 합니다.
 - runner에서 EC2의 SSH port로 접근할 수 있어야 합니다.
 
-`docker-build` job에서 Docker daemon 연결 오류가 발생하면 SSAFY GitLab Runner가 Docker-in-Docker를 허용하는지 관리자에게 확인해야 합니다. `413 Request Entity Too Large` 또는 artifact 크기 오류가 발생하면 GitLab artifact 제한보다 image가 큰 것이므로 관리자 확인 또는 외부 Registry 전환이 필요합니다.
+`docker-build` job에서 Docker daemon 연결 오류가 발생하면 SSAFY GitLab Runner가 Docker-in-Docker를 허용하는지 관리자에게 확인해야 합니다. Docker image를 artifact로 업로드하지 않으므로 image 전달에 GitLab artifact 크기 제한이 적용되지 않습니다.
+
+EC2에는 Bash와 gunzip이 필요하며, 배포 SSH 사용자가 sudo 없이 Docker를 실행할 수 있어야 합니다.
 
 ## EC2에서 실행되는 배포 과정
 
@@ -118,18 +118,15 @@ Container Registry 관련 변수와 Deploy Token은 등록하지 않습니다.
 docker-compose.yml
 infra/nginx/nginx.conf
 scripts/deploy-dev-service.sh
-.deploy/<pipeline>-<job>-<service>.tar.gz
 ```
 
 배포 스크립트는 다음 순서로 동작합니다.
 
-1. 전송된 압축 image를 EC2 Docker에 load합니다.
-2. 예상한 commit SHA tag가 존재하는지 확인합니다.
-3. 임시 `.env`에 해당 서비스 image만 기록합니다.
-4. 해당 컨테이너만 `--no-deps --no-build`로 재생성합니다.
-5. health check가 성공하면 `.env`를 확정합니다.
-6. 실패하면 EC2에 남아 있는 이전 image로 복구를 시도합니다.
-7. 전송했던 `.tar.gz` 파일을 삭제합니다.
+1. 빌드 job이 SSH로 적재한 commit SHA tag가 존재하는지 확인합니다.
+2. 임시 `.env`에 해당 서비스 image만 기록합니다.
+3. 해당 컨테이너만 `--no-deps --no-build`로 재생성합니다.
+4. health check가 성공하면 `.env`를 확정합니다.
+5. 실패하면 EC2에 남아 있는 이전 image로 복구를 시도합니다.
 
 모든 개발 배포 job은 `development-ec2` resource group을 공유합니다. 두 pipeline이 같은 EC2의 Compose 상태를 동시에 변경하지 않도록 직렬화합니다.
 
@@ -140,7 +137,7 @@ scripts/deploy-dev-service.sh
 3. GitLab CI/CD Variables 5개와 선택 변수 1개를 등록합니다.
 4. EC2 Security Group에서 GitLab Runner가 SSH로 접근할 수 있게 구성합니다.
 5. MR pipeline으로 lint/test/build가 성공하는지 확인합니다.
-6. `develop` merge 후 `docker-build` artifact와 `deploy-dev` job 성공을 확인합니다.
+6. `develop` merge 후 `docker-build`의 SSH 적재와 `deploy-dev` job 성공을 확인합니다.
 7. EC2에서 `docker compose ps`로 해당 서비스가 `healthy`인지 확인합니다.
 8. 모든 애플리케이션이 배포된 뒤 Nginx를 시작합니다.
 

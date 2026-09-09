@@ -77,7 +77,6 @@ core-docker-build:
   variables:
     DOCKERFILE: backend/apps/core-service/Dockerfile
     CONTAINER_IMAGE: copenhagen/core-service:$CI_COMMIT_SHA
-    IMAGE_ARCHIVE: docker-images/core-service.tar.gz
 
 core-deploy-dev:
   extends:
@@ -86,10 +85,9 @@ core-deploy-dev:
   stage: deploy-dev
   needs:
     - job: core-docker-build
-      artifacts: true
+      artifacts: false
   resource_group: development-ec2
   variables:
     COMPOSE_SERVICE: core-service
     DEPLOY_IMAGE_VARIABLE: CORE_IMAGE
     CONTAINER_IMAGE: copenhagen/core-service:$CI_COMMIT_SHA
-    IMAGE_ARCHIVE: docker-images/core-service.tar.gz

@@ -2,7 +2,7 @@
 
 레포 루트의 `docker-compose.yml` 하나로 로컬 환경과 개발 EC2를 구성합니다. 애플리케이션 5개, PostgreSQL 3개, Redis, Nginx가 각각 별도 컨테이너로 실행됩니다.
 
-개발 EC2의 애플리케이션 image는 Registry에서 pull하지 않습니다. GitLab CI가 `.tar.gz` 파일로 직접 전송하고 EC2에서 `docker image load`합니다. PostgreSQL, Redis, Nginx 같은 공개 기반 image만 Docker Hub에서 pull합니다.
+개발 EC2의 애플리케이션 image는 Registry에서 pull하지 않습니다. GitLab Runner가 `docker save | gzip | ssh`로 직접 스트리밍하고 EC2에서 `gunzip | docker load`합니다. PostgreSQL, Redis, Nginx 같은 공개 기반 image만 Docker Hub에서 pull합니다.
 
 ## 로컬에서 실행하기
 
@@ -157,12 +157,10 @@ Core만 변경된 예시는 다음과 같습니다.
 
 ```text
 GitLab CI에서 core-service image 생성
-→ core-service.tar.gz를 EC2의 .deploy/로 전송
-→ EC2 Docker에 image load
+→ SSH 압축 스트림을 EC2 Docker에 직접 load
 → .env의 CORE_IMAGE만 새 commit SHA로 변경
 → core-service 컨테이너만 재생성
 → health check
-→ 전송한 tar.gz 삭제
 ```
 
 `--no-deps --no-build`를 사용하므로 Core 배포 때문에 Pay, DB 등의 컨테이너를 재시작하지 않습니다. 실패하면 `.env`는 이전 image를 유지하고, 그 image가 EC2에 남아 있으면 복구를 시도합니다.
@@ -182,8 +180,8 @@ commit SHA image가 계속 쌓이면 EC2 disk 사용량도 증가합니다. 자�
 ## 문제 해결
 
 - `Cannot connect to the Docker daemon`: Docker 실행 상태와 배포 사용자의 Docker 권한을 확인합니다.
-- `Image archive not found`: GitLab artifact 전달과 `needs:artifacts` 설정을 확인합니다.
-- `docker image load` 실패: EC2 disk 여유 공간과 전송된 artifact 상태를 확인합니다.
+- image tag가 없음: 해당 서비스의 `docker-build` job에서 SSH 적재가 성공했는지 확인합니다.
+- `docker image load` 실패: EC2 disk 여유 공간과 SSH 스트림 전송 로그를 확인합니다.
 - `unhealthy`: 해당 서비스 로그, DB 상태, `.env` 연결 값을 확인합니다.
 - SSH 또는 SCP 실패: GitLab CI 변수, Security Group, `known_hosts`, 배포 경로 권한을 확인합니다.
 - `port is already allocated`: `.env`의 `NGINX_PORT`와 EC2에서 이미 사용하는 port를 확인합니다.

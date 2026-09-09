@@ -143,7 +143,6 @@ merchant-mock-docker-build:
   variables:
     DOCKERFILE: backend/mocks/ucp-merchant-mock/Dockerfile
     CONTAINER_IMAGE: copenhagen/ucp-merchant-mock:$CI_COMMIT_SHA
-    IMAGE_ARCHIVE: docker-images/ucp-merchant-mock.tar.gz
 
 pg-mock-docker-build:
   extends:
@@ -156,7 +155,6 @@ pg-mock-docker-build:
   variables:
     DOCKERFILE: backend/mocks/pg-mock/Dockerfile
     CONTAINER_IMAGE: copenhagen/pg-mock:$CI_COMMIT_SHA
-    IMAGE_ARCHIVE: docker-images/pg-mock.tar.gz
 
 merchant-mock-deploy-dev:
   extends:
@@ -165,13 +163,12 @@ merchant-mock-deploy-dev:
   stage: deploy-dev
   needs:
     - job: merchant-mock-docker-build
-      artifacts: true
+      artifacts: false
   resource_group: development-ec2
   variables:
     COMPOSE_SERVICE: ucp-merchant-mock
     DEPLOY_IMAGE_VARIABLE: MERCHANT_MOCK_IMAGE
     CONTAINER_IMAGE: copenhagen/ucp-merchant-mock:$CI_COMMIT_SHA
-    IMAGE_ARCHIVE: docker-images/ucp-merchant-mock.tar.gz
 
 pg-mock-deploy-dev:
   extends:
@@ -180,10 +177,9 @@ pg-mock-deploy-dev:
   stage: deploy-dev
   needs:
     - job: pg-mock-docker-build
-      artifacts: true
+      artifacts: false
   resource_group: development-ec2
   variables:
     COMPOSE_SERVICE: pg-mock
     DEPLOY_IMAGE_VARIABLE: PG_MOCK_IMAGE
     CONTAINER_IMAGE: copenhagen/pg-mock:$CI_COMMIT_SHA
-    IMAGE_ARCHIVE: docker-images/pg-mock.tar.gz

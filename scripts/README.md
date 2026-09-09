@@ -21,11 +21,10 @@ GitLab deploy job이 한 서비스만 갱신할 때 사용합니다.
   <compose-service> \
   <image-variable> \
   <image> \
-  <image-archive> \
   [compose-file] \
   [wait-timeout]
 ```
 
-허용된 service와 image 변수 조합만 실행합니다. CI가 전송한 `.tar.gz`를 `docker image load`로 적재하고 `--no-deps --no-build`로 대상 컨테이너만 재생성합니다. health check 실패 시 EC2에 이전 image가 남아 있으면 복구를 시도합니다. 전송된 압축파일은 성공·실패와 관계없이 실행이 끝나면 삭제합니다.
+허용된 service와 image 변수 조합만 실행합니다. CI가 SSH 스트림으로 미리 적재한 image가 존재하는지 확인하고 `--no-deps --no-build --pull never`로 대상 컨테이너만 재생성합니다. health check 실패 시 EC2에 이전 image가 남아 있으면 복구를 시도합니다.
 
 일반 개발자가 로컬 코드를 반영하려고 이 배포 스크립트를 실행할 필요는 없습니다. 로컬에서는 `docker compose up --build`를 사용하고, 개발 EC2 배포는 GitLab CI가 담당합니다.
