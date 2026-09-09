@@ -41,3 +41,19 @@ PIN·생체인증·카드 결제수단 API는 `/api/v1` 사용자 인증 영역�
 - Argon2id Salt는 해시 문자열에 포함되며, 별도 Salt 컬럼을 사용하지 않습니다.
 - 배포 환경에서는 `PAY_PIN_PEPPER`를 Secret Manager 또는 환경변수로 주입합니다. Pepper는 Pay DB에 저장하지 않습니다.
 - 카드 결제수단은 PG의 `provider_token_ref`만 저장하고, 삭제는 Soft Delete로 처리합니다.
+
+## Fraud 설정과 공통 데이터 계약
+
+`fraud.enabled`와 `fraud.sift`는 기존 `@ConfigurationPropertiesScan`으로 등록합니다.
+루트 [.env.example](../../../.env.example)의 환경변수는 Compose가 Pay에 전달합니다.
+
+- `FRAUD_DETECTION_ENABLED`: 기본 true. 이번 단계에서는 값만 바인딩하며 결제 흐름이나 외부 호출을 활성화하지 않습니다.
+- `SIFT_API_KEY`, `SIFT_ACCOUNT_ID`: 빈 값으로 시작하며 실제 값은 비추적 환경에만 주입합니다.
+- `SIFT_ENV`: sandbox(기본) 또는 production. 아직 endpoint 선택/호출 동작은 없습니다.
+- `SIFT_TIMEOUT_SECONDS`: 양수, 기본 3초.
+- `SIFT_REVIEW_THRESHOLD`, `SIFT_DENY_THRESHOLD`: 둘 다 빈 값으로 두거나 함께 설정합니다.
+  Sift API 단위인 `0 <= review < deny <= 1`을 검증하며 정책 숫자를 임의로 지정하지 않습니다.
+
+API key/계정 ID는 설정 객체의 문자열 출력에서 가립니다. `bootRun`은 `.env`를 자동으로 읽지 않습니다.
+[공통 Fraud 데이터 계약](../../libs/internal-api-contract/README.md)은 기존 내부 계약 라이브러리에서 가져옵니다.
+Sift 호출, Rule/Risk Engine, PG 실행 전 gate, Fraud DB 저장은 이번 범위에 포함되지 않습니다.

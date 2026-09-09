@@ -31,6 +31,16 @@ management:
       probes:
         enabled: true
 
+fraud:
+  enabled: ${FRAUD_DETECTION_ENABLED:true}
+  sift:
+    api-key: ${SIFT_API_KEY:}
+    account-id: ${SIFT_ACCOUNT_ID:}
+    env: ${SIFT_ENV:sandbox}
+    timeout-seconds: ${SIFT_TIMEOUT_SECONDS:3}
+    review-threshold: ${SIFT_REVIEW_THRESHOLD:}
+    deny-threshold: ${SIFT_DENY_THRESHOLD:}
+
 services:
   pg:
     base-url: ${PG_SERVICE_URL:http://pg-mock:8080}

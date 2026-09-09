@@ -27,6 +27,9 @@ services:
       CORE_DB_PASSWORD: ${CORE_DB_PASSWORD:-core-dev-password}
       PAY_SERVICE_URL: http://pay-service:8080
       MERCHANT_SERVICE_URL: http://ucp-merchant-mock:8080
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_FRAUD_MODEL: ${OPENAI_FRAUD_MODEL:-gpt-5.4-mini}
+      OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-5}
     depends_on:
       core-db:
         condition: service_healthy
@@ -70,6 +73,13 @@ services:
       PAY_DB_USER: ${PAY_DB_USER:-pay}
       PAY_DB_PASSWORD: ${PAY_DB_PASSWORD:-pay-dev-password}
       PG_SERVICE_URL: http://pg-mock:8080
+      FRAUD_DETECTION_ENABLED: ${FRAUD_DETECTION_ENABLED:-true}
+      SIFT_API_KEY: ${SIFT_API_KEY:-}
+      SIFT_ACCOUNT_ID: ${SIFT_ACCOUNT_ID:-}
+      SIFT_ENV: ${SIFT_ENV:-sandbox}
+      SIFT_TIMEOUT_SECONDS: ${SIFT_TIMEOUT_SECONDS:-3}
+      SIFT_REVIEW_THRESHOLD: ${SIFT_REVIEW_THRESHOLD:-}
+      SIFT_DENY_THRESHOLD: ${SIFT_DENY_THRESHOLD:-}
     depends_on:
       pay-db:
         condition: service_healthy
