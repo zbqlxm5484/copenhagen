@@ -1,0 +1,60 @@
+package com.copenhagen.merchantmock.profile;
+
+import com.copenhagen.merchantmock.security.SigningKeyProvider;
+import com.copenhagen.merchantmock.support.MerchantProperties;
+import com.copenhagen.merchantmock.support.MerchantPropertiesFixture;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+/**
+ * 필수 테스트 1번. Profile Discovery(DESIGN.md 12절).
+ *
+ * <p>DB 가 필요 없도록 standalone MockMvc 로 컨트롤러만 띄운다.
+ */
+class BusinessProfileControllerTest {
+
+    private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUp() {
+        MerchantProperties properties = MerchantPropertiesFixture.defaults();
+        BusinessProfileService service = new BusinessProfileService(properties, new SigningKeyProvider(properties));
+        this.mockMvc = MockMvcBuilders.standaloneSetup(new BusinessProfileController(service)).build();
+    }
+
+    @Test
+    void well_known_ucp가_Profile을_돌려준다() throws Exception {
+        mockMvc.perform(get("/.well-known/ucp"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andExpect(jsonPath("$.ucp.version").value("2026-08-25"))
+                .andExpect(jsonPath("$.ucp.services['dev.ucp.shopping'][0].transport").value("rest"))
+                .andExpect(jsonPath("$.ucp.services['dev.ucp.shopping'][0].endpoint")
+                        .value("http://ucp-merchant-mock:8080/ucp/v1"));
+    }
+
+    @Test
+    void payment_handlers가_snake_case로_나간다() throws Exception {
+        mockMvc.perform(get("/.well-known/ucp"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ucp.payment_handlers['com.copenhagen.pay'][0].id")
+                        .value("copenhagen-pay-handler"))
+                .andExpect(jsonPath("$.ucp.paymentHandlers").doesNotExist());
+    }
+
+    @Test
+    void keys에_공개키가_실리고_개인키_성분은_없다() throws Exception {
+        mockMvc.perform(get("/.well-known/ucp"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.keys[0].kid").value("merchant-a-es256-1"))
+                .andExpect(jsonPath("$.keys[0].crv").value("P-256"))
+                .andExpect(jsonPath("$.keys[0].d").doesNotExist());
+    }
+}

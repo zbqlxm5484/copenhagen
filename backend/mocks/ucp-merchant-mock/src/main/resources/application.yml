@@ -43,14 +43,27 @@ merchant:
     private-key-location: ${MERCHANT_SIGNING_PRIVATE_KEY_LOCATION:}
     private-key-pem: ${MERCHANT_SIGNING_PRIVATE_KEY_PEM:}
     # Profile 의 keys[] 에 그대로 실린다. 공개키라 값이 노출돼도 된다.
-    public-key-jwk: ${MERCHANT_SIGNING_PUBLIC_KEY_JWK:}
+    # 개발용 키 한 쌍의 공개 절반이다. 개인키는 코펜하겐 폴더 keys/ 에 있고 Git 밖이다.
+    # 환경변수 MERCHANT_SIGNING_PUBLIC_KEY_JWK 로 덮을 수 있다. 플레이스홀더 기본값으로 쓰면
+    # JSON 의 중괄호가 ${...} 를 일찍 닫아 버리므로 리터럴로 둔다.
+    public-key-jwk: '{"kty":"EC","crv":"P-256","x":"Kv4fWw_TEzEQ2EOMOgsbIyH9314FhRdQknrvaPY5Q3Q","y":"d989gH2qhu_9cnv2pmrZs_rlT3kso94QTC_VXvkzEmc","use":"sig","alg":"ES256","kid":"merchant-a-es256-1"}'
+  # Profile 에 광고할 Capability. AP2-like 는 네임스페이스가 Core·Pay 와 합의되면 켠다.
+  capabilities:
+    ap2-like:
+      enabled: ${MERCHANT_AP2_LIKE_ENABLED:false}
+      namespace: com.copenhagen.payment.ap2_like
+  # 이게 없으면 Core 가 결제 흐름을 태우지 않는다. 이름은 미확정이라 설정으로 뺐다.
+  payment-handler:
+    namespace: ${MERCHANT_PAYMENT_HANDLER_NAMESPACE:com.copenhagen.pay}
+    id: copenhagen-pay-handler
+    version: "1"
   # Checkout Mandate 서명자로 인정할 Platform 목록. 현재 Core 하나.
   trusted-platforms:
     - id: core
       profile-url: ${CORE_SERVICE_URL:http://core-service:8080}/.well-known/ucp
   scenario:
-    # 시나리오 제어 API 가 바꾸기 전 기본값
-    default: NORMAL
+    # 시나리오 제어 API 가 바꾸기 전 기본값. default 는 Java 예약어라 initial 로 둔다.
+    initial: NORMAL
 
 core:
   base-url: ${CORE_SERVICE_URL:http://core-service:8080}
