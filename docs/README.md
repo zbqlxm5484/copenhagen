@@ -9,7 +9,6 @@
 | [MCP](mcp/README.md) | Agent-facing MCP surface를 변경할 때 |
 | [UCP](ucp/README.md) | UCP 계약이나 schema를 변경할 때 |
 | [Payment Handler](payment-handler/README.md) | 결제 handler 계약을 변경할 때 |
-| [Pay ERD 기반 Fraud 통합 검토](fraud/pay_erd_integration_review.md) | Core·Pay·Merchant·AI 구조를 합치며 데이터 매핑, 구현 공백, 전달 계약을 검토할 때 |
 | [Git과 Jira 연동 기록](git-convention/README.md) | 기존 Jira-GitLab 연동 테스트의 의미를 확인할 때 |
 | [GitLab CI/CD](../infra/gitlab/README.md) | MR 검증 또는 EC2 자동 배포를 설정할 때 |
 | [Docker/EC2](../infra/docker/README.md) | 로컬 환경이나 개발 EC2를 구성할 때 |

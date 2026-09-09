@@ -2,13 +2,6 @@
 
 작성일: 2026-09-09 · 상태: **설계 제안, 미구현** · 조사 기준: `9150e4768ac5dcf360123c133a444fcc36fcae1c`
 
-> 후속 구현 S15P21A207-213: 이번 요구사항에 따라 공통 record/enum을 기존
-> [internal-api-contract](../../backend/libs/internal-api-contract/README.md)에 추가하고 Core/Pay 설정을 구현했다.
-> 공유하는 것은 schema이며 Pay 내부 정책·실행권 모델이 아니다. 실제 enum은
-> `ALLOW / REQUIRE_AUTH / DENY`이고, 아래 초안의 `HOLD / REQUIRE_REAPPROVAL`은 구현하지 않았다.
-> 환경변수명도 이번 요구사항의 `OPENAI_FRAUD_MODEL`, `*_TIMEOUT_SECONDS` 등을 따른다.
-> 외부 API·엔진·결제 gate·영속화는 아직 구현 범위 밖이다. 아래 내용은 최초 설계 시점의 제안으로 보존한다.
-
 ## 1. 설계 전제와 권장 위치
 
 현재 상태는 [current_payment_flow.md](current_payment_flow.md)에 기록했다. **기존 결제 실행 함수가 없으므로 지금 특정 함수에 Fraud 호출을 추가할 수는 없다.** 이 문서는 기존 서비스 책임을 유지하면서 향후 결제 구현에 적용할 배치와 필수 조건을 제안한다. 아래 신규 클래스·함수·DTO·테이블·상태·환경변수 이름은 모두 후보이며 현재 존재하지 않는다.
