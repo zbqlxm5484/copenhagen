@@ -49,6 +49,61 @@ public enum PayErrorCode {
             "IDEMPOTENCY_CONFLICT",
             "동일한 멱등성 키로 다른 요청이 전달되었습니다.",
             "USE_NEW_IDEMPOTENCY_KEY"),
+    PIN_ALREADY_REGISTERED(
+            HttpStatus.CONFLICT,
+            "PIN_ALREADY_REGISTERED",
+            "결제 PIN이 이미 등록되어 있습니다.",
+            "USE_PIN_CHANGE"),
+    PIN_NOT_REGISTERED(
+            HttpStatus.NOT_FOUND,
+            "PIN_NOT_REGISTERED",
+            "등록된 결제 PIN이 없습니다.",
+            "REGISTER_PAYMENT_PIN"),
+    PIN_POLICY_VIOLATION(
+            HttpStatus.BAD_REQUEST,
+            "PIN_POLICY_VIOLATION",
+            "결제 PIN은 6자리 숫자여야 합니다.",
+            "CHECK_PIN_FORMAT"),
+    PIN_INVALID(
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            "PIN_INVALID",
+            "현재 결제 PIN이 올바르지 않습니다.",
+            "CHECK_CURRENT_PIN"),
+    PIN_MUST_DIFFER(
+            HttpStatus.BAD_REQUEST,
+            "PIN_MUST_DIFFER",
+            "새 결제 PIN은 현재 PIN과 달라야 합니다.",
+            "USE_DIFFERENT_PIN"),
+    PIN_TEMPORARILY_LOCKED(
+            HttpStatus.TOO_MANY_REQUESTS,
+            "PIN_TEMPORARILY_LOCKED",
+            "결제 PIN 입력이 일시적으로 잠겼습니다.",
+            "TRY_AGAIN_LATER"),
+    BIOMETRIC_CREDENTIAL_INVALID(
+            HttpStatus.BAD_REQUEST,
+            "BIOMETRIC_CREDENTIAL_INVALID",
+            "생체인증 자격증명 형식이 올바르지 않습니다.",
+            "CHECK_BIOMETRIC_CREDENTIAL"),
+    BIOMETRIC_CREDENTIAL_ALREADY_REGISTERED(
+            HttpStatus.CONFLICT,
+            "BIOMETRIC_CREDENTIAL_ALREADY_REGISTERED",
+            "해당 기기에 생체인증 자격증명이 이미 등록되어 있습니다.",
+            "USE_EXISTING_CREDENTIAL"),
+    PAYMENT_METHOD_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "PAYMENT_METHOD_NOT_FOUND",
+            "결제수단을 찾을 수 없습니다.",
+            "CHECK_PAYMENT_METHOD_ID"),
+    PAYMENT_METHOD_INACTIVE(
+            HttpStatus.CONFLICT,
+            "PAYMENT_METHOD_INACTIVE",
+            "사용할 수 없는 결제수단입니다.",
+            "SELECT_ACTIVE_PAYMENT_METHOD"),
+    PAYMENT_METHOD_ALREADY_REGISTERED(
+            HttpStatus.CONFLICT,
+            "PAYMENT_METHOD_ALREADY_REGISTERED",
+            "이미 등록된 결제수단입니다.",
+            "USE_EXISTING_PAYMENT_METHOD"),
     INTERNAL_ERROR(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "INTERNAL_ERROR",
