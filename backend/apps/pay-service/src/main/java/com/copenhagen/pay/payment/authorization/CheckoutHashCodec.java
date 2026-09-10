@@ -8,7 +8,7 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.regex.Pattern;
 
-final class CheckoutHashCodec {
+public final class CheckoutHashCodec {
 
     private static final String PREFIX = "sha256:";
     private static final Pattern INTERNAL_HEX_PATTERN = Pattern.compile("[0-9a-fA-F]{64}");
@@ -17,7 +17,7 @@ final class CheckoutHashCodec {
     private CheckoutHashCodec() {
     }
 
-    static String toInternalDigest(String checkoutHash) {
+    public static String toInternalDigest(String checkoutHash) {
         if (checkoutHash == null || checkoutHash.isBlank()) {
             throw invalidHash();
         }
@@ -45,7 +45,7 @@ final class CheckoutHashCodec {
         }
     }
 
-    static String toExternalHash(String internalDigest) {
+    public static String toExternalHash(String internalDigest) {
         if (internalDigest == null || !INTERNAL_HEX_PATTERN.matcher(internalDigest).matches()) {
             throw invalidHash();
         }
@@ -53,7 +53,7 @@ final class CheckoutHashCodec {
         return PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
     }
 
-    static void validateMatchesJwt(String checkoutHash, String checkoutJwt) {
+    public static void validateMatchesJwt(String checkoutHash, String checkoutJwt) {
         String internalDigest = toInternalDigest(checkoutHash);
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")

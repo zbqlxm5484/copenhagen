@@ -3,11 +3,14 @@ package com.copenhagen.pay.payment.authorization;
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
 import com.copenhagen.pay.payment.credential.biometric.BiometricChallengeService;
+import com.copenhagen.pay.payment.credential.mandate.IssuedPaymentCredential;
+import com.copenhagen.pay.payment.credential.mandate.PaymentCredentialIssuer;
 import com.copenhagen.pay.payment.credential.pin.PaymentPinService;
 import com.copenhagen.pay.payment.policy.AuthorizationSessionStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,17 +23,37 @@ public class AuthorizationApprovalService {
     private final AuthorizationSessionStore sessionStore;
     private final BiometricChallengeService challengeService;
     private final PaymentPinService paymentPinService;
+    private final PaymentCredentialIssuer credentialIssuer;
     private final Clock clock;
 
+    @Autowired
     public AuthorizationApprovalService(
             AuthorizationSessionStore sessionStore,
             BiometricChallengeService challengeService,
             PaymentPinService paymentPinService,
+            PaymentCredentialIssuer credentialIssuer,
             Clock clock) {
         this.sessionStore = sessionStore;
         this.challengeService = challengeService;
         this.paymentPinService = paymentPinService;
+        this.credentialIssuer = credentialIssuer;
         this.clock = clock;
+    }
+
+    AuthorizationApprovalService(
+            AuthorizationSessionStore sessionStore,
+            BiometricChallengeService challengeService,
+            PaymentPinService paymentPinService,
+            Clock clock) {
+        this(
+                sessionStore,
+                challengeService,
+                paymentPinService,
+                (session, authMethod) -> new IssuedPaymentCredential(
+                        null,
+                        session.expiresAt(),
+                        null),
+                clock);
     }
 
     @Transactional
@@ -182,7 +205,11 @@ public class AuthorizationApprovalService {
         if (!sessionStore.approve(session.id(), session.userId(), authMethod, now)) {
             throw stateConflict(loadCurrent(session.userId(), session.id()));
         }
-        return ApprovalResult.approved(session.id(), authMethod, session.expiresAt());
+        AuthorizationSession approvedSession = sessionStore
+                .findByIdAndUserId(session.id(), session.userId())
+                .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
+        IssuedPaymentCredential credential = credentialIssuer.issue(approvedSession, authMethod);
+        return ApprovalResult.approved(session.id(), authMethod, credential);
     }
 
     private PayException stateConflict(AuthorizationSession session) {
@@ -236,15 +263,15 @@ public class AuthorizationApprovalService {
         private static ApprovalResult approved(
                 String approvalId,
                 String authMethod,
-                Instant credentialExpiresAt) {
+                IssuedPaymentCredential credential) {
             return new ApprovalResult(
                     approvalId,
                     AuthorizationSessionStatus.APPROVED.name(),
                     null,
                     authMethod,
-                    null,
-                    credentialExpiresAt,
-                    null,
+                    credential.credentialId(),
+                    credential.expiresAt(),
+                    credential.checkoutMandate(),
                     "COMPLETE_CHECKOUT");
         }
 

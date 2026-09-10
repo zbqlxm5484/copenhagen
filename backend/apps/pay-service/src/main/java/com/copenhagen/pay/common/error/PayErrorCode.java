@@ -129,6 +129,26 @@ public enum PayErrorCode {
             "PAYMENT_METHOD_ALREADY_REGISTERED",
             "이미 등록된 결제수단입니다.",
             "USE_EXISTING_PAYMENT_METHOD"),
+    PAYMENT_CREDENTIAL_EXPIRED(
+            HttpStatus.GONE,
+            "PAYMENT_CREDENTIAL_EXPIRED",
+            "결제 자격증명이 만료되었습니다.",
+            "RESTART_CHECKOUT"),
+    PAYMENT_CREDENTIAL_REVOKED(
+            HttpStatus.CONFLICT,
+            "PAYMENT_CREDENTIAL_REVOKED",
+            "결제 자격증명이 폐기되었습니다.",
+            "RESTART_CHECKOUT"),
+    CREDENTIAL_ALREADY_CONSUMED(
+            HttpStatus.CONFLICT,
+            "CREDENTIAL_ALREADY_CONSUMED",
+            "이미 사용된 결제 자격증명입니다.",
+            "RESTART_CHECKOUT"),
+    CREDENTIAL_SCOPE_MISMATCH(
+            HttpStatus.CONFLICT,
+            "CREDENTIAL_SCOPE_MISMATCH",
+            "결제 승인 범위와 요청 내용이 일치하지 않습니다.",
+            "RESTART_CHECKOUT"),
     INTERNAL_ERROR(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "INTERNAL_ERROR",
