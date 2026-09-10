@@ -18,6 +18,11 @@ pay:
   approval:
     expiration-seconds: ${PAY_APPROVAL_EXPIRATION_SECONDS:300}
     challenge-expiration-seconds: ${PAY_APPROVAL_CHALLENGE_EXPIRATION_SECONDS:60}
+  mandate:
+    issuer: ${PAY_MANDATE_ISSUER:pay-service}
+    key-id: ${PAY_MANDATE_KEY_ID:pay-signing-key-1}
+    signing-private-key: ${PAY_MANDATE_SIGNING_PRIVATE_KEY:}
+    encryption-key: ${PAY_MANDATE_ENCRYPTION_KEY:}
   reconciliation:
     max-attempts: ${PAY_RECONCILIATION_MAX_ATTEMPTS:5}
     lease-duration-seconds: ${PAY_RECONCILIATION_LEASE_SECONDS:60}
