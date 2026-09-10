@@ -63,7 +63,7 @@ public class AuthorizationSessionController {
                 : ResponseEntity.status(201).body(response);
     }
 
-    @GetMapping("/api/v1/payment-approvals")
+    @GetMapping("/api/pay/v1/payment-approvals")
     public ResponseEntity<ApprovalListResponse> findForUser(
             @RequestParam(required = false) String status,
             HttpServletRequest httpRequest) {
@@ -77,7 +77,7 @@ public class AuthorizationSessionController {
         return ResponseEntity.ok(new ApprovalListResponse(items));
     }
 
-    @GetMapping("/api/v1/payment-approvals/{approvalId}")
+    @GetMapping("/api/pay/v1/payment-approvals/{approvalId}")
     public ResponseEntity<ApprovalDetailResponse> findDetail(
             @PathVariable String approvalId,
             @RequestHeader(value = "X-Device-Id", required = false) String deviceId,
@@ -92,7 +92,7 @@ public class AuthorizationSessionController {
                 prepared.challenge().map(AuthorizationSessionController::toResponse).orElse(null)));
     }
 
-    @PostMapping("/api/v1/payment-approvals/{approvalId}/approve")
+    @PostMapping("/api/pay/v1/payment-approvals/{approvalId}/approve")
     public ResponseEntity<ApprovalActionResponse> approve(
             @PathVariable String approvalId,
             @Valid @RequestBody ApproveRequest request,
@@ -105,7 +105,7 @@ public class AuthorizationSessionController {
         return ResponseEntity.ok(ApprovalActionResponse.from(result));
     }
 
-    @PostMapping("/api/v1/payment-approvals/{approvalId}/reject")
+    @PostMapping("/api/pay/v1/payment-approvals/{approvalId}/reject")
     public ResponseEntity<ApprovalActionResponse> reject(
             @PathVariable String approvalId,
             @Valid @RequestBody RejectRequest request,

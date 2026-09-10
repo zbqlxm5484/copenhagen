@@ -20,7 +20,7 @@ class PayAuthenticationFilterTest {
     @Test
     void userTokenIsAcceptedOnAppApi() throws Exception {
         PayAuthenticationFilter filter = filterWith(Map.of("user-token", "user-001"), Map.of());
-        MockHttpServletRequest request = request("GET", "/api/v1/payment-approvals");
+        MockHttpServletRequest request = request("GET", "/api/pay/v1/payment-approvals");
         request.addHeader("Authorization", "Bearer user-token");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -50,7 +50,7 @@ class PayAuthenticationFilterTest {
     @Test
     void missingTokenReturnsUnauthorizedError() throws Exception {
         PayAuthenticationFilter filter = filterWith(Map.of(), Map.of());
-        MockHttpServletRequest request = request("GET", "/api/v1/payment-approvals");
+        MockHttpServletRequest request = request("GET", "/api/pay/v1/payment-approvals");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, new MockFilterChain());
