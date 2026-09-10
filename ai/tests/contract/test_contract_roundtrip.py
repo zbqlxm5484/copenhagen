@@ -31,7 +31,7 @@ def decode_exchange(payload, decoder="json"):
 def test_exchange_round_trip_preserves_all_supplied_information(scenario_payload, contract_settings, decoder):
     request, decision = decode_exchange(scenario_payload, decoder)
     assert contract_settings.mode == EvaluationMode.MOCK
-    assert contract_settings.openai_api_key is None
+    assert contract_settings.gms_key is None
     assert contract_settings.sift_api_key is None
 
     supplied = {

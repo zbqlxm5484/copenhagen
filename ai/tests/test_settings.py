@@ -17,7 +17,7 @@ from copenhagen_fds.settings import EvaluationMode, SettingsError, load_settings
 def live_environment():
     return {
         "FDS_MODE": "LIVE",
-        "FDS_OPENAI_API_KEY": "synthetic-openai-private-value",
+        "GMS_KEY": "synthetic-gms-private-value",
         "FDS_SIFT_API_KEY": "synthetic-sift-private-value",
         "FDS_OPENAI_TIMEOUT_SECONDS": "5.5",
         "FDS_SIFT_TIMEOUT_SECONDS": "3",
@@ -33,7 +33,7 @@ def test_mock_needs_no_keys_or_assumed_operating_policy():
     settings = load_settings({})
     assert settings.mode == EvaluationMode.MOCK
     assert settings.openai_model == "gpt-5.4-mini"
-    assert settings.openai_api_key is None
+    assert settings.gms_key is None
     assert settings.sift_api_key is None
     assert settings.openai_timeout_seconds is None
     assert settings.sift_timeout_seconds is None
@@ -49,7 +49,7 @@ def test_example_is_usable_without_credentials():
         if line and not line.startswith("#"):
             name, value = line.split("=", 1)
             environment[name] = value
-    assert environment["FDS_OPENAI_API_KEY"] == ""
+    assert environment["GMS_KEY"] == ""
     assert environment["FDS_SIFT_API_KEY"] == ""
     assert load_settings(environment) == load_settings({})
 
@@ -69,7 +69,7 @@ def test_live_reads_explicit_settings_without_calling_providers(live_environment
     assert settings.sift_thresholds.medium.value == 0.4
     assert settings.sift_thresholds.high.value == 0.8
     assert settings.sift_thresholds.medium.unit == "SIFT_PAYMENT_ABUSE_0_1"
-    assert settings.openai_api_key.get_secret_value() == live_environment["FDS_OPENAI_API_KEY"]
+    assert settings.gms_key.get_secret_value() == live_environment["GMS_KEY"]
 
 
 def test_model_changes_only_when_explicitly_configured():
@@ -77,11 +77,63 @@ def test_model_changes_only_when_explicitly_configured():
     assert settings.openai_model == "explicit-test-model"
 
 
+def test_gms_gateway_and_chat_completions_match_the_connection_contract():
+    settings = load_settings({})
+    assert settings.openai_base_url == "https://gms.ssafy.io/gmsapi/api.openai.com/v1"
+    assert settings.openai_chat_completions_url == (
+        "https://gms.ssafy.io/gmsapi/api.openai.com/v1/chat/completions"
+    )
+    assert settings.openai_chat_completions_url == settings.openai_base_url + "/chat/completions"
+
+
+def test_direct_openai_process_defaults_do_not_override_gms(live_environment, monkeypatch):
+    environment = {
+        **live_environment,
+        "OPENAI_API_KEY": "synthetic-direct-key",
+        "OPENAI_BASE_URL": "https://api.openai.com/v1",
+    }
+    monkeypatch.setattr(settings_module.os, "environ", environment)
+    settings = load_settings()
+    assert settings.gms_key.get_secret_value() == live_environment["GMS_KEY"]
+    assert settings.sift_api_key.get_secret_value() == live_environment["FDS_SIFT_API_KEY"]
+    assert settings.openai_base_url == "https://gms.ssafy.io/gmsapi/api.openai.com/v1"
+
+
+def test_direct_openai_key_cannot_satisfy_missing_gms_key(live_environment):
+    live_environment.pop("GMS_KEY")
+    live_environment["OPENAI_API_KEY"] = "synthetic-direct-key"
+    with pytest.raises(SettingsError) as caught:
+        load_settings(live_environment)
+    assert "GMS_KEY" in caught.value.fields
+
+
+@pytest.mark.parametrize("legacy_value", ["", "synthetic-legacy-key"])
+@pytest.mark.parametrize("with_gms_key", [False, True])
+def test_legacy_fds_key_requires_explicit_migration(legacy_value, with_gms_key):
+    environment = {"FDS_OPENAI_API_KEY": legacy_value}
+    if with_gms_key:
+        environment["GMS_KEY"] = "synthetic-gms-key"
+    with pytest.raises(SettingsError, match="replace the legacy") as caught:
+        load_settings(environment)
+    assert caught.value.fields == ("FDS_OPENAI_API_KEY", "GMS_KEY")
+    assert "synthetic-legacy-key" not in str(caught.value)
+    assert "synthetic-gms-key" not in str(caught.value)
+    assert caught.value.__context__ is None
+
+
+@pytest.mark.parametrize("name", ["gms_key", "Gms_Key", "GMS_key"])
+def test_gms_variable_name_is_case_sensitive(name):
+    with pytest.raises(SettingsError) as caught:
+        load_settings({name: "synthetic-gms-key"})
+    assert caught.value.fields == ("GMS_KEY",)
+    assert "synthetic-gms-key" not in str(caught.value)
+
+
 def test_empty_mapping_does_not_inherit_process_secrets(live_environment, monkeypatch):
     monkeypatch.setattr(settings_module.os, "environ", live_environment)
     assert load_settings().mode == EvaluationMode.LIVE
     assert load_settings({}).mode == EvaluationMode.MOCK
-    assert load_settings({}).openai_api_key is None
+    assert load_settings({}).gms_key is None
 
 
 def test_loading_does_not_read_dotenv_or_secret_files(monkeypatch):
@@ -103,7 +155,7 @@ def test_loading_does_not_mutate_or_cache_environment(live_environment):
 
 
 @pytest.mark.parametrize("field", [
-    "FDS_OPENAI_API_KEY", "FDS_SIFT_API_KEY", "FDS_OPENAI_TIMEOUT_SECONDS",
+    "GMS_KEY", "FDS_SIFT_API_KEY", "FDS_OPENAI_TIMEOUT_SECONDS",
     "FDS_SIFT_TIMEOUT_SECONDS", "FDS_EVALUATION_TIMEOUT_SECONDS", "FDS_POLICY_VERSION",
     "FDS_SIFT_MEDIUM_THRESHOLD", "FDS_SIFT_HIGH_THRESHOLD", "FDS_SIFT_SCORE_UNIT",
 ])
@@ -121,7 +173,7 @@ def test_live_rejects_missing_or_empty_required_settings(live_environment, field
 def test_switching_only_mode_to_live_does_not_enable_an_incomplete_configuration():
     with pytest.raises(SettingsError) as caught:
         load_settings({"FDS_MODE": "LIVE"})
-    assert "FDS_OPENAI_API_KEY" in caught.value.fields
+    assert "GMS_KEY" in caught.value.fields
     assert "FDS_SIFT_API_KEY" in caught.value.fields
     assert "FDS_SIFT_MEDIUM_THRESHOLD" in caught.value.fields
 
@@ -200,7 +252,7 @@ def test_mock_thresholds_still_require_an_explicit_policy_version(live_environme
     assert caught.value.fields == ("FDS_POLICY_VERSION",)
 
 
-@pytest.mark.parametrize("field", ["FDS_OPENAI_API_KEY", "FDS_SIFT_API_KEY"])
+@pytest.mark.parametrize("field", ["GMS_KEY", "FDS_SIFT_API_KEY"])
 @pytest.mark.parametrize("value", [" ", "test key", "test\nkey", " test-key"])
 def test_nonempty_keys_cannot_contain_whitespace(field, value):
     with pytest.raises(SettingsError) as caught:
@@ -208,7 +260,7 @@ def test_nonempty_keys_cannot_contain_whitespace(field, value):
     assert caught.value.fields == (field,)
 
 
-@pytest.mark.parametrize("field,value", [("FDS_MODE", True), ("FDS_OPENAI_API_KEY", 123), ("FDS_SIFT_HIGH_THRESHOLD", 0.8)])
+@pytest.mark.parametrize("field,value", [("FDS_MODE", True), ("GMS_KEY", 123), ("FDS_SIFT_HIGH_THRESHOLD", 0.8)])
 def test_environment_mapping_rejects_non_string_values(field, value):
     with pytest.raises(SettingsError, match="strings"):
         load_settings({field: value})
@@ -228,17 +280,17 @@ def test_secret_values_are_masked_in_settings_output(live_environment):
     settings = load_settings(live_environment)
     outputs = [
         str(settings), repr(settings), repr(settings.model_dump()), settings.model_dump_json(),
-        json.dumps(settings.model_dump(mode="json")), repr(settings.openai_api_key),
+        json.dumps(settings.model_dump(mode="json")), repr(settings.gms_key),
     ]
-    for key in ("FDS_OPENAI_API_KEY", "FDS_SIFT_API_KEY"):
+    for key in ("GMS_KEY", "FDS_SIFT_API_KEY"):
         assert all(live_environment[key] not in output for output in outputs)
-    assert settings.model_dump(mode="json")["openai_api_key"] == "**********"
+    assert settings.model_dump(mode="json")["gms_key"] == "**********"
     assert settings.model_dump(mode="json")["sift_api_key"] == "**********"
 
 
 @pytest.mark.parametrize("invalid_field,invalid_value", [
     ("FDS_MODE", "private-marker"), ("FDS_OPENAI_TIMEOUT_SECONDS", "private-marker"),
-    ("FDS_OPENAI_API_KEY", "private-marker with whitespace"),
+    ("GMS_KEY", "private-marker with whitespace"),
     ("FDS_SIFT_MEDIUM_THRESHOLD", "private-marker"), ("FDS_SIFT_SCORE_UNIT", "private-marker"),
     ("FDS_SIFT_HIGH_THRESHOLD", "0.1"), ("FDS_POLICY_VERSION", ""),
 ])
@@ -248,7 +300,7 @@ def test_settings_errors_never_retain_secret_values_or_raw_exception_chain(live_
         load_settings(live_environment)
     error = caught.value
     outputs = [str(error), repr(error), repr(error.args), repr(vars(error)), "".join(traceback.format_exception(error))]
-    for private in ("private-marker", "synthetic-openai-private-value", "synthetic-sift-private-value"):
+    for private in ("private-marker", "synthetic-gms-private-value", "synthetic-sift-private-value"):
         assert all(private not in output for output in outputs)
     assert error.__cause__ is None
     assert error.__context__ is None

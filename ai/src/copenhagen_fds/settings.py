@@ -11,6 +11,10 @@ from copenhagen_fds.contracts.results import SiftScore
 from copenhagen_fds.contracts.values import InputModel, Text, enum_parser
 
 
+GMS_OPENAI_BASE_URL = "https://gms.ssafy.io/gmsapi/api.openai.com/v1"
+GMS_CHAT_COMPLETIONS_URL = f"{GMS_OPENAI_BASE_URL}/chat/completions"
+
+
 class EvaluationMode(StrEnum):
     MOCK = "MOCK"
     LIVE = "LIVE"
@@ -46,7 +50,7 @@ ModeValue = Annotated[EvaluationMode, BeforeValidator(enum_parser(EvaluationMode
 ENV_FIELDS = {
     "mode": "FDS_MODE",
     "openai_model": "FDS_OPENAI_MODEL",
-    "openai_api_key": "FDS_OPENAI_API_KEY",
+    "gms_key": "GMS_KEY",
     "sift_api_key": "FDS_SIFT_API_KEY",
     "openai_timeout_seconds": "FDS_OPENAI_TIMEOUT_SECONDS",
     "sift_timeout_seconds": "FDS_SIFT_TIMEOUT_SECONDS",
@@ -54,7 +58,7 @@ ENV_FIELDS = {
     "policy_version": "FDS_POLICY_VERSION",
 }
 THRESHOLD_ENV = ("FDS_SIFT_MEDIUM_THRESHOLD", "FDS_SIFT_HIGH_THRESHOLD", "FDS_SIFT_SCORE_UNIT")
-SECRET_FIELDS = ("openai_api_key", "sift_api_key")
+SECRET_FIELDS = ("gms_key", "sift_api_key")
 TIMEOUT_FIELDS = ("openai_timeout_seconds", "sift_timeout_seconds", "evaluation_timeout_seconds")
 
 
@@ -63,7 +67,7 @@ class FdsSettings(InputModel):
 
     mode: ModeValue = EvaluationMode.MOCK
     openai_model: Text = "gpt-5.4-mini"
-    openai_api_key: SecretStr | None = None
+    gms_key: SecretStr | None = None
     sift_api_key: SecretStr | None = None
     openai_timeout_seconds: Timeout | None = None
     sift_timeout_seconds: Timeout | None = None
@@ -71,7 +75,16 @@ class FdsSettings(InputModel):
     policy_version: Text | None = None
     sift_thresholds: SiftThresholds | None = None
 
-    @field_validator("openai_api_key", "sift_api_key")
+    @property
+    def openai_base_url(self) -> str:
+        """The GMS gateway root; never inherit the SDK's direct OpenAI default."""
+        return GMS_OPENAI_BASE_URL
+
+    @property
+    def openai_chat_completions_url(self) -> str:
+        return GMS_CHAT_COMPLETIONS_URL
+
+    @field_validator("gms_key", "sift_api_key")
     @classmethod
     def validate_secret(cls, value: SecretStr | None) -> SecretStr | None:
         if value is not None:
@@ -132,14 +145,16 @@ def _error_fields(errors: list[dict[str, Any]]) -> tuple[str, ...]:
     return tuple(sorted(names))
 
 
-def load_settings(environ: Mapping[str, str] | None = None) -> FdsSettings:
-    """Read only the supplied mapping (or os.environ); never read .env or call APIs.
-
-    An explicit empty mapping is isolated from the process environment. Empty
-    optional values mean unset, while empty mode/model values are invalid.
-    """
-
+def _environment_data(environ: Mapping[str, str] | None) -> dict[str, Any]:
+    """Shared names, types and secret parsing; validation belongs to each scope."""
     environment = os.environ if environ is None else environ
+    if "FDS_OPENAI_API_KEY" in environment:
+        raise SettingsError(
+            ("FDS_OPENAI_API_KEY", "GMS_KEY"),
+            "replace the legacy OpenAI key setting with GMS_KEY",
+        )
+    if any(isinstance(name, str) and name.upper() == "GMS_KEY" and name != "GMS_KEY" for name in environment):
+        raise SettingsError(("GMS_KEY",), "use the exact environment variable name GMS_KEY")
     allowed = set(ENV_FIELDS.values()) | set(THRESHOLD_ENV)
     if any(isinstance(name, str) and name.upper().startswith("FDS_") and name not in allowed for name in environment):
         raise SettingsError(("FDS_* settings",), "unrecognized environment setting")
@@ -166,6 +181,18 @@ def load_settings(environ: Mapping[str, str] | None = None) -> FdsSettings:
             "medium": {"value": _number(medium), "unit": unit},
             "high": {"value": _number(high), "unit": unit},
         }
+
+    return data
+
+
+def load_settings(environ: Mapping[str, str] | None = None) -> FdsSettings:
+    """Read the supplied mapping (or os.environ), without files or API calls.
+
+    An explicit empty mapping is isolated from the process environment. Empty
+    optional values mean unset, while empty mode/model values are invalid.
+    """
+
+    data = _environment_data(environ)
 
     failure = None
     try:

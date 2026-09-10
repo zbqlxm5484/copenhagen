@@ -16,6 +16,9 @@ from copenhagen_fds.contracts.values import (
 )
 
 
+IntentSource = Literal["user_direct", "agent_summary", "unknown"]
+
+
 def _same_currency(currency: str, amounts: Iterable[Money | None]) -> None:
     if any(amount is not None and amount.currency != currency for amount in amounts):
         raise ValueError("mixed currencies are unsupported; no currency conversion is performed")
@@ -39,19 +42,22 @@ class IntentItem(InputModel):
     quantity: PositiveQuantity | None = None
     product_id: Identifier | None = None
     merchant_id: Identifier | None = None
+    brand: Text | None = None
+    category: Text | None = None
 
 
 class PurchaseIntent(InputModel):
     """Interpreted intent is evidence for analysis, never user approval."""
 
     purchase_request_id: Identifier
-    source: Literal["user_direct", "agent_summary", "unknown"]
+    source: IntentSource
     version: Identifier | None = None
     items: Array[IntentItem] | None = None
     budget: IntentBudget | None = None
     explicit_conditions: Array[Text] | None = None
     preferences: Array[Text] | None = None
     ambiguities: Array[Text] | None = None
+    purpose: Text | None = None
 
 
 class SnapshotReference(InputModel):
@@ -69,6 +75,9 @@ class OrderItem(InputModel):
     quantity: PositiveQuantity
     unit_price: Money
     line_total: Money
+    brand: Text | None = None
+    category: Text | None = None
+    description: Text | None = None
 
     @model_validator(mode="after")
     def validate_currency(self) -> Self:

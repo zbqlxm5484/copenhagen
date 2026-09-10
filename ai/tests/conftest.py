@@ -1,8 +1,28 @@
 """Synthetic result fixtures shared by result contract tests."""
 
 from copy import deepcopy
+import asyncio
+import socket
 
 import pytest
+
+
+@pytest.fixture
+def run_async():
+    # Initialize Windows asyncio's internal socketpair before the network guard.
+    with asyncio.Runner() as runner:
+        runner.get_loop()
+        yield runner.run
+
+
+@pytest.fixture(autouse=True)
+def block_external_network(monkeypatch, run_async):
+    def reject(*args, **kwargs):
+        pytest.fail("default AI tests must not access external networks")
+    monkeypatch.setattr(socket, "getaddrinfo", reject)
+    monkeypatch.setattr(socket, "create_connection", reject)
+    monkeypatch.setattr(socket.socket, "connect", reject)
+    monkeypatch.setattr(socket.socket, "connect_ex", reject)
 
 
 @pytest.fixture
