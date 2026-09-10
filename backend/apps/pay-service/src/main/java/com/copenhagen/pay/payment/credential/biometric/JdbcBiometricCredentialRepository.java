@@ -4,6 +4,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -25,6 +26,19 @@ public class JdbcBiometricCredentialRepository implements BiometricCredentialRep
             VALUES (?, ?, ?, ?, 'ACTIVE', ?, NULL)
             """;
 
+    private static final String FIND_ACTIVE_BY_USER_SQL = """
+            SELECT id, user_id, device_id, public_key, status, registered_at, revoked_at
+            FROM biometric_credentials
+            WHERE user_id = ? AND status = 'ACTIVE'
+            ORDER BY registered_at, id
+            """;
+
+    private static final String FIND_ACTIVE_BY_ID_AND_USER_SQL = """
+            SELECT id, user_id, device_id, public_key, status, registered_at, revoked_at
+            FROM biometric_credentials
+            WHERE id = ? AND user_id = ? AND status = 'ACTIVE'
+            """;
+
     private static final RowMapper<BiometricCredential> ROW_MAPPER =
             JdbcBiometricCredentialRepository::mapCredential;
 
@@ -43,6 +57,24 @@ public class JdbcBiometricCredentialRepository implements BiometricCredentialRep
                         ROW_MAPPER,
                         userId,
                         deviceId)
+                .stream()
+                .findFirst();
+    }
+
+    @Override
+    public List<BiometricCredential> findActiveByUser(String userId) {
+        return jdbcTemplate.query(FIND_ACTIVE_BY_USER_SQL, ROW_MAPPER, userId);
+    }
+
+    @Override
+    public Optional<BiometricCredential> findActiveByIdAndUser(
+            String credentialId,
+            String userId) {
+        return jdbcTemplate.query(
+                        FIND_ACTIVE_BY_ID_AND_USER_SQL,
+                        ROW_MAPPER,
+                        credentialId,
+                        userId)
                 .stream()
                 .findFirst();
     }

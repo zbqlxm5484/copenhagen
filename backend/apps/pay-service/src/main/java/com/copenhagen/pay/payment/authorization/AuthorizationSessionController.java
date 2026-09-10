@@ -6,6 +6,7 @@ import com.copenhagen.pay.common.error.PayException;
 import com.copenhagen.pay.common.idempotency.IdempotencyKey;
 import com.copenhagen.pay.common.idempotency.RequestHashGenerator;
 import com.copenhagen.pay.common.web.PayRequestContext;
+import com.copenhagen.pay.payment.credential.biometric.BiometricChallengeService;
 import com.copenhagen.pay.payment.policy.AuthorizationSessionStatus;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -23,22 +24,25 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import tools.jackson.databind.JsonNode;
 
 @RestController
 @RequestMapping
 public class AuthorizationSessionController {
 
     private final AuthorizationSessionService service;
+    private final AuthorizationApprovalService approvalService;
     private final RequestHashGenerator requestHashGenerator;
 
     public AuthorizationSessionController(
             AuthorizationSessionService service,
+            AuthorizationApprovalService approvalService,
             RequestHashGenerator requestHashGenerator) {
         this.service = service;
+        this.approvalService = approvalService;
         this.requestHashGenerator = requestHashGenerator;
     }
 
@@ -76,16 +80,51 @@ public class AuthorizationSessionController {
     @GetMapping("/api/v1/payment-approvals/{approvalId}")
     public ResponseEntity<ApprovalDetailResponse> findDetail(
             @PathVariable String approvalId,
+            @RequestHeader(value = "X-Device-Id", required = false) String deviceId,
             HttpServletRequest httpRequest) {
         AuthorizationSession session = service.findDetail(userId(httpRequest), approvalId);
-        return ResponseEntity.ok(ApprovalDetailResponse.from(
+        AuthorizationApprovalService.PreparedDetail prepared = approvalService.prepareDetail(
                 session,
-                service.displaySnapshot(session)));
+                deviceId);
+        return ResponseEntity.ok(ApprovalDetailResponse.from(
+                prepared.session(),
+                service.displaySnapshot(prepared.session()),
+                prepared.challenge().map(AuthorizationSessionController::toResponse).orElse(null)));
+    }
+
+    @PostMapping("/api/v1/payment-approvals/{approvalId}/approve")
+    public ResponseEntity<ApprovalActionResponse> approve(
+            @PathVariable String approvalId,
+            @Valid @RequestBody ApproveRequest request,
+            HttpServletRequest httpRequest) {
+        requireIdempotencyKey(httpRequest);
+        AuthorizationApprovalService.ApprovalResult result = approvalService.approve(
+                userId(httpRequest),
+                approvalId,
+                request.toCommand());
+        return ResponseEntity.ok(ApprovalActionResponse.from(result));
+    }
+
+    @PostMapping("/api/v1/payment-approvals/{approvalId}/reject")
+    public ResponseEntity<ApprovalActionResponse> reject(
+            @PathVariable String approvalId,
+            @Valid @RequestBody RejectRequest request,
+            HttpServletRequest httpRequest) {
+        requireIdempotencyKey(httpRequest);
+        AuthorizationApprovalService.ApprovalResult result = approvalService.reject(
+                userId(httpRequest),
+                approvalId);
+        return ResponseEntity.ok(ApprovalActionResponse.from(result));
     }
 
     private String userId(HttpServletRequest request) {
         PayPrincipal principal = PayRequestContext.requirePrincipal(request);
         return principal.subject();
+    }
+
+    private void requireIdempotencyKey(HttpServletRequest request) {
+        PayRequestContext.findIdempotencyKey(request)
+                .orElseThrow(() -> new PayException(PayErrorCode.IDEMPOTENCY_KEY_REQUIRED));
     }
 
     private AuthorizationSessionStatus parseStatus(String status) {
@@ -109,8 +148,8 @@ public class AuthorizationSessionController {
             @NotBlank @Size(max = 36) String userId,
             @NotBlank @Size(max = 100) String merchantId,
             @NotBlank @Size(max = 150) String checkoutId,
-            @NotBlank @Pattern(regexp = "[0-9a-fA-F]{64}") String checkoutDigest,
-            @NotNull JsonNode checkoutArtifact,
+            @NotBlank @Size(max = 100) String checkoutHash,
+            @NotBlank @Size(max = 10000) String checkoutJwt,
             @NotNull @Valid DisplaySnapshotRequest display,
             @PositiveOrZero long amountMinor,
             @NotBlank @Pattern(regexp = "KRW") String currency) {
@@ -121,8 +160,8 @@ public class AuthorizationSessionController {
                     userId,
                     merchantId,
                     checkoutId,
-                    checkoutDigest,
-                    checkoutArtifact,
+                    checkoutHash,
+                    checkoutJwt,
                     display.toDomain(),
                     amountMinor,
                     currency);
@@ -135,8 +174,8 @@ public class AuthorizationSessionController {
                     + ", userId='" + userId + '\''
                     + ", merchantId='" + merchantId + '\''
                     + ", checkoutId='" + checkoutId + '\''
-                    + ", checkoutDigest=<redacted>"
-                    + ", checkoutArtifact=<redacted>"
+                    + ", checkoutHash=<redacted>"
+                    + ", checkoutJwt=<redacted>"
                     + ", display=<redacted>"
                     + ", amountMinor=" + amountMinor
                     + ", currency='" + currency + '\''
@@ -235,7 +274,7 @@ public class AuthorizationSessionController {
             String approvalId,
             String merchantName,
             String checkoutId,
-            String checkoutDigest,
+            String checkoutHash,
             List<SummaryItemResponse> summary,
             long amountMinor,
             String currency,
@@ -247,12 +286,13 @@ public class AuthorizationSessionController {
 
         private static ApprovalDetailResponse from(
                 AuthorizationSession session,
-                AuthorizationDisplaySnapshot displaySnapshot) {
+                AuthorizationDisplaySnapshot displaySnapshot,
+                BiometricChallengeResponse biometricChallenge) {
             return new ApprovalDetailResponse(
                     session.id(),
                     displaySnapshot.merchantName(),
                     session.externalCheckoutId(),
-                    session.checkoutDigest(),
+                    CheckoutHashCodec.toExternalHash(session.checkoutDigest()),
                     SummaryItemResponse.from(displaySnapshot),
                     session.amountMinor(),
                     session.currency(),
@@ -260,7 +300,7 @@ public class AuthorizationSessionController {
                     session.status().name(),
                     session.requiredAction(),
                     session.expiresAt(),
-                    null);
+                    biometricChallenge);
         }
     }
 
@@ -286,5 +326,87 @@ public class AuthorizationSessionController {
             String challengeId,
             String challenge,
             Instant expiresAt) {
+    }
+
+    private static BiometricChallengeResponse toResponse(
+            BiometricChallengeService.IssuedChallenge challenge) {
+        return new BiometricChallengeResponse(
+                challenge.challengeId(),
+                challenge.challenge(),
+                challenge.expiresAt());
+    }
+
+    public record ApproveRequest(
+            @Size(max = 36) String paymentMethodId,
+            @NotNull @Valid AuthenticationRequest authentication) {
+
+        private AuthorizationApprovalService.ApproveCommand toCommand() {
+            return new AuthorizationApprovalService.ApproveCommand(
+                    paymentMethodId,
+                    authentication.toCommand());
+        }
+
+        @Override
+        public String toString() {
+            return "ApproveRequest["
+                    + "paymentMethodId='" + paymentMethodId + '\''
+                    + ", authentication=<redacted>"
+                    + ']';
+        }
+    }
+
+    public record AuthenticationRequest(
+            @NotBlank @Size(max = 20) String method,
+            @Size(max = 36) String challengeId,
+            @Size(max = 256) String challenge,
+            @Size(max = 4096) String assertion,
+            @Size(max = 6) String pin) {
+
+        private AuthorizationApprovalService.AuthenticationCommand toCommand() {
+            return new AuthorizationApprovalService.AuthenticationCommand(
+                    method,
+                    challengeId,
+                    challenge,
+                    assertion,
+                    pin);
+        }
+
+        @Override
+        public String toString() {
+            return "AuthenticationRequest["
+                    + "method='" + method + '\''
+                    + ", challengeId='" + challengeId + '\''
+                    + ", challenge=<redacted>"
+                    + ", assertion=<redacted>"
+                    + ", pin=<redacted>"
+                    + ']';
+        }
+    }
+
+    public record RejectRequest(@NotBlank @Size(max = 50) String reason) {
+    }
+
+    public record ApprovalActionResponse(
+            String approvalId,
+            String status,
+            String requiredAction,
+            String authMethod,
+            String credentialId,
+            Instant credentialExpiresAt,
+            String checkoutMandate,
+            String nextAction) {
+
+        private static ApprovalActionResponse from(
+                AuthorizationApprovalService.ApprovalResult result) {
+            return new ApprovalActionResponse(
+                    result.approvalId(),
+                    result.status(),
+                    result.requiredAction(),
+                    result.authMethod(),
+                    result.credentialId(),
+                    result.credentialExpiresAt(),
+                    result.checkoutMandate(),
+                    result.nextAction());
+        }
     }
 }

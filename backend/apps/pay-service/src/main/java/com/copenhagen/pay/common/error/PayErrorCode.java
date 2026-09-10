@@ -89,6 +89,31 @@ public enum PayErrorCode {
             "BIOMETRIC_CREDENTIAL_ALREADY_REGISTERED",
             "해당 기기에 생체인증 자격증명이 이미 등록되어 있습니다.",
             "USE_EXISTING_CREDENTIAL"),
+    BIOMETRIC_CREDENTIAL_NOT_REGISTERED(
+            HttpStatus.NOT_FOUND,
+            "BIOMETRIC_CREDENTIAL_NOT_REGISTERED",
+            "등록된 생체인증 자격증명이 없습니다.",
+            "ENTER_PAYMENT_PIN"),
+    BIOMETRIC_DEVICE_REQUIRED(
+            HttpStatus.BAD_REQUEST,
+            "BIOMETRIC_DEVICE_REQUIRED",
+            "생체인증을 사용할 기기를 지정해야 합니다.",
+            "PROVIDE_DEVICE_ID"),
+    BIOMETRIC_CHALLENGE_INVALID(
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            "BIOMETRIC_CHALLENGE_INVALID",
+            "생체인증 Challenge 또는 서명이 올바르지 않습니다.",
+            "ENTER_PAYMENT_PIN"),
+    BIOMETRIC_CHALLENGE_EXPIRED(
+            HttpStatus.GONE,
+            "BIOMETRIC_CHALLENGE_EXPIRED",
+            "생체인증 Challenge가 만료되었습니다.",
+            "ENTER_PAYMENT_PIN"),
+    BIOMETRIC_CHALLENGE_REPLAYED(
+            HttpStatus.CONFLICT,
+            "BIOMETRIC_CHALLENGE_REPLAYED",
+            "이미 처리된 생체인증 Challenge입니다.",
+            "ENTER_PAYMENT_PIN"),
     PAYMENT_METHOD_NOT_FOUND(
             HttpStatus.NOT_FOUND,
             "PAYMENT_METHOD_NOT_FOUND",
