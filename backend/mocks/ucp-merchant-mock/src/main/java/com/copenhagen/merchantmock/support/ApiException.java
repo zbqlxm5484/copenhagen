@@ -25,6 +25,15 @@ public class ApiException extends RuntimeException {
         return new ApiException("PRODUCT_NOT_FOUND", HttpStatus.NOT_FOUND, "상품을 찾을 수 없다: " + productId);
     }
 
+    public static ApiException checkoutNotFound(String checkoutId) {
+        return new ApiException("CHECKOUT_NOT_FOUND", HttpStatus.NOT_FOUND, "체크아웃을 찾을 수 없다: " + checkoutId);
+    }
+
+    public static ApiException checkoutNotModifiable(String checkoutId, Enum<?> status) {
+        return new ApiException("CHECKOUT_NOT_MODIFIABLE", HttpStatus.CONFLICT,
+                "이 상태에서는 체크아웃을 수정할 수 없다: " + checkoutId + " (" + status + ")");
+    }
+
     public String code() {
         return code;
     }
