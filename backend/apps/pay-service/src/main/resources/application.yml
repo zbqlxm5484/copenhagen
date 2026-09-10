@@ -40,3 +40,5 @@ management:
 services:
   pg:
     base-url: ${PG_SERVICE_URL:http://pg-mock:8080}
+    connect-timeout-millis: ${PG_CONNECT_TIMEOUT_MILLIS:1000}
+    request-timeout-millis: ${PG_REQUEST_TIMEOUT_MILLIS:3000}

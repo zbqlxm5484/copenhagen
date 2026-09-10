@@ -32,6 +32,18 @@ Dockerfile              독립 이미지 빌드 정의
 
 Docker Compose에서는 `PAY_DB_URL`, `PG_SERVICE_URL` 등의 환경변수로 연결 대상을 주입합니다. PG 주소는 Docker DNS 이름을 사용합니다.
 
+결제 실행은 `PG_SERVICE_URL`의 PG Adapter를 호출하며, 응답을 받지 못하면 재호출하지 않고
+Payment를 `UNKNOWN`으로 기록합니다. 연결 타임아웃은 `PG_CONNECT_TIMEOUT_MILLIS`, 요청 타임아웃은
+`PG_REQUEST_TIMEOUT_MILLIS`로 조정할 수 있습니다.
+
+로컬 PG Mock 시나리오는 다음처럼 선택할 수 있습니다.
+
+```text
+PG_MOCK_OUTCOME=SUCCESS  # 승인
+PG_MOCK_OUTCOME=FAILED   # 거절
+PG_MOCK_OUTCOME=TIMEOUT  # 응답 지연·유실 → Pay UNKNOWN
+```
+
 ## 앱 결제수단 API 보안
 
 PIN·생체인증·카드 결제수단 API는 `/api/v1` 사용자 인증 영역에서 제공합니다.
