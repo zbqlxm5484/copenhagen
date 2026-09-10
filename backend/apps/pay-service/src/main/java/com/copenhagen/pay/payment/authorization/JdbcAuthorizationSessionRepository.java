@@ -26,6 +26,27 @@ public class JdbcAuthorizationSessionRepository
             WHERE id = ? AND status = ?
             """;
 
+    private static final String APPROVE_SQL = """
+            UPDATE authorization_sessions
+            SET status = 'APPROVED', auth_method = ?, approved_at = ?, updated_at = ?,
+                version = version + 1
+            WHERE id = ? AND user_id = ? AND status = 'PENDING' AND expires_at > ?
+            """;
+
+    private static final String REJECT_SQL = """
+            UPDATE authorization_sessions
+            SET status = 'REJECTED', updated_at = ?, version = version + 1
+            WHERE id = ? AND user_id = ?
+              AND status IN ('PAYMENT_METHOD_REQUIRED', 'PENDING')
+              AND expires_at > ?
+            """;
+
+    private static final String SET_REQUIRED_ACTION_SQL = """
+            UPDATE authorization_sessions
+            SET required_action = ?, updated_at = ?, version = version + 1
+            WHERE id = ? AND user_id = ? AND status = ? AND expires_at > ?
+            """;
+
     private static final String SELECT_BASE_SQL = """
             SELECT s.id, s.purchase_request_id, s.user_id, s.merchant_account_id,
                    m.merchant_id, m.display_name AS merchant_name,
@@ -222,6 +243,52 @@ public class JdbcAuthorizationSessionRepository
                 authorizationSessionId,
                 userId,
                 now);
+    }
+
+    @Override
+    public boolean approve(
+            String authorizationSessionId,
+            String userId,
+            String authMethod,
+            Instant approvedAt) {
+        return jdbcTemplate.update(
+                APPROVE_SQL,
+                authMethod,
+                approvedAt,
+                approvedAt,
+                authorizationSessionId,
+                userId,
+                approvedAt) == 1;
+    }
+
+    @Override
+    public boolean reject(
+            String authorizationSessionId,
+            String userId,
+            Instant rejectedAt) {
+        return jdbcTemplate.update(
+                REJECT_SQL,
+                rejectedAt,
+                authorizationSessionId,
+                userId,
+                rejectedAt) == 1;
+    }
+
+    @Override
+    public boolean setRequiredAction(
+            String authorizationSessionId,
+            String userId,
+            AuthorizationSessionStatus expectedStatus,
+            String requiredAction,
+            Instant now) {
+        return jdbcTemplate.update(
+                SET_REQUIRED_ACTION_SQL,
+                requiredAction,
+                now,
+                authorizationSessionId,
+                userId,
+                expectedStatus.name(),
+                now) == 1;
     }
 
     private static AuthorizationSession mapAuthorizationSession(

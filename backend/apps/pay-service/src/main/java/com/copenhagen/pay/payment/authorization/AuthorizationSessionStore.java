@@ -31,4 +31,28 @@ public interface AuthorizationSessionStore {
             String authorizationSessionId,
             String userId,
             Instant now);
+
+    default boolean approve(
+            String authorizationSessionId,
+            String userId,
+            String authMethod,
+            Instant approvedAt) {
+        return false;
+    }
+
+    default boolean reject(
+            String authorizationSessionId,
+            String userId,
+            Instant rejectedAt) {
+        return false;
+    }
+
+    default boolean setRequiredAction(
+            String authorizationSessionId,
+            String userId,
+            AuthorizationSessionStatus expectedStatus,
+            String requiredAction,
+            Instant now) {
+        return false;
+    }
 }

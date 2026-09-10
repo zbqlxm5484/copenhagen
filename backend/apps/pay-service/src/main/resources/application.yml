@@ -17,6 +17,7 @@ pay:
     pepper: ${PAY_PIN_PEPPER:}
   approval:
     expiration-seconds: ${PAY_APPROVAL_EXPIRATION_SECONDS:300}
+    challenge-expiration-seconds: ${PAY_APPROVAL_CHALLENGE_EXPIRATION_SECONDS:60}
   reconciliation:
     max-attempts: ${PAY_RECONCILIATION_MAX_ATTEMPTS:5}
     lease-duration-seconds: ${PAY_RECONCILIATION_LEASE_SECONDS:60}

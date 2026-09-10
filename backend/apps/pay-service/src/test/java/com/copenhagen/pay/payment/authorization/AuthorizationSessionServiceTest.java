@@ -24,12 +24,13 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.node.JsonNodeFactory;
 
 class AuthorizationSessionServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-09-09T00:00:00Z");
-    private static final String DIGEST = "a".repeat(64);
+    private static final String CHECKOUT_HASH =
+            "sha256:fNGk-G76ixU7me4BhhMZePSVVyfEbhodaSiBnFBJJ14";
+    private static final String CHECKOUT_JWT = "header.payload.sig";
 
     @Test
     void createsPaymentMethodRequiredSessionWhenUserHasNoActiveCard() {
@@ -154,7 +155,7 @@ class AuthorizationSessionServiceTest {
                 new IdempotencyGuard(),
                 new ObjectMapper(),
                 Clock.fixed(NOW, ZoneOffset.UTC),
-                new ApprovalProperties(300));
+                new ApprovalProperties(300, 60));
     }
 
     private CreateAuthorizationSessionCommand command() {
@@ -167,8 +168,8 @@ class AuthorizationSessionServiceTest {
                 userId,
                 "merchant-001",
                 "checkout-001",
-                DIGEST,
-                JsonNodeFactory.instance.objectNode(),
+                CHECKOUT_HASH,
+                CHECKOUT_JWT,
                 new AuthorizationDisplaySnapshot(
                         "예시 상점",
                         List.of(new AuthorizationDisplaySnapshot.SummaryItem(

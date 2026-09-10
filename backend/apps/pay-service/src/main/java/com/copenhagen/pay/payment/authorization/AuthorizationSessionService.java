@@ -15,7 +15,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.JacksonException;
@@ -26,8 +25,6 @@ public class AuthorizationSessionService {
 
     private static final String KRW = "KRW";
     private static final String BIOMETRIC = "BIOMETRIC";
-    private static final Pattern CHECKOUT_DIGEST_PATTERN =
-            Pattern.compile("[0-9a-fA-F]{64}");
     private static final int MAX_SUMMARY_ITEMS = 100;
     private static final int MAX_ITEM_NAME_LENGTH = 200;
     private static final int MAX_OPTION_LENGTH = 200;
@@ -102,7 +99,7 @@ public class AuthorizationSessionService {
                 merchantAccount.merchantId(),
                 merchantAccount.displayName(),
                 command.checkoutId(),
-                command.checkoutDigest().toLowerCase(java.util.Locale.ROOT),
+                CheckoutHashCodec.toInternalDigest(command.checkoutHash()),
                 displaySnapshotJson,
                 command.amountMinor(),
                 command.currency(),
@@ -226,23 +223,18 @@ public class AuthorizationSessionService {
         RequestValidation.requireLengthAtMost(command.userId(), "userId", 36);
         RequestValidation.requireLengthAtMost(command.merchantId(), "merchantId", 100);
         RequestValidation.requireLengthAtMost(command.checkoutId(), "checkoutId", 150);
-        RequestValidation.requireLengthAtMost(command.checkoutDigest(), "checkoutDigest", 64);
+        RequestValidation.requireLengthAtMost(command.checkoutHash(), "checkoutHash", 100);
         RequestValidation.requireLengthAtMost(idempotencyKey, "idempotencyKey", 100);
         RequestValidation.requireLengthAtMost(requestHash, "requestHash", 64);
-        if (command.checkoutArtifact() == null || !command.checkoutArtifact().isObject()) {
+        if (!isCompactJws(command.checkoutJwt())) {
             throw new PayException(
                     PayErrorCode.INVALID_REQUEST,
-                    "checkoutArtifact는 JSON 객체여야 합니다.",
+                    "checkoutJwt는 Compact JWS 형식이어야 합니다.",
                     null,
-                    "CHECK_CHECKOUT_ARTIFACT");
+                    "CHECK_CHECKOUT_JWT");
         }
-        if (!CHECKOUT_DIGEST_PATTERN.matcher(command.checkoutDigest()).matches()) {
-            throw new PayException(
-                    PayErrorCode.INVALID_REQUEST,
-                    "checkoutDigest 형식이 올바르지 않습니다.",
-                    null,
-                    "CHECK_CHECKOUT_DIGEST");
-        }
+        CheckoutHashCodec.toInternalDigest(command.checkoutHash());
+        CheckoutHashCodec.validateMatchesJwt(command.checkoutHash(), command.checkoutJwt());
         if (command.amountMinor() < 0) {
             throw new PayException(PayErrorCode.INVALID_REQUEST);
         }
@@ -254,6 +246,26 @@ public class AuthorizationSessionService {
                     "USE_KRW_CURRENCY");
         }
         validateDisplaySnapshot(command.displaySnapshot());
+    }
+
+    private boolean isCompactJws(String checkoutJwt) {
+        if (checkoutJwt == null || checkoutJwt.isBlank()) {
+            return false;
+        }
+        String[] segments = checkoutJwt.split("\\.", -1);
+        if (segments.length != 3
+                || java.util.Arrays.stream(segments)
+                .anyMatch(segment -> segment.isBlank() || !segment.matches("[A-Za-z0-9_-]+"))) {
+            return false;
+        }
+        try {
+            for (String segment : segments) {
+                java.util.Base64.getUrlDecoder().decode(segment);
+            }
+            return true;
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
     }
 
     private void validateDisplaySnapshot(AuthorizationDisplaySnapshot displaySnapshot) {

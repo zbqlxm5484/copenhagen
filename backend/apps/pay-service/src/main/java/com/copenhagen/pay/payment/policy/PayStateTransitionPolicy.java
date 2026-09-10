@@ -10,6 +10,7 @@ public final class PayStateTransitionPolicy {
                     AuthorizationSessionStatus.PAYMENT_METHOD_REQUIRED,
                     Set.of(
                             AuthorizationSessionStatus.PENDING,
+                            AuthorizationSessionStatus.REJECTED,
                             AuthorizationSessionStatus.EXPIRED,
                             AuthorizationSessionStatus.INVALIDATED),
                     AuthorizationSessionStatus.PENDING,
