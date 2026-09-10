@@ -1,5 +1,23 @@
 """Public FDS input and evaluation result contracts."""
 
+from copenhagen_fds.contracts.analysis_inputs import IntentAnalysisRequest, UserRequestText
+from copenhagen_fds.contracts.analysis_payloads import (
+    ComparisonFinding,
+    ConfirmationRequest,
+    ExtractedIntentItem,
+    IntentComparisonOutput,
+    IntentExtractionOutput,
+    OrderItemReference,
+    analysis_response_format,
+)
+from copenhagen_fds.contracts.analysis_results import (
+    AnalysisFailure,
+    AnalysisFailureKind,
+    AnalysisTelemetry,
+    IntentComparisonResult,
+    IntentExtractionResult,
+    TokenUsage,
+)
 from copenhagen_fds.contracts.decisions import FraudDecision
 from copenhagen_fds.contracts.inputs import (
     ApprovalReference,
@@ -36,7 +54,12 @@ from copenhagen_fds.contracts.statuses import (
 from copenhagen_fds.contracts.values import Money
 
 __all__ = [
+    "AnalysisFailure",
+    "AnalysisFailureKind",
+    "AnalysisTelemetry",
     "ApprovalReference",
+    "ComparisonFinding",
+    "ConfirmationRequest",
     "DataSource",
     "DecisionStatus",
     "EvaluationComponent",
@@ -45,16 +68,23 @@ __all__ = [
     "EvaluationReason",
     "EvaluationStatus",
     "EvaluationTarget",
+    "ExtractedIntentItem",
     "FdsRecommendation",
     "FraudDecision",
     "FraudEvaluationRequest",
     "IntentAnalysisResult",
+    "IntentAnalysisRequest",
     "IntentBudget",
     "IntentItem",
+    "IntentComparisonOutput",
+    "IntentComparisonResult",
+    "IntentExtractionOutput",
+    "IntentExtractionResult",
     "IntentMatch",
     "MerchantOrder",
     "Money",
     "OrderItem",
+    "OrderItemReference",
     "OrderSnapshot",
     "PurchaseIntent",
     "ReasonCode",
@@ -64,4 +94,7 @@ __all__ = [
     "SiftFraudResult",
     "SiftScore",
     "SnapshotReference",
+    "TokenUsage",
+    "UserRequestText",
+    "analysis_response_format",
 ]

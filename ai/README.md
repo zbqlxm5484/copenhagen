@@ -1,6 +1,10 @@
 # AI 작업 공간
 
-Payment MCP의 FDS 평가 모듈입니다. 구매 의도·주문·컨텍스트 입력 계약, 개별·통합 평가 결과 계약, 환경설정 로더와 단위·계약 통합 테스트를 제공합니다.
+Payment MCP의 FDS 평가 모듈입니다. 구매 의도·주문·컨텍스트 입력 계약, 개별·통합 평가 결과 계약, 환경설정 로더, GMS Chat Completions 어댑터, 구매 의도 추출·주문 의미 비교와 오프라인 테스트를 제공합니다.
+
+의미 비교는 [주문 비교기 사용 문서](docs/intent-comparator.md), 두 단계의 연결과 공유 시간 예산은 [추출·비교 진입점 문서](docs/intent-analyzer.md)를 참고합니다.
+
+고정 합성 사례와 전체 경로 회귀는 [평가셋 문서](docs/evaluation-cases.md), 출처를 구분한 집계와 실행 명령은 [평가 보고서 문서](docs/evaluation-report.md)에 설명합니다.
 
 ## 개발 환경
 
@@ -9,6 +13,8 @@ Payment MCP의 FDS 평가 모듈입니다. 구매 의도·주문·컨텍스트 �
 - Pydantic: 타입, 필수값, 금액·통화 및 입력 간 참조 관계를 검증합니다.
 - iso4217: 실제 ISO 4217 코드와 최소 통화 단위가 정의되어 있는지 확인합니다.
 - pytest: 외부 서비스 없이 입력 계약을 검증합니다.
+- OpenAI SDK와 HTTPX2: GMS Chat Completions 호출, HTTP 제한 시간과 Mock 전송을 처리합니다.
+- python-dotenv: 명시적으로 지정한 환경 파일을 프로세스 환경 변경 없이 읽습니다.
 
 직접 사용하는 패키지 버전은 `pyproject.toml`에 고정되어 있습니다. 전이 의존성은 pip가 해당 패키지의 요구 범위에서 선택합니다.
 
@@ -127,6 +133,85 @@ decision.validate_for_request(request)
 
 이 검사는 전달된 참조의 일치 여부만 확인합니다. 주문 내용의 해시를 재계산하거나 사용자·승인을 인증하지 않습니다. 이전 승인에 연결된 스냅샷은 분석용 입력으로 보존하고, 결과의 대상은 현재 주문과 비교합니다.
 
+## GPT 분석 계약
+
+### 분석 입력과 모델 출력
+
+`IntentAnalysisRequest`는 BE가 제공하는 `user_request`, `order`, `context`를 받습니다. `user_request`에는 구매 요청 ID, 요청 출처, 선택적인 문자열 버전과 요청 텍스트가 들어갑니다. 전체 대화나 인증 정보를 조회하지 않으며 텍스트 미제공은 `None`으로 구분합니다. 원문 텍스트는 `repr`에서 숨기지만 직렬화에는 포함되므로 입력 객체나 JSON 전문을 로그에 기록하지 않습니다.
+
+`IntentExtractionOutput`과 `IntentComparisonOutput`은 모델이 생성할 수 있는 분석 내용만 정의합니다. 사용자·평가·구매 요청 ID, 입력 출처·버전·해시, 실행 상태·모델 버전·토큰 사용량·위험 점수를 출력에 넣으면 거부합니다. 실행 메타데이터는 호출 어댑터가 별도로 연결합니다.
+
+| 모델 | 내용 |
+| --- | --- |
+| `IntentExtractionOutput` | 상품 이름·수량·브랜드·카테고리, 예산, 구매 목적, 명시 조건·참고 선호·모호한 항목 |
+| `IntentComparisonOutput` | MATCH/MISMATCH/UNKNOWN, 구조화 사유, 확인 필요 사항 |
+| `ComparisonFinding` | 사유 코드, 상품·브랜드·카테고리·목적·수량·예산·조건·대체 중 비교 항목, 관련 주문 항목 |
+| `ConfirmationRequest` | 의도 명확화·대체 확인·정보 보충·모순 해결 요청과 관련 주문 항목 |
+| `OrderItemReference` | 주문 ID와 그 주문 안의 항목 ID를 함께 가진 참조 |
+
+분석용 필드는 모두 응답에 명시하며 미제공 값은 `null`로 전달합니다. `null`과 빈 배열, 명시적 0을 구분합니다. 통화·단위가 불명확하여 기존 `IntentBudget`을 구성할 수 없으면 `budget=null`로 두고 `ambiguities`에 확인할 내용을 보존합니다. 통화나 수량을 주문 내용에서 임의로 채우지 않습니다. 예산의 `maximum`/`approximate` 구분도 유지합니다.
+
+기존 공통 계약에는 선택 필드만 추가했습니다. `IntentItem`은 `brand`·`category`, `PurchaseIntent`는 `purpose`, `OrderItem`은 `brand`·`category`·`description`을 받을 수 있습니다. 기존 입력에서는 모두 `None`이며, 상품 설명은 외부 데이터로 취급합니다.
+
+```python
+from copenhagen_fds.contracts import (
+    IntentAnalysisRequest, IntentExtractionOutput, IntentComparisonOutput,
+    analysis_response_format,
+)
+
+request = IntentAnalysisRequest.model_validate(analysis_input)
+extracted = IntentExtractionOutput.model_validate_json(extraction_json)
+evaluation_request = request.with_extracted_intent(extracted)
+
+compared = IntentComparisonOutput.model_validate_json(comparison_json)
+compared.validate_for_request(evaluation_request)
+response_format = analysis_response_format("comparison")  # 또는 "extraction"
+```
+
+추출 결과를 연결할 때 구매 요청 ID·출처·의도 버전은 `user_request`에서 복사하고 현재 주문·컨텍스트는 유지합니다. 이것이 해당 원천의 진위나 사용자 승인을 증명하지는 않습니다. 요청 텍스트가 없으면 추출 내용으로 평가 요청을 만들 수 없습니다.
+
+관련 상품은 `(order_id, item_id)` 조합으로 검사합니다. 다른 주문에 같은 항목 ID가 있어도 구분하며, 존재하지 않는 조합과 한 사유 안의 중복 참조는 거부합니다. 주문 전체에 대한 사유·확인은 빈 참조 배열로 표현합니다. MATCH에는 미해결 사유나 확인 요청을 넣지 않습니다. MISMATCH에는 확정된 의도 불일치 사유, UNKNOWN에는 불확실·정보 부족 사유가 필요합니다.
+
+`analysis_response_format()`은 Chat Completions의 `response_format`에 사용할 버전 1 JSON Schema를 새 객체로 반환합니다. [Structured Outputs 명세](https://developers.openai.com/api/docs/guides/structured-outputs)에 맞춰 모든 객체 필드를 필수로 선언하고 추가 속성을 금지하며, 미제공 값은 nullable 필드로 표현합니다. 로컬 스키마·관계 검증을 통과한 것과 GMS 게이트웨이에서 해당 옵션이 지원되는 것은 별개입니다.
+
+### 실행 결과와 공통 계약 매핑
+
+`IntentExtractionResult`와 `IntentComparisonResult`는 공통 실행 상태·메타데이터·사유에 `payload`, `failure`, `telemetry`를 연결합니다. `payload`에만 검증한 모델 출력을 넣으며, 나머지 필드는 호출 어댑터가 수집한 정보를 사용합니다. 계약과 변환은 `contracts`가, SDK 호출은 별도 `analysis` 패키지가 담당합니다.
+
+| 실행 상태 | payload / failure | 공통 의미 비교 값 |
+| --- | --- | --- |
+| SUCCESS | payload 필수, failure 없음 | 비교 결과의 MATCH/MISMATCH/UNKNOWN |
+| FAILED | payload 없음, failure 필수 | `None` |
+| NOT_RUN | 둘 다 없음 | `None` |
+
+`AnalysisFailure.kind`는 API_ERROR, TIMEOUT, REFUSAL, INCOMPLETE_RESPONSE, SCHEMA_ERROR, INSUFFICIENT_INPUT을 구분합니다. API_ERROR와 INSUFFICIENT_INPUT은 공통 사유 EVALUATION_FAILED, TIMEOUT은 TIMEOUT, 나머지는 INVALID_RESPONSE로 매핑합니다. 세부 실패 종류는 원래 분석 결과에 보존합니다. 제공받은 HTTP 상태도 선택적으로 기록하므로 HTTP 200으로 전달된 거부 응답을 분석 성공으로 바꾸지 않습니다. 예외·외부 응답 전문은 실패 계약에 넣지 않습니다.
+
+`AnalysisTelemetry`에는 GMS/MOCK 경로, 요청 모델, 응답 ID와 제공자 요청 ID, 밀리초 단위 처리 시간, 제공받은 토큰 사용량을 기록합니다. GMS 호출의 모델 제공자 출처는 공통 계약의 OPENAI로, Mock은 MOCK으로 연결합니다. 누락 측정값은 `None`이며 0으로 채우거나 합계 토큰을 만들어내지 않습니다. NOT_RUN에는 호출 측정값을 넣지 않습니다. 성공 결과는 공통 메타데이터에 실제 사용한 모델·프롬프트 버전이 있어야 합니다.
+
+```python
+from copenhagen_fds.contracts import IntentExtractionResult, IntentComparisonResult
+
+extraction_result = IntentExtractionResult.model_validate(extraction_result_data)
+evaluation_request = extraction_result.to_evaluation_request(request)
+
+comparison_result = IntentComparisonResult.model_validate(comparison_result_data)
+common_result = comparison_result.to_common_result(evaluation_request)
+```
+
+이 변환들은 입력과 결과의 평가·사용자·구매 요청 ID, 주문 스냅샷 ID·버전·해시와 의도 버전을 대조합니다. 비교 결과는 관련 상품 참조도 다시 검사합니다. 역직렬화만 한 경우에는 `validate_for_request()`를 명시적으로 호출합니다.
+
+`to_common_result()`는 기존 `IntentAnalysisResult`로의 요약 변환입니다. 비교 항목별 사유·상품 참조·확인 요청·세부 실패·측정 정보까지 보존하려면 원래 분석 결과 객체도 함께 유지합니다. 공통 결과의 상태·사유·평가 대상·버전은 변환 중 바뀌지 않습니다.
+
+합성 예시와 테스트는 `tests/analysis/`에 있습니다. `python -m pytest tests/analysis -q`로 네트워크 없이 실행합니다. 이는 계약·변환 검증이며 실제 GPT의 정확도나 Prompt Injection 방어 성능 검증을 의미하지 않습니다.
+
+### 구매 의도 추출기
+
+`IntentExtractor`는 요청 텍스트만 담은 버전 관리 프롬프트를 GMS 어댑터에 전달하고 `IntentExtractionResult`로 연결합니다. 출처·버전·추적 정보는 호출자가 준 입력에서 보존합니다. 요청 텍스트 미수집은 NOT_RUN, 추출 가능한 구매 내용이 없는 응답은 INSUFFICIENT_INPUT 실패, 모호하지만 일부 구매 내용이 있는 경우는 확인 사항을 포함한 SUCCESS로 구분합니다.
+
+결과의 `input_source`는 요청의 `user_direct`/`agent_summary`/`unknown` 값입니다. `clarifications`는 확인이 필요한 내용을 담으며, 입력 부족으로 payload를 반환하지 못할 때도 유지합니다. 기존 계약과의 호환을 위해 두 필드에는 기본값이 있으나 추출기는 출처를 항상 채웁니다. `to_purchase_intent(request)`는 주문과 분리된 구매 의도로 변환하며, `to_evaluation_request(request)`는 기존 공통 비교 입력의 통화·참조 검증까지 적용합니다.
+
+실행 예제, 예산·미지정 값 처리와 검증 범위는 [구매 의도 추출기 사용 문서](docs/intent-extractor.md)를 참고하세요.
+
 ## 환경설정
 
 `copenhagen_fds.settings.load_settings()`는 기존 Pydantic 모델과 표준 라이브러리로 프로세스 환경변수를 읽고 검증합니다. 반환하는 설정은 필드 재할당을 막습니다. 명시적인 매핑을 넘기면 해당 매핑만 사용하므로 테스트가 개발자 PC의 키나 환경설정에 의존하지 않습니다.
@@ -147,9 +232,9 @@ except SettingsError as error:
 | --- | --- | --- |
 | `FDS_MODE` | `MOCK` | `MOCK` 또는 `LIVE`, 대소문자 구분 |
 | `FDS_OPENAI_MODEL` | `gpt-5.4-mini` | 명시한 모델명 보존, 오류 시 다른 모델로 대체하지 않음 |
-| `FDS_OPENAI_API_KEY` | `None` | OpenAI 키, LIVE 필수 |
+| `GMS_KEY` | `None` | GMS에서 발급한 키, LIVE 필수 |
 | `FDS_SIFT_API_KEY` | `None` | Sift 키, LIVE 필수 |
-| `FDS_OPENAI_TIMEOUT_SECONDS` | `None` | OpenAI 호출 제한 시간, 초 단위 |
+| `FDS_OPENAI_TIMEOUT_SECONDS` | `None` | GMS 경유 OpenAI 호출 제한 시간, 초 단위 |
 | `FDS_SIFT_TIMEOUT_SECONDS` | `None` | Sift 호출 제한 시간, 초 단위 |
 | `FDS_EVALUATION_TIMEOUT_SECONDS` | `None` | 전체 평가 제한 시간, 초 단위 |
 | `FDS_POLICY_VERSION` | `None` | 명시적으로 적용할 정책 버전 |
@@ -158,10 +243,29 @@ except SettingsError as error:
 | `FDS_SIFT_SCORE_UNIT` | `None` | 임계값을 지정하면 `SIFT_PAYMENT_ABUSE_0_1` 필수 |
 
 - **MOCK**는 키·제한 시간·정책·임계값 없이 설정을 읽을 수 있습니다. 미지정 값은 그대로 `None`이며 운영값으로 채우지 않습니다.
-- **LIVE**는 두 API Key, 세 제한 시간, 정책 버전, 두 임계값과 점수 단위를 모두 명시해야 합니다. 설정 로딩은 실제 API 호출이나 접근 권한 확인을 수행하지 않습니다. `LIVE` 설정이 유효해도 계정의 제품·sandbox 사용 권한을 보장하지 않습니다.
+- **LIVE**는 GMS Key와 Sift API Key, 세 제한 시간, 정책 버전, 두 임계값과 점수 단위를 모두 명시해야 합니다. 설정 로딩은 실제 API 호출이나 접근 권한 확인을 수행하지 않습니다. `LIVE` 설정이 유효해도 GMS 모델 접근 또는 Sift 제품·sandbox 사용 권한을 보장하지 않습니다.
 - 제한 시간은 유한한 양수이며 각 제공자 제한 시간은 전체 평가 제한 시간 이하여야 합니다. 실제 병렬·순차 실행과 취소 처리는 호출·통합 평가 구현에서 담당합니다.
 - 임계값은 기존 `SiftScore` 계약을 재사용해 `0 <= medium < high <= 1`을 검증합니다. 두 값과 단위는 함께 설정하고, MOCK에서도 임계값을 주면 정책 버전이 필요합니다. 임계값으로 위험을 분류하는 알고리즘이나 금융 사기 확률 변환은 이 로더에 포함하지 않습니다.
 - 선택 항목의 빈 문자열은 미지정으로 처리합니다. 모드·모델의 빈 문자열, 공백뿐인 값, 오타가 있는 `FDS_` 변수는 오류로 처리합니다. 무관한 프로세스 환경변수는 무시합니다.
+
+### GMS 인증과 연결 주소
+
+OpenAI 모델 호출에는 GMS에서 발급한 `GMS_KEY`를 사용합니다. 설정 객체의 `gms_key`에 `SecretStr`로 보관하며 기존 `FDS_OPENAI_MODEL`과 `FDS_OPENAI_TIMEOUT_SECONDS` 이름은 유지합니다. 기본 모델은 `gpt-5.4-mini`입니다.
+
+| 설정 속성 / 요청 항목 | 값 |
+| --- | --- |
+| `settings.openai_base_url` | `https://gms.ssafy.io/gmsapi/api.openai.com/v1` |
+| `settings.openai_chat_completions_url` | `https://gms.ssafy.io/gmsapi/api.openai.com/v1/chat/completions` |
+| HTTP 메서드 | `POST` |
+| 인증 헤더 | `Authorization: Bearer <GMS_KEY 값>` |
+| Content-Type | `application/json` |
+| 요청 본문 | `model`, `messages` — `developer`와 `user` 메시지 |
+
+GMS 주소와 인증은 제공받은 연결 규격을 따릅니다. 메시지 형식은 [OpenAI Chat Completions 명세](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)를 참고합니다. `OpenAIAnalysisAdapter`는 위 주소와 `gms_key`를 명시적으로 사용합니다. 호출·실패·시간 예산 처리는 [GMS 어댑터 사용 문서](docs/openai-adapter.md)에 설명합니다.
+
+기존 환경설정의 `FDS_OPENAI_API_KEY` 항목은 제거하고 `GMS_KEY`로 교체합니다. 이전 항목이 남아 있으면 값이 비어 있더라도 변경 안내 오류가 발생합니다. `GMS_KEY`는 대소문자를 구분하며 `gms_key` 등의 표기를 거부합니다. 일반 `OPENAI_API_KEY`·`OPENAI_BASE_URL` 환경변수는 이 설정 로더가 사용하지 않으며 GMS 키·주소를 대체하지 않습니다.
+
+키는 실행 환경에서 주입합니다. `.env` 파일 자동 로딩은 없으며 `.env.example`에도 실제 키를 넣지 않습니다. GMS의 실제 인증·모델 접근·Structured Outputs 지원은 별도 연동 검증 대상입니다. 현재 설정 검증만으로 `/responses`나 `response_format` 옵션의 GMS 지원을 보장하지 않습니다.
 
 키는 `SecretStr`로 보관해 `str`, `repr`, `model_dump_json`과 JSON 모드의 `model_dump`에서 마스킹됩니다. 제공자 클라이언트가 실제 호출할 때만 해당 키의 `get_secret_value()`를 사용하고 그 반환값을 로그나 문서에 넣지 않습니다. `load_settings`의 `SettingsError`는 변수 이름과 고정된 설명만 보존하며 원본 검증 오류나 입력값을 예외 체인에 연결하지 않습니다. 환경변수 입력의 검증 경계는 `load_settings`이고, 설정 모델의 저수준 생성·검증 API를 직접 사용할 필요는 없습니다.
 
@@ -174,6 +278,35 @@ $env:FDS_MODE = "MOCK"
 ```
 
 설정 검증 예시는 `tests/test_settings.py`에 있습니다. 예제와 테스트에 쓰는 문자열은 합성 데이터이며 실제 OpenAI·Sift에 연결하지 않습니다.
+
+### OpenAI 단독 설정과 명시적 환경 파일
+
+`copenhagen_fds.openai_settings.load_openai_settings()`는 GMS 분석만 실행할 때 사용하는 설정 경계입니다. Sift 키·임계값·정책 버전을 요구하지 않습니다. 전체 FDS의 `load_settings()`와 LIVE 검증은 그대로 유지합니다.
+
+| 설정 | OpenAI 단독 실행 기준 |
+| --- | --- |
+| `FDS_MODE` | 기본 MOCK, 실제 연결 시 LIVE 명시 |
+| `GMS_KEY` | LIVE 필수, MOCK은 키 없이 주입한 SDK 사용 |
+| `FDS_OPENAI_MODEL` | 기본 `gpt-5.4-mini`, 변경 시 입력값 그대로 전달 |
+| `FDS_OPENAI_TIMEOUT_SECONDS` | 두 모드 모두 유한한 양수 필수 |
+| `FDS_EVALUATION_TIMEOUT_SECONDS` | 두 모드 모두 필수, OpenAI 제한 시간 이상 |
+
+파일의 키를 사용할 때는 `env_file`에 경로를 명시합니다. 파일을 자동 탐색하지 않으며, 읽는 동작만으로 API를 호출하지 않습니다.
+
+```python
+from copenhagen_fds.openai_settings import load_openai_settings
+
+# ai 디렉터리에서 루트 .env를 명시적으로 읽는 예제입니다.
+# 아래 제한 시간은 사용 예시이며 운영 권장값이 아닙니다.
+settings = load_openai_settings(
+    {"FDS_MODE": "LIVE", "FDS_OPENAI_TIMEOUT_SECONDS": "5", "FDS_EVALUATION_TIMEOUT_SECONDS": "10"},
+    env_file="../.env",
+)
+```
+
+명시적 매핑이 파일 값보다 우선합니다. 매핑을 생략하면 프로세스 환경변수가 파일 값보다 우선하고, 빈 매핑 `{}`을 넘기면 파일 값만 읽습니다. `${VAR}` 보간은 수행하지 않고 `os.environ`도 수정하지 않습니다. 지정한 파일을 읽지 못하면 경로·입력 원문을 포함하지 않는 `SettingsError`를 반환합니다. 파일·코드·로그에 키 값을 출력하지 않습니다.
+
+`tests/test_openai_settings.py`는 합성 환경 파일, 우선순위, 키 마스킹, 제한 시간과 기존 전체 FDS 설정의 회귀 동작을 검증합니다.
 
 ## 계약 통합 테스트
 
@@ -197,7 +330,9 @@ ai/
 ├── requirements*.txt        # pip 설치 진입점
 ├── src/copenhagen_fds/
 │   ├── contracts/           # FDS 입력·결과·상태 모델과 공통 값 타입
-│   └── settings.py          # 환경변수 로더, 설정 검증과 Secret 보호
+│   ├── analysis/            # GMS 어댑터, 공유 시간 예산, 의도 추출·주문 의미 비교
+│   ├── openai_settings.py   # OpenAI 단독 설정과 명시적 dotenv 로딩
+│   └── settings.py          # 전체 FDS 환경변수와 정책 검증
 ├── tests/                   # 합성 데이터 기반 단위 테스트
 │   └── contract/           # 입력·결과·설정의 연결과 JSON 왕복 검증
 ├── config/                  # 설정 작업 공간
