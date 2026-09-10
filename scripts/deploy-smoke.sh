@@ -35,23 +35,44 @@ record() {
 
 snapshot() {
     if [ -f "$work/compose.yml" ]; then
-        compose ps --all > "$results/$phase-containers.txt" 2>&1 || true
+        compose ps --all 2>&1 | sed "s/$password/[redacted]/g" \
+            > "$results/$phase-containers.txt" || true
         compose logs --no-color --tail 200 2>&1 \
-            | sed "s/$password/[redacted]/g" > "$results/$phase-containers.log" || true
+            | sed "s/$password/[redacted]/g" | cut -c 1-4096 \
+            > "$results/$phase-containers.log" || true
         : > "$results/$phase-health.log"
-        for container in $(compose ps --all --quiet); do
-            docker inspect --format '{{.Name}} {{json .State}}' "$container" \
-                | sed "s/$password/[redacted]/g" >> "$results/$phase-health.log" || true
+        local containers container
+        containers=$(compose ps --all --quiet 2>/dev/null) || true
+        for container in $containers; do
+            docker inspect --format '{{.Name}} status={{.State.Status}} ExitCode={{.State.ExitCode}} OOMKilled={{.State.OOMKilled}} error={{.State.Error}}{{if .State.Health}} health={{.State.Health.Status}}{{range .State.Health.Log}}{{println}}{{.End}} exit={{.ExitCode}} {{.Output}}{{end}}{{end}}' "$container" 2>&1 \
+                | sed "s/$password/[redacted]/g" | cut -c 1-4096 \
+                >> "$results/$phase-health.log" || true
         done
     fi
 }
 
 cleanup() {
-    local status=$?
+    local status=$? file
     trap - EXIT
+    # 진단 실패 때문에 원래 종료 코드나 자원 정리가 달라지지 않게 합니다.
+    set +e
+    if [ "$status" -ne 0 ]; then
+        record "FAIL exit=$status phase=$phase"
+    fi
     snapshot
+    if [ "$status" -ne 0 ]; then
+        for file in "$results/$phase-containers.txt" "$results/$phase-health.log" "$results/$phase-containers.log"; do
+            if [ -f "$file" ]; then
+                printf '\n--- %s ---\n' "${file##*/}"
+                cat "$file"
+            fi
+        done
+    fi
     if [ -f "$work/compose.yml" ]; then
-        compose down --volumes --remove-orphans || status=1
+        if ! compose down --volumes --remove-orphans; then
+            record "FAIL cleanup phase=$phase"
+            if [ "$status" -eq 0 ]; then status=1; fi
+        fi
     fi
     if [ "${#images[@]}" -gt 0 ]; then
         docker image rm "${images[@]}" >/dev/null 2>&1 || true
@@ -103,20 +124,54 @@ render_compose() {
 }
 
 expect_http() {
-    local url=$1 expected=$2 assertion=${3:-} response code body
-    response=$(docker run --rm --network "${COMPOSE_PROJECT_NAME}_default" "$curl_image" \
-        --silent --show-error --connect-timeout 5 --max-time 10 \
-        --header 'Accept: application/json' --write-out '\n%{http_code}' "$url")
+    local url=$1 expected=$2 assertion=${3:-} response code body status reason
+    if response=$(docker run --rm --network "${COMPOSE_PROJECT_NAME}_default" "$curl_image" \
+        --silent --connect-timeout 5 --max-time 10 \
+        --header 'Accept: application/json' --write-out '\n%{http_code}' "$url" 2>/dev/null); then
+        :
+    else
+        status=$?
+        case "$status" in
+            6) reason=dns ;;
+            7) reason=connection ;;
+            28) reason=timeout ;;
+            *) reason=transport ;;
+        esac
+        record "FAIL HTTP target=$url reason=$reason exit=$status connect-timeout=5 max-time=10"
+        return "$status"
+    fi
     code=${response##*$'\n'}
     body=${response%$'\n'*}
     if [ "$code" != "$expected" ]; then
-        record "FAIL $url expected=$expected actual=$code"
+        record "FAIL HTTP target=$url reason=status expected=$expected actual=$code"
         return 1
     fi
     if [ -n "$assertion" ]; then
-        printf '%s' "$body" | jq -e "$assertion" >/dev/null
+        if ! printf '%s' "$body" | jq -e "$assertion" >/dev/null 2>&1; then
+            record "FAIL HTTP target=$url reason=json assertion=$assertion"
+            return 1
+        fi
     fi
     record "PASS $url status=$code"
+}
+
+expect_dependency_http() {
+    local source=$1 variable=$2 path=$3 assertion=$4 response status
+    # URL 값과 응답 본문은 로그에 남기지 않습니다.
+    # shellcheck disable=SC2016
+    if response=$(compose exec -T "$source" sh -c \
+        'wget -T 10 -qO- "$(printenv "$1")$2"' sh "$variable" "$path" 2>/dev/null); then
+        :
+    else
+        status=$?
+        record "FAIL HTTP source=$source target=$variable$path reason=request exit=$status timeout=10"
+        return "$status"
+    fi
+    if ! printf '%s' "$response" | jq -e "$assertion" >/dev/null 2>&1; then
+        record "FAIL HTTP source=$source target=$variable$path reason=json assertion=$assertion"
+        return 1
+    fi
+    record "PASS $source -> $variable$path"
 }
 
 check_http() {
@@ -137,16 +192,10 @@ check_http() {
             mcp-server) variable=CORE_SERVICE_URL ;;
             pay-service) variable=PG_SERVICE_URL ;;
         esac
-        # 환경 변수는 실행 중인 컨테이너 안에서 확장합니다.
-        # shellcheck disable=SC2016
-        compose exec -T "$source" sh -c 'wget -T 10 -qO- "$(printenv "$1")/actuator/health"' sh "$variable" \
-            | jq -e '.status == "UP"' >/dev/null
-        record "PASS $source -> $variable"
+        expect_dependency_http "$source" "$variable" /actuator/health '.status == "UP"'
     done
-    # shellcheck disable=SC2016
-    compose exec -T core-service sh -c 'wget -T 10 -qO- "$MERCHANT_SERVICE_URL/.well-known/ucp"' \
-        | jq -e '.ucp.services["dev.ucp.shopping"][0].transport == "rest" and (.keys | length > 0)' >/dev/null
-    record 'PASS Core -> Merchant Profile discovery'
+    expect_dependency_http core-service MERCHANT_SERVICE_URL /.well-known/ucp \
+        '.ucp.services["dev.ucp.shopping"][0].transport == "rest" and (.keys | length > 0)'
 }
 
 database_sql() {
