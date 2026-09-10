@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/users/me/biometric-credentials")
+@RequestMapping("/api/pay/v1/users/me/biometric-credentials")
 public class BiometricCredentialController {
 
     private final BiometricCredentialService service;

@@ -46,7 +46,7 @@ PG_MOCK_OUTCOME=TIMEOUT  # 응답 지연·유실 → Pay UNKNOWN
 
 ## 앱 결제수단 API 보안
 
-PIN·생체인증·카드 결제수단 API는 `/api/v1` 사용자 인증 영역에서 제공합니다.
+PIN·생체인증·카드 결제수단 API는 `/api/pay/v1` 사용자 인증 영역에서 제공합니다.
 
 - PIN 원문·생체정보 원문·카드번호·CVC는 저장하거나 로그에 기록하지 않습니다.
 - PIN은 Argon2id 검증값만 `payment_pin_credentials.pin_hash`에 저장합니다.

@@ -21,7 +21,7 @@ class PayIdempotencyFilterTest {
     void stateChangingProtectedRequestRequiresKey() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest(
                 "POST",
-                "/api/v1/payment-approvals");
+                "/api/pay/v1/payment-approvals");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, new MockFilterChain());
@@ -34,7 +34,7 @@ class PayIdempotencyFilterTest {
     void keyIsStoredOnRequestContext() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest(
                 "POST",
-                "/api/v1/payment-approvals");
+                "/api/pay/v1/payment-approvals");
         request.addHeader("Idempotency-Key", "request-001");
         MockHttpServletResponse response = new MockHttpServletResponse();
 

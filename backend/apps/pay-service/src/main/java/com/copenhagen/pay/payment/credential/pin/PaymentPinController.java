@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/users/me/payment-pin")
+@RequestMapping("/api/pay/v1/users/me/payment-pin")
 public class PaymentPinController {
 
     private final PaymentPinService service;

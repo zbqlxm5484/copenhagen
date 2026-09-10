@@ -2,7 +2,7 @@ package com.copenhagen.pay.common.auth;
 
 public final class PayAuthenticationPolicy {
 
-    private static final String APP_PREFIX = "/api/v1";
+    private static final String APP_PREFIX = "/api/pay/v1";
     private static final String INTERNAL_PREFIX = "/internal/v1";
 
     private PayAuthenticationPolicy() {
