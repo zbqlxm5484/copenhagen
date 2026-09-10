@@ -41,7 +41,11 @@ public class PaymentLifecycleService {
             throw stateConflict(currentStatus);
         }
         if (!paymentRepository.transitionStatus(paymentId, currentStatus, PaymentStatus.SUCCESS)) {
-            throw stateConflict(findRequiredStatus(paymentId));
+            PaymentStatus actualStatus = findRequiredStatus(paymentId);
+            if (actualStatus == PaymentStatus.SUCCESS) {
+                return;
+            }
+            throw stateConflict(actualStatus);
         }
         authorizationSessionService.completeAfterPaymentSuccess(
                 findAuthorizationSessionId(paymentId));
@@ -57,7 +61,11 @@ public class PaymentLifecycleService {
             throw stateConflict(currentStatus);
         }
         if (!paymentRepository.transitionStatus(paymentId, currentStatus, PaymentStatus.FAILED)) {
-            throw stateConflict(findRequiredStatus(paymentId));
+            PaymentStatus actualStatus = findRequiredStatus(paymentId);
+            if (actualStatus == PaymentStatus.FAILED) {
+                return;
+            }
+            throw stateConflict(actualStatus);
         }
         authorizationSessionService.invalidateAfterDefinitivePaymentFailure(
                 findAuthorizationSessionId(paymentId));

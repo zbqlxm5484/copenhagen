@@ -13,13 +13,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class PaymentLifecycleServiceConcurrencyTest {
 
     @Test
-    void concurrentSuccessResolutionAllowsOnlyOnePaymentTransition() throws Exception {
+    void concurrentSuccessResolutionIsIdempotentAndTransitionsOnce() throws Exception {
         InMemoryPaymentRepository paymentRepository = new InMemoryPaymentRepository();
         InMemoryAuthorizationSessionRepository sessionRepository =
                 new InMemoryAuthorizationSessionRepository();
@@ -33,11 +34,13 @@ class PaymentLifecycleServiceConcurrencyTest {
             Future<Boolean> second = executor.submit(() -> resolve(service, start));
             start.countDown();
 
-            assertTrue(first.get(5, TimeUnit.SECONDS) ^ second.get(5, TimeUnit.SECONDS));
+            assertTrue(first.get(5, TimeUnit.SECONDS));
+            assertTrue(second.get(5, TimeUnit.SECONDS));
         }
 
         assertEquals(PaymentStatus.SUCCESS, paymentRepository.status.get());
         assertEquals(AuthorizationSessionStatus.COMPLETED, sessionRepository.status.get());
+        assertEquals(1, paymentRepository.transitionCount.get());
     }
 
     private boolean resolve(PaymentLifecycleService service, CountDownLatch start)
@@ -55,6 +58,7 @@ class PaymentLifecycleServiceConcurrencyTest {
 
         private final AtomicReference<PaymentStatus> status =
                 new AtomicReference<>(PaymentStatus.PROCESSING);
+        private final AtomicInteger transitionCount = new AtomicInteger();
 
         @Override
         public Optional<PaymentStatus> findStatus(String paymentId) {
@@ -76,7 +80,11 @@ class PaymentLifecycleServiceConcurrencyTest {
                 String paymentId,
                 PaymentStatus expectedStatus,
                 PaymentStatus targetStatus) {
-            return status.compareAndSet(expectedStatus, targetStatus);
+            boolean transitioned = status.compareAndSet(expectedStatus, targetStatus);
+            if (transitioned) {
+                transitionCount.incrementAndGet();
+            }
+            return transitioned;
         }
     }
 

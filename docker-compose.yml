@@ -111,6 +111,9 @@ services:
     build:
       context: ./backend
       dockerfile: mocks/pg-mock/Dockerfile
+    environment:
+      PG_MOCK_OUTCOME: ${PG_MOCK_OUTCOME:-SUCCESS}
+      PG_MOCK_RESPONSE_DELAY_MILLIS: ${PG_MOCK_RESPONSE_DELAY_MILLIS:-0}
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health"]
       interval: 10s

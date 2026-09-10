@@ -35,7 +35,9 @@ public class JdbcPaymentRepository implements PaymentRepository {
 
     private static final String TRANSITION_STATUS_SQL = """
             UPDATE payments
-            SET status = ?, version = version + 1
+            SET status = ?,
+                version = version + 1,
+                updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND status = ?
             """;
 

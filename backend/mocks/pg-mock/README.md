@@ -13,3 +13,15 @@
 ./gradlew :mocks:pg-mock:test
 ./gradlew :mocks:pg-mock:build
 ```
+
+Pay의 `POST /internal/v1/charges` 호출에 대한 결과는 환경변수로 선택합니다.
+
+```text
+PG_MOCK_OUTCOME=SUCCESS
+PG_MOCK_OUTCOME=FAILED
+PG_MOCK_OUTCOME=TIMEOUT
+```
+
+`TIMEOUT`은 `PG_MOCK_RESPONSE_DELAY_MILLIS`만큼 응답을 지연합니다. 값을 생략하면
+Pay의 요청 타임아웃을 초과하도록 5초 지연을 사용합니다. Mock은 결제 원장이나 카드정보를
+저장하지 않습니다.
