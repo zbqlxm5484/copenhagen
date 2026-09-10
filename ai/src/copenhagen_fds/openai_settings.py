@@ -51,8 +51,8 @@ def load_openai_settings(
     """Optionally read one explicit dotenv file; never search or mutate os.environ.
 
     The explicit mapping, or process environment if omitted, overrides the file.
-    Dotenv interpolation is disabled. Sift/policy values are outside this scope;
-    callers enabling the whole FDS must still use load_settings separately.
+    Dotenv interpolation is disabled. Policy metadata is outside this scope.
+    Removed Sift environment variables fail explicitly in both settings loaders.
     """
 
     environment = os.environ if environ is None else environ

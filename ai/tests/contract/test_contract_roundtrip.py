@@ -32,7 +32,7 @@ def test_exchange_round_trip_preserves_all_supplied_information(scenario_payload
     request, decision = decode_exchange(scenario_payload, decoder)
     assert contract_settings.mode == EvaluationMode.MOCK
     assert contract_settings.gms_key is None
-    assert contract_settings.sift_api_key is None
+    assert "sift_api_key" not in contract_settings.model_dump()
 
     supplied = {
         "request": request.model_dump(mode="json", exclude_unset=True),
