@@ -1,41 +1,60 @@
 # 공용 스크립트
 
-레포 전체에서 사용하는 개발 서버 준비 및 배포 스크립트입니다. 인자 없이 내용을 추측해 실행하지 말고 아래 용도를 확인합니다.
-
 ## `bootstrap-dev-infra.sh`
 
-개발 EC2에서 최초 한 번 PostgreSQL 3개와 Redis를 시작합니다.
+- 용도: 개발 EC2의 PostgreSQL 3개, Redis 최초 기동
+- 기본 파일: `docker-compose.yml`, `.env`
+- 중단 조건: `.env`에 `CHANGE_ME` 잔존
+- 제외: 애플리케이션, Nginx
 
 ```bash
 ./scripts/bootstrap-dev-infra.sh [compose-file] [env-file]
 ```
 
-기본값은 `docker-compose.yml`과 `.env`입니다. `.env`에 `CHANGE_ME`가 남아 있으면 DB를 시작하지 않습니다. 애플리케이션이나 Nginx는 이 스크립트가 시작하지 않습니다.
-
 ## `deploy-dev-service.sh`
 
-GitLab deploy job이 한 서비스만 갱신할 때 사용합니다.
+- 용도: GitLab deploy job의 단일 서비스 갱신
+- 입력: 허용된 서비스와 이미지 변수 조합, EC2에 적재된 이미지
+- 절차: 컨테이너 교체, health 확인, 실행 중인 Nginx 검사와 reload, `.env` 확정
+- 실패 처리: 롤백 전 진단 출력, 이전 이미지 복구 시도, 최초 실패 코드 유지
+- 롤백 결과: `SUCCESS`, `FAILED`, `UNAVAILABLE`
+- 로컬 개발: `docker compose up --build`
 
 ```bash
 ./scripts/deploy-dev-service.sh \
-  <compose-service> \
-  <image-variable> \
-  <image> \
-  [compose-file] \
-  [wait-timeout]
+  <compose-service> <image-variable> <image> [compose-file] [wait-timeout]
 ```
-
-허용된 service와 image 변수 조합만 실행합니다. CI가 SSH 스트림으로 미리 적재한 image가 존재하는지 확인하고 `--no-deps --no-build --pull never`로 대상 컨테이너만 재생성합니다. 실행 중인 Nginx가 있으면 설정 검사와 reload로 새 upstream IP를 반영합니다. 기동 또는 Nginx 검사·reload 실패 시 컨테이너 로그를 출력하고, EC2에 이전 image가 남아 있으면 복구와 Nginx reload를 시도합니다.
-
-일반 개발자가 로컬 코드를 반영하려고 이 배포 스크립트를 실행할 필요는 없습니다. 로컬에서는 `docker compose up --build`를 사용하고, 개발 EC2 배포는 GitLab CI가 담당합니다.
 
 ## `deploy-smoke.sh`
 
-MR에서 배포 전에 실제 Docker image와 전체 Compose 스택을 검증합니다. 빈 DB 기동, 기준 버전에서 MR 버전으로의 업데이트, 실패 image 복구를 테스트하고 임시 자원을 정리합니다.
+- 범위: 빈 DB 기동, 기준 버전에서 MR 버전으로 갱신, 실패 이미지 복구, 임시 자원 정리
+- 요구사항: Docker/BuildKit, Compose 2.24.4 이상, Bash, Git, jq
+- 결과 경로: `tmp/deploy-smoke/`
+- 개인 `.env`, 개발 EC2 접근 없음
+- 상세: [MR 배포 스모크 테스트](../infra/gitlab/README.md#mr-배포-스모크-테스트)
 
 ```bash
 git fetch origin develop
 SMOKE_BASE_REF=origin/develop bash scripts/deploy-smoke.sh
 ```
 
-Docker/BuildKit, Compose 2.24.4 이상, Bash, Git, jq가 필요합니다. 개인 `.env`나 개발 EC2에 접근하지 않으며 결과는 기본 `tmp/deploy-smoke/`에 저장합니다. 설정과 검증 범위는 [MR 배포 스모크 테스트](../infra/gitlab/README.md#mr-배포-스모크-테스트)를 참고합니다.
+## 실패 진단 검증
+
+Docker CLI 대체 테스트. 요구사항: Python 3, Bash, Git, jq. Docker daemon, EC2 불필요.
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v
+bash -n scripts/deploy-smoke.sh
+sh -n scripts/deploy-dev-service.sh
+shellcheck scripts/deploy-smoke.sh scripts/deploy-dev-service.sh
+git diff --check
+```
+
+| 검증 항목 | 2026-09-10 결과 |
+| --- | --- |
+| 회귀 테스트 9개와 하위 시나리오 | 통과: 진단 순서, 종료 코드, HTTP 오류, Nginx 오류, 롤백, `.env`, 비밀값 마스킹 |
+| 문법, ShellCheck 0.10.0, diff 검사 | 통과 |
+| 격리 컨테이너 배포 | 통과: 롤백 전 진단, 합성 비밀번호 마스킹, 이전 이미지 healthy 복구, `.env` 유지, 종료 코드 `1` |
+| 전체 앱 스모크, GitLab Runner, EC2 | 미검증 |
+
+격리 검증 환경: Podman API, Docker Compose. 테스트 컨테이너, 네트워크, 전용 이미지 정리 완료.
