@@ -6,6 +6,10 @@ Payment MCP의 FDS 평가 모듈입니다. 구매 의도·주문·컨텍스트 �
 
 고정 합성 사례와 전체 경로 회귀는 [평가셋 문서](docs/evaluation-cases.md), 출처를 구분한 집계와 실행 명령은 [평가 보고서 문서](docs/evaluation-report.md)에 설명합니다.
 
+개인·집단 프로필의 참조·출처·관측 범위와 평가 시점 검증은 [행동 프로필 계약](docs/behavior-profiles.md)을 참고합니다. 이 계약은 관측 메타데이터를 표현하며 실제 구매 분포 학습이나 통계값 계산은 수행하지 않습니다.
+
+자체 FDS 입력과 Feature별 이상점수·결측·실패 결과는 [행동 평가 계약](docs/behavior-evaluation.md)에 설명합니다. 금액·빈도·시간대의 원시 값 계산과 BE 입력 요구사항은 [Feature 변환 문서](docs/feature-transform.md), 보유 CSV의 사용 범위와 재현 명령은 [데이터 적합성 점검](docs/dataset-suitability.md)을 참고합니다. 제공된 집단 기준·초기 정책의 출처·버전·시각 검증은 [기준 로딩과 선택](docs/baseline-selection.md)에 설명합니다. [Cold 점수와 데이터 충분도](docs/cold-scoring.md)는 선택된 기준으로 Feature별 이탈 점수를 계산하며, [점수 수식](docs/feature-scoring.md)과 합성 예제로 직접 검증할 수 있습니다. [Cold 단독 평가](docs/cold-evaluation.md)는 제공된 원천 이벤트부터 Feature 변환·기준 선택·점수 반환까지 연결합니다. 최종 가중합 정책과 GPT의 전체 정책 결합은 아직 구현하지 않았습니다.
+
 ## 개발 환경
 
 - Python 3.11 이상: FDS 모듈 실행 환경입니다. 로컬 검증은 Python 3.11.9에서 수행합니다.
@@ -78,6 +82,8 @@ request_from_json = FraudEvaluationRequest.model_validate_json(json_payload)
 이 계약은 AI 모듈의 입력 모델입니다. 현재 Core·Pay와 연결된 API 계약이나 제공자·소비자 통합 검증을 의미하지 않습니다. 인증·승인 진위, DB 접근, 결제 실행 및 외부 서비스 호출은 포함하지 않습니다.
 
 ## 개별 평가 결과 계약
+
+이 절의 `SiftScore`, `SiftFraudResult`와 아래 `FraudDecision`은 기존 소비자 호환을 위한 계약입니다. 자체 FDS는 별도의 `BehaviorEvaluationRequest`와 `BehaviorEvaluationResult`를 사용합니다. 두 점수 체계를 자동 변환하지 않으며 기존 최종 판정 계약의 교체는 통합 구현에서 수행합니다.
 
 `IntentAnalysisResult`, `SiftFraudResult`, `RuleResult`는 모두 실행 상태, 평가 메타데이터, 사유 목록을 가집니다. JSON 문자열과 Python dict 양쪽에서 같은 문자열 Enum 값을 받습니다.
 
@@ -233,19 +239,15 @@ except SettingsError as error:
 | `FDS_MODE` | `MOCK` | `MOCK` 또는 `LIVE`, 대소문자 구분 |
 | `FDS_OPENAI_MODEL` | `gpt-5.4-mini` | 명시한 모델명 보존, 오류 시 다른 모델로 대체하지 않음 |
 | `GMS_KEY` | `None` | GMS에서 발급한 키, LIVE 필수 |
-| `FDS_SIFT_API_KEY` | `None` | Sift 키, LIVE 필수 |
 | `FDS_OPENAI_TIMEOUT_SECONDS` | `None` | GMS 경유 OpenAI 호출 제한 시간, 초 단위 |
-| `FDS_SIFT_TIMEOUT_SECONDS` | `None` | Sift 호출 제한 시간, 초 단위 |
 | `FDS_EVALUATION_TIMEOUT_SECONDS` | `None` | 전체 평가 제한 시간, 초 단위 |
-| `FDS_POLICY_VERSION` | `None` | 명시적으로 적용할 정책 버전 |
-| `FDS_SIFT_MEDIUM_THRESHOLD` | `None` | Sift 중간 위험 구간의 시작값 |
-| `FDS_SIFT_HIGH_THRESHOLD` | `None` | Sift 높은 위험 구간의 시작값 |
-| `FDS_SIFT_SCORE_UNIT` | `None` | 임계값을 지정하면 `SIFT_PAYMENT_ABUSE_0_1` 필수 |
+| `FDS_POLICY_VERSION` | `None` | 선택적으로 전달하는 정책 버전 메타데이터 |
 
-- **MOCK**는 키·제한 시간·정책·임계값 없이 설정을 읽을 수 있습니다. 미지정 값은 그대로 `None`이며 운영값으로 채우지 않습니다.
-- **LIVE**는 GMS Key와 Sift API Key, 세 제한 시간, 정책 버전, 두 임계값과 점수 단위를 모두 명시해야 합니다. 설정 로딩은 실제 API 호출이나 접근 권한 확인을 수행하지 않습니다. `LIVE` 설정이 유효해도 GMS 모델 접근 또는 Sift 제품·sandbox 사용 권한을 보장하지 않습니다.
-- 제한 시간은 유한한 양수이며 각 제공자 제한 시간은 전체 평가 제한 시간 이하여야 합니다. 실제 병렬·순차 실행과 취소 처리는 호출·통합 평가 구현에서 담당합니다.
-- 임계값은 기존 `SiftScore` 계약을 재사용해 `0 <= medium < high <= 1`을 검증합니다. 두 값과 단위는 함께 설정하고, MOCK에서도 임계값을 주면 정책 버전이 필요합니다. 임계값으로 위험을 분류하는 알고리즘이나 금융 사기 확률 변환은 이 로더에 포함하지 않습니다.
+- **MOCK**는 키·제한 시간·정책 버전 없이 설정을 읽을 수 있습니다. 미지정 값은 그대로 `None`이며 운영값으로 채우지 않습니다.
+- **LIVE**는 `GMS_KEY`, `FDS_OPENAI_TIMEOUT_SECONDS`, `FDS_EVALUATION_TIMEOUT_SECONDS`를 명시해야 합니다. 설정 로딩은 실제 API 호출이나 접근 권한 확인을 수행하지 않습니다. 설정 검증 통과는 GMS 접근 성공이나 전체 FDS 평가·위험 정책의 준비 완료를 의미하지 않습니다.
+- 제한 시간은 유한한 양수이며 GMS 호출 제한 시간은 전체 평가 제한 시간 이하여야 합니다. 실제 실행과 취소 처리는 호출·통합 평가 구현에서 담당합니다.
+- 자체 FDS 설정은 Sift 필드·임계값을 사용하지 않습니다. 최종 가중치·위험등급 임계값은 별도 정책 구현에서 정의하며, `FDS_POLICY_VERSION`만 설정해도 해당 정책이 실행되지는 않습니다.
+- 기존 `FDS_SIFT_API_KEY`, `FDS_SIFT_TIMEOUT_SECONDS`, `FDS_SIFT_MEDIUM_THRESHOLD`, `FDS_SIFT_HIGH_THRESHOLD`, `FDS_SIFT_SCORE_UNIT`은 환경변수 또는 명시적으로 읽는 `.env`에서 제거해야 합니다. 빈값이어도 `load_settings`와 `load_openai_settings` 모두 제거 안내 오류를 반환합니다. 예전 Sift 값을 새 이상점수로 자동 변환하거나 무시하지 않습니다.
 - 선택 항목의 빈 문자열은 미지정으로 처리합니다. 모드·모델의 빈 문자열, 공백뿐인 값, 오타가 있는 `FDS_` 변수는 오류로 처리합니다. 무관한 프로세스 환경변수는 무시합니다.
 
 ### GMS 인증과 연결 주소
@@ -269,7 +271,7 @@ GMS 주소와 인증은 제공받은 연결 규격을 따릅니다. 메시지 �
 
 키는 `SecretStr`로 보관해 `str`, `repr`, `model_dump_json`과 JSON 모드의 `model_dump`에서 마스킹됩니다. 제공자 클라이언트가 실제 호출할 때만 해당 키의 `get_secret_value()`를 사용하고 그 반환값을 로그나 문서에 넣지 않습니다. `load_settings`의 `SettingsError`는 변수 이름과 고정된 설명만 보존하며 원본 검증 오류나 입력값을 예외 체인에 연결하지 않습니다. 환경변수 입력의 검증 경계는 `load_settings`이고, 설정 모델의 저수준 생성·검증 API를 직접 사용할 필요는 없습니다.
 
-`ai/.env.example`은 실제 키와 운영 임계값이 비어 있는 참조 예제입니다. 로더는 이 파일이나 루트 `.env`를 자동으로 읽지 않습니다. 필요한 값을 프로세스 환경변수 또는 실행 환경의 Secret 주입 기능으로 전달합니다. 읽기 예제는 다음처럼 MOCK 모드에서 실행할 수 있습니다.
+`ai/.env.example`은 실제 키·제한 시간·정책 버전이 비어 있는 참조 예제입니다. 로더는 이 파일이나 루트 `.env`를 자동으로 읽지 않습니다. 필요한 값을 프로세스 환경변수 또는 실행 환경의 Secret 주입 기능으로 전달합니다. 읽기 예제는 다음처럼 MOCK 모드에서 실행할 수 있습니다.
 
 ```powershell
 # ai 디렉터리에서 실행
@@ -277,11 +279,11 @@ $env:FDS_MODE = "MOCK"
 .\.venv\Scripts\python.exe -c "from copenhagen_fds.settings import load_settings; print(load_settings())"
 ```
 
-설정 검증 예시는 `tests/test_settings.py`에 있습니다. 예제와 테스트에 쓰는 문자열은 합성 데이터이며 실제 OpenAI·Sift에 연결하지 않습니다.
+설정 검증 예시는 `tests/test_settings.py`에 있습니다. 예제와 테스트에 쓰는 문자열은 합성 데이터이며 실제 외부 서비스에 연결하지 않습니다.
 
 ### OpenAI 단독 설정과 명시적 환경 파일
 
-`copenhagen_fds.openai_settings.load_openai_settings()`는 GMS 분석만 실행할 때 사용하는 설정 경계입니다. Sift 키·임계값·정책 버전을 요구하지 않습니다. 전체 FDS의 `load_settings()`와 LIVE 검증은 그대로 유지합니다.
+`copenhagen_fds.openai_settings.load_openai_settings()`는 GMS 분석만 실행할 때 사용하는 설정 경계입니다. 정책 버전을 요구하지 않으며 MOCK에서도 두 제한 시간이 필요합니다. 공통 `load_settings()`는 MOCK에서 제한 시간을 생략할 수 있습니다. 두 로더 모두 LIVE에서 GMS 인증과 두 제한 시간을 검증하고 이전 Sift 설정은 거부합니다.
 
 | 설정 | OpenAI 단독 실행 기준 |
 | --- | --- |
