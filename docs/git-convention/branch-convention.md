@@ -35,7 +35,8 @@ main
 
 * 실제 개발 작업을 수행하는 브랜치이다.
 * 항상 최신 `develop`에서 생성한다.
-* 작업 완료 후 `develop`으로 MR을 생성한다.
+* 브랜치 생성 직후 `develop`으로 **Draft MR**을 생성한다.
+* 작업이 완료되면 Draft를 해제하여 정식 MR로 전환한다.
 * `develop` 병합 시 **Squash Merge**를 사용한다.
 * 병합 완료 후 브랜치를 삭제한다.
 
@@ -135,10 +136,12 @@ S15P21A207-123
 ↓
 feature/S15P21A207-123-payment-approval
 ↓
-MR
+Draft MR → MR
 ↓
 develop
 ```
+
+하나의 작업 브랜치에는 하나의 MR만 존재한다. 브랜치 생성 시점에 만든 Draft MR을 작업 완료 후 그대로 정식 MR로 전환하며, 작업 완료 시점에 MR을 새로 생성하지 않는다.
 
 하나의 작업 브랜치에서 서로 독립적인 여러 Jira 이슈를 동시에 처리하지 않는다.
 
@@ -154,7 +157,10 @@ develop
 git checkout develop
 git pull origin develop
 git checkout -b feature/S15P21A207-123-payment-approval
+git push -u origin feature/S15P21A207-123-payment-approval
 ```
+
+브랜치를 원격에 Push한 직후 GitLab에서 해당 브랜치의 Draft MR을 생성한다. 세부 규칙은 아래 [10. Merge Request](#10-merge-request)를 따른다.
 
 다른 작업 브랜치에서 새로운 작업 브랜치를 생성하지 않는다.
 
@@ -249,14 +255,20 @@ Rebase로 이미 Push된 Commit History가 변경된 경우에만 `--force-with-
 
 ## 10. Merge Request
 
-작업이 완료되고 리뷰 가능한 상태가 된 후 MR을 생성한다.
+MR은 작업 완료 시점이 아니라 **작업 브랜치를 생성한 직후 Draft 상태로 먼저 생성**한다.
 
-기본적으로 Draft MR은 사용하지 않는다.
+Draft MR은 작업 시작 시점부터 진행 상황과 변경 범위를 팀원에게 공유하고 CI 파이프라인을 조기에 확인하기 위해 사용한다.
+
+작업이 완료되고 리뷰 가능한 상태가 되면 **새로운 MR을 만들지 않고 기존 Draft를 해제하여 정식 MR로 전환**한다.
 
 ```text
 Jira Issue
     ↓
 Working Branch 생성
+    ↓
+Push
+    ↓
+Draft MR 생성
     ↓
 개발
     ↓
@@ -264,7 +276,7 @@ Commit / Push
     ↓
 작업 완료
     ↓
-MR 생성
+Draft 해제 (정식 MR 전환)
     ↓
 Review
     ↓
@@ -273,7 +285,9 @@ Squash Merge
 develop
 ```
 
-MR의 세부 작성 및 리뷰 규칙은 별도의 MR Convention을 따른다.
+Draft 상태의 MR은 병합하지 않는다. GitLab은 Draft MR의 Merge 버튼을 비활성화하므로 작업이 완료되지 않은 변경이 실수로 `develop`에 반영되는 것을 방지할 수 있다.
+
+MR의 세부 작성 및 병합 규칙은 별도의 MR Convention을 따르고, 리뷰 필요 여부 판단 및 Reviewer 선정 기준은 Review Convention을 따른다.
 
 ---
 
@@ -355,9 +369,11 @@ develop 최신화
     ↓
 fix 브랜치 생성
     ↓
+Draft MR 생성
+    ↓
 수정
     ↓
-MR
+Draft 해제
     ↓
 Squash Merge
     ↓
@@ -403,27 +419,31 @@ GitLab의 Merge 후 Source Branch 삭제 기능을 사용할 수 있다.
         ↓
 3. Working Branch 생성
         ↓
-4. 개발
+4. Push
         ↓
-5. Commit
+5. Draft MR 생성
         ↓
-6. Push
+6. 개발
         ↓
-7. 필요 시 develop Rebase
+7. Commit
         ↓
-8. 작업 완료
+8. Push
         ↓
-9. MR 생성
+9. 필요 시 develop Rebase
         ↓
-10. Review
+10. 작업 완료
         ↓
-11. Squash Merge → develop
+11. Draft 해제 (정식 MR 전환)
         ↓
-12. Working Branch 삭제
+12. Review
         ↓
-13. 배포/시연 가능한 버전 완성
+13. Squash Merge → develop
         ↓
-14. MR + Merge Commit
+14. Working Branch 삭제
+        ↓
+15. 배포/시연 가능한 버전 완성
+        ↓
+16. MR + Merge Commit
         ↓
        main
 ```
@@ -435,8 +455,11 @@ GitLab의 Merge 후 Source Branch 삭제 기능을 사용할 수 있다.
 git checkout develop
 git pull origin develop
 
-# 작업 브랜치 생성
+# 작업 브랜치 생성 및 원격 Push
 git checkout -b feature/S15P21A207-123-payment-approval
+git push -u origin feature/S15P21A207-123-payment-approval
+
+# GitLab에서 Draft MR 생성
 
 # 작업 후 Commit
 git add .
@@ -456,9 +479,11 @@ git push --force-with-lease
 작업 완료 후 GitLab에서:
 
 ```text
-feature/S15P21A207-123-payment-approval
+Draft MR
         ↓
-MR + Review
+Draft 해제 (정식 MR 전환)
+        ↓
+Review
         ↓
 Squash Merge
         ↓

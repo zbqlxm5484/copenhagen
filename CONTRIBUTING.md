@@ -5,12 +5,12 @@
 ## 처음 온 팀원의 첫 작업 순서
 
 1. Java 21, Docker Engine, Docker Compose v2를 준비합니다. Gradle은 따로 설치하지 않습니다.
-2. `develop`을 최신 상태로 맞추고 작업 branch를 만듭니다.
+2. `develop`을 최신 상태로 맞추고 작업 branch를 만든 뒤, 곧바로 `develop` 대상 Draft MR을 생성합니다.
 3. 레포 루트에서 `docker compose up --build`로 현재 상태가 정상인지 확인합니다.
 4. 아래 표에서 책임 모듈을 고르고 해당 모듈의 README를 읽습니다.
 5. 코드와 같은 모듈에 테스트를 작성합니다. 계약이나 DB가 바뀌면 관련 문서와 migration도 함께 수정합니다.
 6. `backend/`에서 `./gradlew checkstyleMain checkstyleTest build`를 실행합니다.
-7. `develop` 대상 MR을 만들고 pipeline과 review가 모두 통과한 뒤 merge합니다.
+7. 작업이 끝나면 Draft를 해제해 정식 MR로 전환하고, pipeline과 review가 모두 통과한 뒤 merge합니다.
 
 문제가 생겼을 때는 무작정 다른 서비스 코드를 가져오지 말고 먼저 서비스 책임, API 계약, DB 소유권을 확인합니다.
 
@@ -189,6 +189,8 @@ src/test/java/com/example/FooTest.java
 
 ## 10. Merge Request 올리기
 
+MR은 작업 branch를 만든 직후 Draft 상태로 먼저 생성하고, 작업이 끝나면 그 MR의 Draft를 해제해 정식 MR로 전환합니다. 작업 완료 시점에 MR을 새로 만들지 않습니다. 세부 규칙은 `docs/git-convention/mr-convention.md`를 따릅니다.
+
 MR의 target branch는 `develop`입니다. MR pipeline에서는 다음이 자동으로 실행됩니다.
 
 ```text
@@ -209,7 +211,7 @@ MR 설명에는 최소한 다음 내용을 적습니다.
 - 어떻게 검증했는가
 - DB migration 또는 환경변수 변경이 있는가
 
-## 11. MR 전 최종 체크리스트
+## 11. Draft 해제 전 최종 체크리스트
 
 - [ ] 올바른 서비스 또는 계약 모듈에서 작업했다.
 - [ ] 다른 애플리케이션 구현 모듈을 dependency로 추가하지 않았다.
