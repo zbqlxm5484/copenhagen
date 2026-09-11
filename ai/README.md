@@ -8,9 +8,17 @@ Payment MCP의 FDS 평가 모듈입니다. 구매 의도·주문·컨텍스트 �
 
 개인·집단 프로필의 참조·출처·관측 범위와 평가 시점 검증은 [행동 프로필 계약](docs/behavior-profiles.md)을 참고합니다. 이 계약은 관측 메타데이터를 표현하며 실제 구매 분포 학습이나 통계값 계산은 수행하지 않습니다.
 
+구매·결제 결과·후속 확인을 연결하는 [프로필 학습 입력과 상태](docs/learning-contracts.md), 정상 패턴 학습의 반영·보류·제외를 판단하는 [기본 적격 정책과 직접 검증](docs/learning-eligibility.md)을 제공합니다. 결제 성공과 정상 확인을 구분합니다.
+
+[시간순 학습 표본 재생](docs/learning-replay.md)은 거래 당시 Feature와 학습 기준 시각의 적격 여부를 분리합니다. [고정 합성 이력 내보내기](docs/synthetic-learning.md)에서 장기 스트림과 도전 세트의 실행 명령과 예상 결과를 확인할 수 있습니다.
+
+[개인 행동 통계 프로필](docs/personal-profiles.md)은 적격 표본의 금액·빈도·시간대·요일 분포를 최근/장기 범위별로 생성합니다. 수집 부족과 원시 관측값을 보존하며 같은 시점에서 JSON 복원 후 재계산할 수 있습니다. [집단 행동 통계 프로필](docs/population-profiles.md)은 명시한 집단·통화를 분리하고 거래별 또는 사용자별 가중 통계를 생성합니다. 갱신 실행은 후속 구현 범위입니다.
+
 자체 FDS 입력과 Feature별 이상점수·결측·실패 결과는 [행동 평가 계약](docs/behavior-evaluation.md)에 설명합니다. 금액·빈도·시간대의 원시 값 계산과 BE 입력 요구사항은 [Feature 변환 문서](docs/feature-transform.md), 보유 CSV의 사용 범위와 재현 명령은 [데이터 적합성 점검](docs/dataset-suitability.md)을 참고합니다. 제공된 집단 기준·초기 정책의 출처·버전·시각 검증은 [기준 로딩과 선택](docs/baseline-selection.md)에 설명합니다. [Cold 점수와 데이터 충분도](docs/cold-scoring.md)는 선택된 기준으로 Feature별 이탈 점수를 계산하며, [점수 수식](docs/feature-scoring.md)과 합성 예제로 직접 검증할 수 있습니다. [Cold 단독 평가](docs/cold-evaluation.md)는 제공된 원천 이벤트부터 Feature 변환·기준 선택·점수 반환까지 연결합니다. 최종 가중합 정책과 GPT의 전체 정책 결합은 아직 구현하지 않았습니다.
 
 ## 개발 환경
+
+장기 검증에 사용할 가상 구매 이력은 [합성 데이터 사용법](docs/synthetic-dataset.md)과 [패턴 선정 근거](docs/synthetic-patterns.md)를 참고합니다. 생성기·고정 저장·시점별 Feature 입력 내보내기를 제공하며, 실제 데이터는 Git에서 제외된 `ai/data/synthetic/`에 보관합니다. 이 도구는 프로필 학습이나 GPT·FDS 최종 통합을 실행하지 않습니다.
 
 - Python 3.11 이상: FDS 모듈 실행 환경입니다. 로컬 검증은 Python 3.11.9에서 수행합니다.
 - pip와 venv: `ai/.venv`에 프로젝트와 의존성을 설치합니다.
