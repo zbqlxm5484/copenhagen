@@ -6,7 +6,7 @@ import java.util.UUID;
 
 public interface UserRepository {
 
-    long insert(UUID publicId, String name, UserStatus status, Instant now);
+    long insert(UUID publicId, String name, UserStatus status, String email, Instant now);
 
     Optional<User> findById(long id);
 

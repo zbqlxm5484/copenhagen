@@ -15,13 +15,15 @@ import org.springframework.stereotype.Repository;
 public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
 
     private static final String INSERT_SQL = """
-            INSERT INTO refresh_token (user_id, token_hash, expires_at, created_at)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO refresh_token
+                (user_id, token_hash, device_id, device_name, issued_at, expires_at, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             RETURNING id
             """;
 
     private static final String FIND_BY_TOKEN_HASH_SQL = """
-            SELECT id, user_id, token_hash, expires_at, created_at
+            SELECT id, user_id, token_hash, device_id, device_name, issued_at, expires_at,
+                revoked_at, last_used_at, created_at
             FROM refresh_token
             WHERE token_hash = ?
             """;
@@ -40,12 +42,21 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
     }
 
     @Override
-    public long insert(long userId, String tokenHash, Instant expiresAt, Instant now) {
+    public long insert(
+            long userId,
+            String tokenHash,
+            String deviceId,
+            String deviceName,
+            Instant expiresAt,
+            Instant now) {
         return jdbcTemplate.queryForObject(
                 INSERT_SQL,
                 Long.class,
                 userId,
                 tokenHash,
+                deviceId,
+                deviceName,
+                Timestamp.from(now),
                 Timestamp.from(expiresAt),
                 Timestamp.from(now));
     }
@@ -65,11 +76,18 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
     }
 
     private static RefreshToken mapRefreshToken(ResultSet resultSet, int rowNumber) throws SQLException {
+        Timestamp revokedAt = resultSet.getTimestamp("revoked_at");
+        Timestamp lastUsedAt = resultSet.getTimestamp("last_used_at");
         return new RefreshToken(
                 resultSet.getLong("id"),
                 resultSet.getLong("user_id"),
                 resultSet.getString("token_hash"),
+                resultSet.getString("device_id"),
+                resultSet.getString("device_name"),
+                resultSet.getTimestamp("issued_at").toInstant(),
                 resultSet.getTimestamp("expires_at").toInstant(),
+                revokedAt == null ? null : revokedAt.toInstant(),
+                lastUsedAt == null ? null : lastUsedAt.toInstant(),
                 resultSet.getTimestamp("created_at").toInstant());
     }
 }

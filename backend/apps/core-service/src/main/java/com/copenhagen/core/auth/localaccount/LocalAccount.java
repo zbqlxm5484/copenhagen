@@ -7,11 +7,9 @@ public record LocalAccount(
         long userId,
         String loginId,
         String passwordHash,
-        Instant passwordChangedAt,
-        int failedLoginAttempts,
+        int failedLoginCount,
         Instant lastFailedLoginAt,
         Instant lockedUntil,
-        Instant lastLoginAt,
         Instant createdAt,
         Instant updatedAt) {
 
@@ -21,11 +19,9 @@ public record LocalAccount(
                 + "id=" + id
                 + ", userId=" + userId
                 + ", loginId='" + loginId + '\''
-                + ", passwordChangedAt=" + passwordChangedAt
-                + ", failedLoginAttempts=" + failedLoginAttempts
+                + ", failedLoginCount=" + failedLoginCount
                 + ", lastFailedLoginAt=" + lastFailedLoginAt
                 + ", lockedUntil=" + lockedUntil
-                + ", lastLoginAt=" + lastLoginAt
                 + ", createdAt=" + createdAt
                 + ", updatedAt=" + updatedAt
                 + ']';

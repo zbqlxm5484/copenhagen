@@ -8,6 +8,12 @@ public record User(
         UUID publicId,
         String name,
         UserStatus status,
+        String email,
+        boolean emailVerified,
+        String phoneNumber,
+        Instant deletedAt,
+        Instant pwChangedAt,
+        Instant lastLoginAt,
         Instant createdAt,
         Instant updatedAt) {
 }

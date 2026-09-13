@@ -718,27 +718,27 @@ Client가 로그인 후 별도 `/auth/token`을 호출하지 않는다. 위 흐�
 ## 12.2 계정 조회·상태 확인 실패
 
 - 존재하지 않는 `loginId`: `401 AUTH_INVALID_CREDENTIALS`. 연결된 `local_account`가 없으므로 실패 횟수를 저장하지 않는다.
-- `users.status = LOCKED` 또는 `WITHDRAWN`: `403 AUTH_ACCOUNT_UNAVAILABLE`. 두 상태는 외부에서 같은 오류로 처리한다.
+- `users.status = SUSPENDED` 또는 `WITHDRAWN`: `403 AUTH_ACCOUNT_UNAVAILABLE`. 두 상태는 외부에서 같은 오류로 처리한다.
 - `users.status`는 사용자 전체 계정 상태다. 자체 로그인 5회 실패에 따른 일시 잠금은 `local_account.locked_until`로 관리하며 사용자 전체 상태와 분리한다.
 
 ## 12.3 일시 잠금 확인과 만료
 
 - `locked_until > 현재 시각`이면 비밀번호를 검증하지 않고 즉시 `423 AUTH_LOGIN_LOCKED`로 거부한다. 올바른 비밀번호를 입력해도 동일하다.
-- `locked_until`이 설정되어 있고 `locked_until <= 현재 시각`이면 다음 로그인 요청에서 `failed_login_attempts = 0`, `locked_until = NULL`로 초기화한 뒤 BCrypt 검증으로 진행한다.
+- `locked_until`이 설정되어 있고 `locked_until <= 현재 시각`이면 다음 로그인 요청에서 `failed_login_count = 0`, `locked_until = NULL`로 초기화한 뒤 BCrypt 검증으로 진행한다.
 - 잠금 만료 처리 시 `last_failed_login_at`은 삭제하지 않고 유지한다.
 - Redis나 별도 스케줄러로 잠금을 해제하지 않는다.
 
 ## 12.4 비밀번호 불일치와 실패 누적
 
-존재하는 계정에서 비밀번호가 틀린 경우에만 `failed_login_attempts`를 1 증가시키고 `last_failed_login_at = 현재 시각`으로 갱신한다.
+존재하는 계정에서 비밀번호가 틀린 경우에만 `failed_login_count`를 1 증가시키고 `last_failed_login_at = 현재 시각`으로 갱신한다.
 
 | 연속 실패 횟수 | 저장 및 응답 |
 |---|---|
-| 1회 | `failed_login_attempts = 1`, `401 AUTH_INVALID_CREDENTIALS` |
-| 2회 | `failed_login_attempts = 2`, `401 AUTH_INVALID_CREDENTIALS` |
-| 3회 | `failed_login_attempts = 3`, `401 AUTH_INVALID_CREDENTIALS` |
-| 4회 | `failed_login_attempts = 4`, `401 AUTH_INVALID_CREDENTIALS` |
-| 5회 | `failed_login_attempts = 5`, `locked_until = 현재 시각 + 15분`, `423 AUTH_LOGIN_LOCKED` |
+| 1회 | `failed_login_count = 1`, `401 AUTH_INVALID_CREDENTIALS` |
+| 2회 | `failed_login_count = 2`, `401 AUTH_INVALID_CREDENTIALS` |
+| 3회 | `failed_login_count = 3`, `401 AUTH_INVALID_CREDENTIALS` |
+| 4회 | `failed_login_count = 4`, `401 AUTH_INVALID_CREDENTIALS` |
+| 5회 | `failed_login_count = 5`, `locked_until = 현재 시각 + 15분`, `423 AUTH_LOGIN_LOCKED` |
 
 없는 ID와 잘못된 비밀번호를 외부 오류에서 구분하지 않는다. 단, 5번째 실패는 잠금이 시작되므로 잠금 오류를 반환한다.
 
@@ -748,7 +748,7 @@ Client가 로그인 후 별도 `/auth/token`을 호출하지 않는다. 위 흐�
 
 | 컬럼 | 처리 |
 |---|---|
-| `failed_login_attempts` | `0`으로 초기화 |
+| `failed_login_count` | `0`으로 초기화 |
 | `locked_until` | `NULL`로 해제 |
 | `last_login_at` | 현재 시각으로 갱신 |
 | `last_failed_login_at` | 마지막 실패 기록 유지 |

@@ -21,8 +21,8 @@ public class JdbcLocalAccountRepository implements LocalAccountRepository {
             """;
 
     private static final String FIND_BY_LOGIN_ID_SQL = """
-            SELECT id, user_id, login_id, password_hash, password_changed_at,
-                failed_login_attempts, last_failed_login_at, locked_until, last_login_at,
+            SELECT id, user_id, login_id, password_hash,
+                failed_login_count, last_failed_login_at, locked_until,
                 created_at, updated_at
             FROM local_account
             WHERE login_id = ?
@@ -30,9 +30,8 @@ public class JdbcLocalAccountRepository implements LocalAccountRepository {
 
     private static final String INSERT_SQL = """
             INSERT INTO local_account
-                (user_id, login_id, password_hash, password_changed_at,
-                 failed_login_attempts, created_at, updated_at)
-            VALUES (?, ?, ?, ?, 0, ?, ?)
+                (user_id, login_id, password_hash, failed_login_count, created_at, updated_at)
+            VALUES (?, ?, ?, 0, ?, ?)
             RETURNING id
             """;
 
@@ -68,24 +67,20 @@ public class JdbcLocalAccountRepository implements LocalAccountRepository {
                 loginId,
                 passwordHash,
                 Timestamp.from(now),
-                Timestamp.from(now),
                 Timestamp.from(now));
     }
 
     private static LocalAccount mapLocalAccount(ResultSet resultSet, int rowNumber) throws SQLException {
         Timestamp lastFailedLoginAt = resultSet.getTimestamp("last_failed_login_at");
         Timestamp lockedUntil = resultSet.getTimestamp("locked_until");
-        Timestamp lastLoginAt = resultSet.getTimestamp("last_login_at");
         return new LocalAccount(
                 resultSet.getLong("id"),
                 resultSet.getLong("user_id"),
                 resultSet.getString("login_id"),
                 resultSet.getString("password_hash"),
-                resultSet.getTimestamp("password_changed_at").toInstant(),
-                resultSet.getInt("failed_login_attempts"),
+                resultSet.getInt("failed_login_count"),
                 lastFailedLoginAt == null ? null : lastFailedLoginAt.toInstant(),
                 lockedUntil == null ? null : lockedUntil.toInstant(),
-                lastLoginAt == null ? null : lastLoginAt.toInstant(),
                 resultSet.getTimestamp("created_at").toInstant(),
                 resultSet.getTimestamp("updated_at").toInstant());
     }

@@ -5,7 +5,13 @@ import java.util.Optional;
 
 public interface RefreshTokenRepository {
 
-    long insert(long userId, String tokenHash, Instant expiresAt, Instant now);
+    long insert(
+            long userId,
+            String tokenHash,
+            String deviceId,
+            String deviceName,
+            Instant expiresAt,
+            Instant now);
 
     Optional<RefreshToken> findByTokenHash(String tokenHash);
 
