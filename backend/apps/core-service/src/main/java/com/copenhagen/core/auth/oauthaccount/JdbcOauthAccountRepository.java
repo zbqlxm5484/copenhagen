@@ -17,21 +17,19 @@ public class JdbcOauthAccountRepository implements OauthAccountRepository {
 
     private static final String INSERT_SQL = """
             INSERT INTO oauth_account
-                (user_id, provider, provider_subject, email, email_verified, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+                (user_id, provider, provider_subject, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
             RETURNING id
             """;
 
     private static final String FIND_BY_PROVIDER_AND_SUBJECT_SQL = """
-            SELECT id, user_id, provider, provider_subject, email, email_verified,
-                last_login_at, created_at, updated_at
+            SELECT id, user_id, provider, provider_subject, created_at, updated_at
             FROM oauth_account
             WHERE provider = ? AND provider_subject = ?
             """;
 
     private static final String FIND_ALL_BY_USER_ID_SQL = """
-            SELECT id, user_id, provider, provider_subject, email, email_verified,
-                last_login_at, created_at, updated_at
+            SELECT id, user_id, provider, provider_subject, created_at, updated_at
             FROM oauth_account
             WHERE user_id = ?
             """;
@@ -45,21 +43,13 @@ public class JdbcOauthAccountRepository implements OauthAccountRepository {
     }
 
     @Override
-    public long insert(
-            long userId,
-            OauthProvider provider,
-            String providerSubject,
-            String email,
-            boolean emailVerified,
-            Instant now) {
+    public long insert(long userId, OauthProvider provider, String providerSubject, Instant now) {
         return jdbcTemplate.queryForObject(
                 INSERT_SQL,
                 Long.class,
                 userId,
                 provider.value(),
                 providerSubject,
-                email,
-                emailVerified,
                 Timestamp.from(now),
                 Timestamp.from(now));
     }
@@ -84,15 +74,11 @@ public class JdbcOauthAccountRepository implements OauthAccountRepository {
     }
 
     private static OauthAccount mapOauthAccount(ResultSet resultSet, int rowNumber) throws SQLException {
-        Timestamp lastLoginAt = resultSet.getTimestamp("last_login_at");
         return new OauthAccount(
                 resultSet.getLong("id"),
                 resultSet.getLong("user_id"),
                 OauthProvider.from(resultSet.getString("provider")),
                 resultSet.getString("provider_subject"),
-                resultSet.getString("email"),
-                resultSet.getBoolean("email_verified"),
-                lastLoginAt == null ? null : lastLoginAt.toInstant(),
                 resultSet.getTimestamp("created_at").toInstant(),
                 resultSet.getTimestamp("updated_at").toInstant());
     }

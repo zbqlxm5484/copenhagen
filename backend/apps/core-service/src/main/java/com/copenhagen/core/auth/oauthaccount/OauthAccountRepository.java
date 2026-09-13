@@ -6,13 +6,7 @@ import java.util.Optional;
 
 public interface OauthAccountRepository {
 
-    long insert(
-            long userId,
-            OauthProvider provider,
-            String providerSubject,
-            String email,
-            boolean emailVerified,
-            Instant now);
+    long insert(long userId, OauthProvider provider, String providerSubject, Instant now);
 
     Optional<OauthAccount> findByProviderAndProviderSubject(OauthProvider provider, String providerSubject);
 

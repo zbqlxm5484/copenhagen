@@ -7,9 +7,6 @@ public record OauthAccount(
         long userId,
         OauthProvider provider,
         String providerSubject,
-        String email,
-        boolean emailVerified,
-        Instant lastLoginAt,
         Instant createdAt,
         Instant updatedAt) {
 }
