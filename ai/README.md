@@ -14,7 +14,21 @@ Payment MCP의 FDS 평가 모듈입니다. 구매 의도·주문·컨텍스트 �
 
 [개인 행동 통계 프로필](docs/personal-profiles.md)은 적격 표본의 금액·빈도·시간대·요일 분포를 최근/장기 범위별로 생성합니다. 수집 부족과 원시 관측값을 보존하며 같은 시점에서 JSON 복원 후 재계산할 수 있습니다. [집단 행동 통계 프로필](docs/population-profiles.md)은 명시한 집단·통화를 분리하고 거래별 또는 사용자별 가중 통계를 생성합니다. 갱신 실행은 후속 구현 범위입니다.
 
-자체 FDS 입력과 Feature별 이상점수·결측·실패 결과는 [행동 평가 계약](docs/behavior-evaluation.md)에 설명합니다. 금액·빈도·시간대의 원시 값 계산과 BE 입력 요구사항은 [Feature 변환 문서](docs/feature-transform.md), 보유 CSV의 사용 범위와 재현 명령은 [데이터 적합성 점검](docs/dataset-suitability.md)을 참고합니다. 제공된 집단 기준·초기 정책의 출처·버전·시각 검증은 [기준 로딩과 선택](docs/baseline-selection.md)에 설명합니다. [Cold 점수와 데이터 충분도](docs/cold-scoring.md)는 선택된 기준으로 Feature별 이탈 점수를 계산하며, [점수 수식](docs/feature-scoring.md)과 합성 예제로 직접 검증할 수 있습니다. [Cold 단독 평가](docs/cold-evaluation.md)는 제공된 원천 이벤트부터 Feature 변환·기준 선택·점수 반환까지 연결합니다. 최종 가중합 정책과 GPT의 전체 정책 결합은 아직 구현하지 않았습니다.
+자체 FDS 입력과 Feature별 이상점수·결측·실패 결과는 [행동 평가 계약](docs/behavior-evaluation.md)에 설명합니다. 금액·빈도·시간대의 원시 값 계산과 BE 입력 요구사항은 [Feature 변환 문서](docs/feature-transform.md), 보유 CSV의 사용 범위와 재현 명령은 [데이터 적합성 점검](docs/dataset-suitability.md)을 참고합니다. 제공된 집단 기준·초기 정책의 출처·버전·시각 검증은 [기준 로딩과 선택](docs/baseline-selection.md)에 설명합니다. [Cold 점수와 데이터 충분도](docs/cold-scoring.md)는 선택된 기준으로 Feature별 이탈 점수를 계산하며, [점수 수식](docs/feature-scoring.md)과 합성 예제로 직접 검증할 수 있습니다. [Cold 단독 평가](docs/cold-evaluation.md)는 제공된 원천 이벤트부터 Feature 변환·기준 선택·점수 반환까지 연결합니다. 그룹 가중합과 GPT를 포함한 최종 위험 분류는 별도 정책 함수에서 제공합니다.
+
+자체 FDS의 최종 정책 계약은 [입력·설정](docs/risk-policy-inputs.md)과 [결과·권고 및 직접 검증](docs/risk-policy-results.md)에 설명합니다. 기존 개인화 평가와 GPT 결과의 대상·시각·버전을 연결하고 점수·기여도·상태의 모순을 검증합니다. [최종 정책 함수](docs/risk-evaluation.md)에서 위험 분류와 확인 권고를 조립합니다.
+
+[FDS 평가 범위·결측 판단](docs/risk-coverage.md)은 요청에서 빠진 항목까지 정책 전체 기준으로 확인합니다. [행동 평가 상태·실패 보존](docs/risk-assessment.md)은 기존 점수·단계·충분도를 유지하고 Cold 복귀 후에도 계산 실패를 보존합니다.
+
+[그룹 대표값과 기여도](docs/risk-groups.md)는 중복 가산을 제한하고, [그룹 가중합·결과 재현](docs/risk-aggregation.md)은 설정 비중으로 종합 행동 점수를 계산합니다. 전체 점수 제공 범위와 기존 실패를 보존하며 최종 위험 등급은 별도 분류 정책에서 결정합니다.
+
+[강한 신호·동시 이상 조건](docs/risk-rule-checks.md)과 [규칙 우선순위·보완 근거](docs/risk-rules.md)는 원래 가중합을 보존하면서 관측된 규칙의 위험 하한을 별도로 제공합니다. 결측·실패를 확정 위험으로 바꾸지 않으며, 최종 위험 등급과 확인 권고는 최종 정책 함수에서 조립합니다.
+
+[GPT 의미·실행 상태 정책 신호](docs/risk-intent.md)는 MATCH·MISMATCH·UNKNOWN과 실패·미실행을 구분하고 원본 상세 근거를 보존합니다. 만료와 잘못된 주문 연결은 입력 검증에서 거절합니다.
+
+[GPT 확인·재평가 권고 정책](docs/risk-intent-policy.md)은 필수·선택 신호와 실패 종류에 따른 확인 순서를 제공합니다. 행동 점수·보완 규칙·계산 실패는 그대로 보존하며 최종 위험 분류는 별도 분류 정책에서 결정합니다.
+
+[FDS 위험 등급·결정 우선순위](docs/risk-classification.md)는 실행 실패와 자료 부족을 우선 처리한 뒤 점수 임계값·보완 규칙으로 위험 수준을 결정합니다. GPT 의미 일치로 높은 행동 위험을 낮추지 않습니다.
 
 ## 개발 환경
 
