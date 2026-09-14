@@ -81,8 +81,8 @@ class CatalogControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"productId\":\"product-999\"}"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("PRODUCT_NOT_FOUND"))
-                .andExpect(jsonPath("$.requestId").value("req-test-1"))
+                .andExpect(jsonPath("$.errorCode").value("PRODUCT_NOT_FOUND"))
+                .andExpect(jsonPath("$.nextAction").value("RETURN_TO_CART"))
                 .andExpect(jsonPath("$.message").exists());
     }
 
@@ -92,6 +92,6 @@ class CatalogControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"productId\":\"product-105\"}"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("PRODUCT_NOT_FOUND"));
+                .andExpect(jsonPath("$.errorCode").value("PRODUCT_NOT_FOUND"));
     }
 }

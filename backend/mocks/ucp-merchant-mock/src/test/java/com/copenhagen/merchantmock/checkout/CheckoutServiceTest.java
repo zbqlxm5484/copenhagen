@@ -118,7 +118,7 @@ class CheckoutServiceTest {
         ApiException thrown = assertThrows(ApiException.class, () -> h.service().create(
                 request(SEOUL, line("product-999", null, 1)), "checkout-create-7"));
 
-        assertEquals("PRODUCT_NOT_FOUND", thrown.code());
+        assertEquals("PRODUCT_NOT_FOUND", thrown.errorCode());
         assertEquals(0, h.repository().size(), "계산서 자체를 만들지 않는다");
     }
 
@@ -127,7 +127,7 @@ class CheckoutServiceTest {
         ApiException thrown = assertThrows(ApiException.class, () -> harness().service().create(
                 request(SEOUL, line("product-105", "product-105-navy", 1)), "checkout-create-8"));
 
-        assertEquals("PRODUCT_NOT_FOUND", thrown.code());
+        assertEquals("PRODUCT_NOT_FOUND", thrown.errorCode());
     }
 
     @Test
@@ -235,7 +235,7 @@ class CheckoutServiceTest {
     void 없는_체크아웃_조회는_CHECKOUT_NOT_FOUND_다() {
         ApiException thrown = assertThrows(ApiException.class, () -> harness().service().get("nope"));
 
-        assertEquals("CHECKOUT_NOT_FOUND", thrown.code());
+        assertEquals("CHECKOUT_NOT_FOUND", thrown.errorCode());
         assertEquals(404, thrown.status().value());
     }
 
@@ -296,7 +296,7 @@ class CheckoutServiceTest {
         ApiException thrown = assertThrows(ApiException.class,
                 () -> h.service().update(created.id(), runningShoesToSeoul()));
 
-        assertEquals("CHECKOUT_NOT_MODIFIABLE", thrown.code());
+        assertEquals("CHECKOUT_NOT_MODIFIABLE", thrown.errorCode());
         assertEquals(409, thrown.status().value());
     }
 
@@ -305,7 +305,7 @@ class CheckoutServiceTest {
         ApiException thrown = assertThrows(ApiException.class,
                 () -> harness().service().update("nope", runningShoesToSeoul()));
 
-        assertEquals("CHECKOUT_NOT_FOUND", thrown.code());
+        assertEquals("CHECKOUT_NOT_FOUND", thrown.errorCode());
     }
 
     @Test
