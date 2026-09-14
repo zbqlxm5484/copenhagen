@@ -24,8 +24,11 @@ pay:
     signing-private-key: ${PAY_MANDATE_SIGNING_PRIVATE_KEY:}
     encryption-key: ${PAY_MANDATE_ENCRYPTION_KEY:}
   reconciliation:
-    max-attempts: ${PAY_RECONCILIATION_MAX_ATTEMPTS:5}
+    enabled: ${PAY_RECONCILIATION_ENABLED:true}
+    poll-delay-millis: ${PAY_RECONCILIATION_POLL_MILLIS:5000}
+    batch-size: ${PAY_RECONCILIATION_BATCH_SIZE:10}
     lease-duration-seconds: ${PAY_RECONCILIATION_LEASE_SECONDS:60}
+    retry-delay-seconds: ${PAY_RECONCILIATION_RETRY_SECONDS:60}
 
 management:
   endpoints:

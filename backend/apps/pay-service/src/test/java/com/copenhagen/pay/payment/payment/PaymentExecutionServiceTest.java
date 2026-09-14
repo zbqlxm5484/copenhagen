@@ -54,8 +54,7 @@ class PaymentExecutionServiceTest {
                 new PaymentExecutionSettlementService(
                         executionRepository,
                         lifecycleService,
-                        encryptionService,
-                        new ObjectMapper(),
+                        new PaymentReceiptService(executionRepository, encryptionService, new ObjectMapper()),
                         CLOCK);
         service = new PaymentExecutionService(preparationService, settlementService, gateway);
     }
@@ -156,6 +155,11 @@ class PaymentExecutionServiceTest {
     }
 
     private static final class RecordingPaymentGateway implements PaymentGateway {
+
+        @Override
+        public StatusResult lookup(StatusRequest request) {
+            throw new AssertionError("결제 실행은 대사 조회를 호출하지 않아야 합니다.");
+        }
 
         private ChargeResult result = ChargeResult.success("pg-tx-1", "APPROVED");
         private RuntimeException failure;

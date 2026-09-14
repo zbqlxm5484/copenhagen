@@ -20,4 +20,19 @@ dependencies {
 
     testImplementation libs.spring.boot.starter.test
     testImplementation project(':libs:test-support')
+    testImplementation 'io.zonky.test:embedded-postgres:2.2.2'
+    testImplementation enforcedPlatform('io.zonky.test.postgres:embedded-postgres-binaries-bom:17.9.0')
+}
+
+tasks.named('test') {
+    useJUnitPlatform { excludeTags 'postgres' }
+}
+
+tasks.register('postgresTest', Test) {
+    description = 'Runs reconciliation tests with a disposable real PostgreSQL instance.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'postgres' }
+    shouldRunAfter tasks.named('test')
 }

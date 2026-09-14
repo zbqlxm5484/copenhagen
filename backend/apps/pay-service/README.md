@@ -44,6 +44,29 @@ PG_MOCK_OUTCOME=FAILED   # 거절
 PG_MOCK_OUTCOME=TIMEOUT  # 응답 지연·유실 → Pay UNKNOWN
 ```
 
+## UNKNOWN 대사 Worker
+
+`PayWorker`가 `payment_reconciliation_jobs`를 주기적으로 처리합니다. 별도 대사 HTTP API는 없습니다.
+기존 PG 거래 ID 또는 요청 ID로 상태만 조회하며, 새 결제·CHARGE Attempt를 생성하지 않습니다.
+확정 결과와 Receipt·승인 세션·Job 완료는 한 트랜잭션으로 반영합니다.
+
+| 환경변수 | 기본값 | 용도 |
+| --- | --- | --- |
+| `PAY_RECONCILIATION_ENABLED` | `true` | Worker 실행 여부 |
+| `PAY_RECONCILIATION_POLL_MILLIS` | `5000` | 배치 종료 후 다음 실행까지 대기 |
+| `PAY_RECONCILIATION_BATCH_SIZE` | `10` | 배치당 처리할 최대 Job 수 |
+| `PAY_RECONCILIATION_LEASE_SECONDS` | `60` | Worker 선점 유효 시간 |
+| `PAY_RECONCILIATION_RETRY_SECONDS` | `60` | 미확정 조회 후 재시도 대기 |
+
+조회 한도는 설정으로 늘릴 수 없는 5회입니다. lease는 PG 요청 타임아웃보다 충분히 길게 설정합니다.
+선점 시 조회 횟수를 예약하므로 Worker가 조회 직전에 중단되어도 해당 시도는 소비됩니다.
+lease 만료 Job은 회수되며, 마지막 시도 중 중단된 Job은 추가 조회 없이 EXHAUSTED로 종료합니다.
+EXHAUSTED의 Payment는 UNKNOWN을 유지하고 운영자의 수동 확인 대상으로 남습니다.
+Worker를 여러 인스턴스에서 실행해도 같은 Payment의 유효한 선점은 하나만 허용합니다.
+
+PG Mock에서는 `PG_MOCK_OUTCOME=TIMEOUT`과 `PG_MOCK_LOOKUP_OUTCOME=SUCCESS|FAILED|UNKNOWN`으로
+대사 시나리오를 재현할 수 있습니다. 자세한 기준은 [대사 설계](docs/unknown-reconciliation.md)를 참고합니다.
+
 ## 앱 결제수단 API 보안
 
 PIN·생체인증·카드 결제수단 API는 `/api/pay/v1` 사용자 인증 영역에서 제공합니다.

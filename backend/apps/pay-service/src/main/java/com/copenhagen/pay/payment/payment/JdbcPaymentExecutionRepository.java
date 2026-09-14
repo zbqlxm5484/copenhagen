@@ -1,6 +1,7 @@
 package com.copenhagen.pay.payment.payment;
 
 import com.copenhagen.pay.payment.policy.PaymentStatus;
+import com.copenhagen.pay.payment.reconciliation.ReconciliationPaymentRepository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -12,7 +13,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class JdbcPaymentExecutionRepository implements PaymentExecutionRepository {
+public class JdbcPaymentExecutionRepository implements PaymentExecutionRepository, ReconciliationPaymentRepository {
 
     private static final String FIND_PAYMENT_SQL = """
             SELECT p.id, c.authorization_session_id, p.merchant_account_id,
@@ -41,6 +42,21 @@ public class JdbcPaymentExecutionRepository implements PaymentExecutionRepositor
             """;
 
     private static final String FIND_PAYMENT_FOR_UPDATE_SQL = FIND_PAYMENT_SQL + " FOR UPDATE OF p";
+
+    private static final String FIND_BY_ATTEMPT_SQL = FIND_PAYMENT_SQL
+            .replace("WHERE p.id = ?", "WHERE attempt.id = ?");
+
+    private static final String RESOLVE_UNKNOWN_ATTEMPT_SQL = """
+            UPDATE payment_attempts SET status = ?, error_code = ?, completed_at = ?
+            WHERE id = ? AND operation = 'CHARGE' AND status = 'UNKNOWN'
+            """;
+
+    private static final String UPDATE_UNKNOWN_TRANSACTION_SQL = """
+            UPDATE pg_transactions
+            SET status = ?, pg_transaction_id = COALESCE(?, pg_transaction_id), response_code = ?,
+                last_checked_at = ?, completed_at = CASE WHEN ? = 'UNKNOWN' THEN completed_at ELSE ? END
+            WHERE payment_attempt_id = ? AND status = 'UNKNOWN'
+            """;
 
     private static final String INSERT_ATTEMPT_SQL = """
             INSERT INTO payment_attempts
@@ -75,6 +91,7 @@ public class JdbcPaymentExecutionRepository implements PaymentExecutionRepositor
             INSERT INTO payment_receipts
                 (id, payment_id, receipt_hash, status, artifact_encrypted, issued_at)
             VALUES (?, ?, ?, 'ISSUED', ?, ?)
+            ON CONFLICT (payment_id) DO NOTHING
             """;
 
     private static final String INSERT_RECONCILIATION_JOB_SQL = """
@@ -91,6 +108,31 @@ public class JdbcPaymentExecutionRepository implements PaymentExecutionRepositor
 
     public JdbcPaymentExecutionRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+    }
+
+    @Override
+    public Optional<PaymentExecutionRecord> findByAttemptId(String attemptId) {
+        return jdbcTemplate.query(FIND_BY_ATTEMPT_SQL, ROW_MAPPER, attemptId).stream().findFirst();
+    }
+
+    @Override
+    public Optional<PaymentExecutionRecord> findByAttemptIdForUpdate(String attemptId) {
+        return jdbcTemplate.query(FIND_BY_ATTEMPT_SQL + " FOR UPDATE OF p", ROW_MAPPER, attemptId)
+                .stream().findFirst();
+    }
+
+    @Override
+    public boolean resolveUnknownAttempt(String attemptId, String status, String errorCode, Instant now) {
+        return jdbcTemplate.update(RESOLVE_UNKNOWN_ATTEMPT_SQL,
+                status, errorCode, Timestamp.from(now), attemptId) == 1;
+    }
+
+    @Override
+    public boolean updateUnknownTransaction(
+            String attemptId, String status, String pgTransactionId, String responseCode, Instant now) {
+        return jdbcTemplate.update(UPDATE_UNKNOWN_TRANSACTION_SQL,
+                status, pgTransactionId, responseCode, Timestamp.from(now),
+                status, Timestamp.from(now), attemptId) == 1;
     }
 
     @Override

@@ -10,9 +10,12 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import tools.jackson.databind.ObjectMapper;
 
 class PgMockPaymentGatewayTest {
@@ -91,6 +94,59 @@ class PgMockPaymentGatewayTest {
 
         assertEquals(Outcome.UNKNOWN, result.outcome());
         assertEquals("PG_HTTP_503", result.responseCode());
+    }
+
+    @Test
+    void lookup_usesGetAndPrefersTransactionId() {
+        AtomicReference<String> method = new AtomicReference<>();
+        AtomicReference<String> query = new AtomicReference<>();
+        server.createContext("/internal/v1/charges", exchange -> {
+            method.set(exchange.getRequestMethod());
+            query.set(exchange.getRequestURI().getRawQuery());
+            byte[] body = "{\"status\":\"SUCCESS\",\"pgTransactionId\":\"tx /+1\"}"
+                    .getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream output = exchange.getResponseBody()) {
+                output.write(body);
+            }
+        });
+
+        PaymentGateway.StatusResult result = gateway(1_000).lookup(
+                new PaymentGateway.StatusRequest("tx /+1", "request-1"));
+
+        assertEquals(Outcome.SUCCESS, result.outcome());
+        assertEquals("GET", method.get());
+        assertEquals("pgTransactionId=tx+%2F%2B1", query.get());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {400, 401, 404, 500, 503})
+    void lookup_httpErrorsNeverMeanDefinitiveFailure(int status) {
+        registerResponse(status, "sensitive upstream error");
+
+        PaymentGateway.StatusResult result = gateway(1_000).lookup(
+                new PaymentGateway.StatusRequest(null, "request-1"));
+
+        assertEquals(Outcome.UNKNOWN, result.outcome());
+        assertEquals("PG_LOOKUP_HTTP_" + status, result.responseCode());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "{}", "bad-json", "{\"status\":\"SUCCESS\"}",
+            "{\"status\":\"NEW_STATUS\"}"})
+    void lookup_invalidResultsStayUnknown(String body) {
+        registerResponse(200, body);
+        assertEquals(Outcome.UNKNOWN, gateway(1_000).lookup(
+                new PaymentGateway.StatusRequest(null, "request-1")).outcome());
+    }
+
+    @Test
+    void lookup_mapsDefinitiveDeclineWithoutPersistingUpstreamMessage() {
+        registerResponse(200, "{\"status\":\"FAILED\",\"responseCode\":\"sensitive upstream text\"}");
+        PaymentGateway.StatusResult result = gateway(1_000).lookup(
+                new PaymentGateway.StatusRequest(null, "request-1"));
+        assertEquals(Outcome.FAILED, result.outcome());
+        assertEquals("PG_DECLINED", result.responseCode());
     }
 
     private void registerResponse(int status, String responseBody) {
