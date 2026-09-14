@@ -27,3 +27,8 @@ class AnalysisBudget:
     @property
     def remaining_seconds(self) -> float:
         return max(0.0, self._deadline - self._clock())
+
+    @property
+    def elapsed_seconds(self) -> float:
+        """Consumed time, including overruns; do not infer this from clamped remaining time."""
+        return max(0.0, self._clock() - (self._deadline - self.total_seconds))

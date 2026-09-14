@@ -16,7 +16,17 @@ Payment MCP의 FDS 평가 모듈입니다. 구매 의도·주문·컨텍스트 �
 
 자체 FDS 입력과 Feature별 이상점수·결측·실패 결과는 [행동 평가 계약](docs/behavior-evaluation.md)에 설명합니다. 금액·빈도·시간대의 원시 값 계산과 BE 입력 요구사항은 [Feature 변환 문서](docs/feature-transform.md), 보유 CSV의 사용 범위와 재현 명령은 [데이터 적합성 점검](docs/dataset-suitability.md)을 참고합니다. 제공된 집단 기준·초기 정책의 출처·버전·시각 검증은 [기준 로딩과 선택](docs/baseline-selection.md)에 설명합니다. [Cold 점수와 데이터 충분도](docs/cold-scoring.md)는 선택된 기준으로 Feature별 이탈 점수를 계산하며, [점수 수식](docs/feature-scoring.md)과 합성 예제로 직접 검증할 수 있습니다. [Cold 단독 평가](docs/cold-evaluation.md)는 제공된 원천 이벤트부터 Feature 변환·기준 선택·점수 반환까지 연결합니다. 그룹 가중합과 GPT를 포함한 최종 위험 분류는 별도 정책 함수에서 제공합니다.
 
-자체 FDS의 최종 정책 계약은 [입력·설정](docs/risk-policy-inputs.md)과 [결과·권고 및 직접 검증](docs/risk-policy-results.md)에 설명합니다. 기존 개인화 평가와 GPT 결과의 대상·시각·버전을 연결하고 점수·기여도·상태의 모순을 검증합니다. [최종 정책 함수](docs/risk-evaluation.md)에서 위험 분류와 확인 권고를 조립합니다.
+자체 FDS의 최종 정책 계약은 [입력·설정](docs/risk-policy-inputs.md)과 [결과·권고 및 직접 검증](docs/risk-policy-results.md)에 설명합니다. 기존 개인화 평가와 GPT 결과의 대상·시각·버전을 연결하고 점수·기여도·상태의 모순을 검증합니다. [최종 정책 함수](docs/risk-evaluation.md)에서 위험 분류와 확인 권고를 조립합니다. [기본 위험 정책](docs/default-risk-policy.md)은 최종 피처 100점에 MEDIUM 하한을 적용하며, 통합 요청에서 위험 정책을 생략하면 사용됩니다.
+
+[통합 요청과 시각](docs/engine-inputs.md), [통합 실행 결과와 원본 근거](docs/engine-results.md)는 제공된 이력·게시본·의도 원문·정책을 한 실행에 연결하는 내부 계약입니다. 고정된 행동 기준과 GPT 완료·정책 판단 시각을 구분하고 단계 실패·자료 부족을 보존합니다.
+
+[행동 입력 구성](docs/engine-behavior-inputs.md)과 [행동 평가 실행](docs/engine-behavior.md)은 통합 요청에서 기존 Cold·개인화 점수까지 연결합니다. 원래 Feature별 단계·비중·충분도·실패를 보존하고 평가 중 프로필을 갱신하지 않습니다. 이 행동 경로에는 GMS 키나 데이터 로더가 필요하지 않습니다.
+
+[통합 GPT 분석 실행](docs/engine-analysis.md)과 [GPT 정책 연결](docs/engine-intent.md)은 기존 추출·비교를 통합 요청에 연결합니다. 두 단계의 원본 결과·확인 요청과 최초 실패를 보존하며, 원래 BE 의도·주문을 유지한 채 기존 위험 정책 입력을 구성합니다.
+
+[통합 실행기](docs/engine-execution.md)는 행동·추출·비교를 한 예산으로 실행하고 [단계별 부분 결과](docs/engine-execution-stages.md)를 반환합니다. 취소·시간 초과·복합 실패와 이미 얻은 근거를 보존합니다.
+
+[자체 FDS 통합 진입점](docs/native-evaluation.md)은 이 실행에 [기존 위험 정책과 최종 결과 조립](docs/engine-finalization.md)을 연결합니다. 같은 예산으로 최종 상태·위험 수준·확인 권고를 반환하고 점수·기여도·단계·버전·실패 근거를 유지합니다. 기존 Sift 계약은 보존하며 새 경로에서 요구하지 않습니다. BE 서비스 인터페이스와 통합 CLI는 별도 범위입니다.
 
 [FDS 평가 범위·결측 판단](docs/risk-coverage.md)은 요청에서 빠진 항목까지 정책 전체 기준으로 확인합니다. [행동 평가 상태·실패 보존](docs/risk-assessment.md)은 기존 점수·단계·충분도를 유지하고 Cold 복귀 후에도 계산 실패를 보존합니다.
 
