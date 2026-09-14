@@ -76,3 +76,22 @@ PIN·생체인증·카드 결제수단 API는 `/api/pay/v1` 사용자 인증 영
 - Argon2id Salt는 해시 문자열에 포함되며, 별도 Salt 컬럼을 사용하지 않습니다.
 - 배포 환경에서는 `PAY_PIN_PEPPER`를 Secret Manager 또는 환경변수로 주입합니다. Pepper는 Pay DB에 저장하지 않습니다.
 - 카드 결제수단은 PG의 `provider_token_ref`만 저장하고, 삭제는 Soft Delete로 처리합니다.
+
+## 서비스 간 인증
+
+Pay는 경로별 호출 주체를 구분합니다.
+
+| 경로 | 허용 주체 |
+| --- | --- |
+| `/api/pay/v1/**` | 사용자 Access Token |
+| `/internal/v1/**` | `core-service` 서비스 토큰 |
+| `/merchant/v1/**` | 활성 Merchant에 등록된 Merchant 서비스 토큰 |
+
+운영 사용자 토큰은 `PAY_AUTH_JWT_*` 환경변수로 주입한 Core 공개 JWK를 사용해 검증합니다.
+로컬 정적 토큰은 테스트·개발 용도로만 `PAY_AUTH_USER_TOKENS_JSON`,
+`PAY_AUTH_CORE_SERVICE_TOKENS_JSON`, `PAY_AUTH_MERCHANT_SERVICE_TOKENS_JSON`에 설정할 수
+있습니다. JSON은 `주체 식별자 -> 토큰` 형식이며, 실제 값은 저장소에 커밋하지 않습니다.
+
+Merchant 서비스 토큰의 주체는 Merchant `merchantId`와 같아야 하며, Pay DB의 활성
+`merchant_accounts`에 등록된 Merchant만 Merchant 경로를 호출할 수 있습니다. 인증 토큰과
+`Authorization` 헤더는 로그에 기록하지 않습니다.

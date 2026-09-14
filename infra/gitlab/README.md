@@ -37,7 +37,7 @@ Stage: `lint -> test -> build -> deploy-smoke -> docker-build -> deploy-dev`
 | --- | --- |
 | 서비스 | health 응답, 실제 서비스 URL 호출, Core의 Merchant Profile 조회 |
 | Nginx | 설정 검사, upstream 경로, 교체 후 reload |
-| `__smoke__` 경로 | 애플리케이션 JSON 404와 원본 path 일치. Nginx 자체 404, 502 실패 |
+| `__smoke__` 경로 | 공개 경로는 애플리케이션 JSON 404와 원본 path 일치. Merchant 경로는 기준 Pay·업그레이드 전 404, 후보 Pay·업그레이드 후 무토큰 JSON 401 확인. 내부 경로는 Nginx 차단 404, 502 실패 |
 | DB | 표식 데이터 유지, Flyway 기동 검사 |
 | 복구 | `deploy-dev-service.sh` 실행 후 이전 이미지, `.env`, health, HTTP 확인 |
 

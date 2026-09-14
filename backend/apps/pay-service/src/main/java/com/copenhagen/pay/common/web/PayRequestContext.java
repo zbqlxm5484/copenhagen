@@ -5,6 +5,7 @@ import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
 import com.copenhagen.pay.common.idempotency.IdempotencyKey;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Objects;
 import java.util.Optional;
 
 public final class PayRequestContext {
@@ -28,6 +29,17 @@ public final class PayRequestContext {
     public static PayPrincipal requirePrincipal(HttpServletRequest request) {
         return findPrincipal(request).orElseThrow(
                 () -> new PayException(PayErrorCode.AUTHENTICATION_REQUIRED));
+    }
+
+    public static PayPrincipal requireMerchantPrincipal(
+            HttpServletRequest request,
+            String requestedMerchantId) {
+        PayPrincipal principal = requirePrincipal(request);
+        if (!principal.isMerchantService()
+                || !Objects.equals(principal.subject(), requestedMerchantId)) {
+            throw new PayException(PayErrorCode.FORBIDDEN);
+        }
+        return principal;
     }
 
     public static void setIdempotencyKey(HttpServletRequest request, IdempotencyKey key) {
