@@ -19,4 +19,20 @@ dependencies {
 
     testImplementation libs.spring.boot.starter.test
     testImplementation project(':libs:test-support')
+    // 마이그레이션과 리포지토리 SQL 을 진짜 PostgreSQL 에서 검증한다(Jira 294). pay-service 와 같은 구성.
+    testImplementation 'io.zonky.test:embedded-postgres:2.2.2'
+    testImplementation enforcedPlatform('io.zonky.test.postgres:embedded-postgres-binaries-bom:17.9.0')
+}
+
+tasks.named('test') {
+    useJUnitPlatform { excludeTags 'postgres' }
+}
+
+tasks.register('postgresTest', Test) {
+    description = 'Runs migration and repository SQL tests against a disposable real PostgreSQL instance.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'postgres' }
+    shouldRunAfter tasks.named('test')
 }
