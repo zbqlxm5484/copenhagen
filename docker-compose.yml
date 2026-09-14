@@ -70,6 +70,11 @@ services:
       PAY_DB_USER: ${PAY_DB_USER:-pay}
       PAY_DB_PASSWORD: ${PAY_DB_PASSWORD:-pay-dev-password}
       PG_SERVICE_URL: http://pg-mock:8080
+      PAY_RECONCILIATION_ENABLED: ${PAY_RECONCILIATION_ENABLED:-true}
+      PAY_RECONCILIATION_POLL_MILLIS: ${PAY_RECONCILIATION_POLL_MILLIS:-5000}
+      PAY_RECONCILIATION_BATCH_SIZE: ${PAY_RECONCILIATION_BATCH_SIZE:-10}
+      PAY_RECONCILIATION_LEASE_SECONDS: ${PAY_RECONCILIATION_LEASE_SECONDS:-60}
+      PAY_RECONCILIATION_RETRY_SECONDS: ${PAY_RECONCILIATION_RETRY_SECONDS:-60}
     depends_on:
       pay-db:
         condition: service_healthy
@@ -113,6 +118,7 @@ services:
       dockerfile: mocks/pg-mock/Dockerfile
     environment:
       PG_MOCK_OUTCOME: ${PG_MOCK_OUTCOME:-SUCCESS}
+      PG_MOCK_LOOKUP_OUTCOME: ${PG_MOCK_LOOKUP_OUTCOME:-UNKNOWN}
       PG_MOCK_RESPONSE_DELAY_MILLIS: ${PG_MOCK_RESPONSE_DELAY_MILLIS:-0}
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health"]

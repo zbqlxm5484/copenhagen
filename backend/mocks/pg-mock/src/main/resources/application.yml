@@ -6,6 +6,7 @@ pg:
   mock:
     outcome: ${PG_MOCK_OUTCOME:SUCCESS}
     response-delay-millis: ${PG_MOCK_RESPONSE_DELAY_MILLIS:0}
+    lookup-outcome: ${PG_MOCK_LOOKUP_OUTCOME:UNKNOWN}
 
 management:
   endpoints:

@@ -2,19 +2,13 @@ package com.copenhagen.pay.payment.payment;
 
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
-import com.copenhagen.pay.payment.credential.mandate.ArtifactEncryptionService;
 import com.copenhagen.pay.payment.pg.PaymentGateway.ChargeResult;
 import com.copenhagen.pay.payment.pg.PaymentGateway.ChargeResult.Outcome;
 import com.copenhagen.pay.payment.policy.PaymentStatus;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
 
 /** PG 결과를 세 개의 결제 원장에 반영하고 성공 시에만 Receipt를 발급합니다. */
 @Service
@@ -25,20 +19,17 @@ public class PaymentExecutionSettlementService {
 
     private final PaymentExecutionRepository repository;
     private final PaymentLifecycleService lifecycleService;
-    private final ArtifactEncryptionService encryptionService;
-    private final ObjectMapper objectMapper;
+    private final PaymentReceiptService receiptService;
     private final Clock clock;
 
     public PaymentExecutionSettlementService(
             PaymentExecutionRepository repository,
             PaymentLifecycleService lifecycleService,
-            ArtifactEncryptionService encryptionService,
-            ObjectMapper objectMapper,
+            PaymentReceiptService receiptService,
             Clock clock) {
         this.repository = repository;
         this.lifecycleService = lifecycleService;
-        this.encryptionService = encryptionService;
-        this.objectMapper = objectMapper;
+        this.receiptService = receiptService;
         this.clock = clock;
     }
 
@@ -85,7 +76,7 @@ public class PaymentExecutionSettlementService {
 
         if (targetStatus == PaymentStatus.SUCCESS) {
             lifecycleService.resolveSuccess(current.id());
-            insertReceipt(current, prepared, normalized, now);
+            receiptService.issueIfAbsent(current, normalized.pgTransactionId(), now);
         } else if (targetStatus == PaymentStatus.FAILED) {
             lifecycleService.resolveDefinitiveFailure(current.id());
         } else {
@@ -99,40 +90,6 @@ public class PaymentExecutionSettlementService {
         return repository.findById(current.id())
                 .map(PaymentExecutionResult::from)
                 .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
-    }
-
-    private void insertReceipt(
-            PaymentExecutionRecord payment,
-            PreparedPaymentExecution prepared,
-            ChargeResult result,
-            Instant issuedAt) {
-        Map<String, Object> receiptBody = new LinkedHashMap<>();
-        receiptBody.put("paymentId", payment.id());
-        receiptBody.put("attemptId", prepared.attemptId());
-        receiptBody.put("pgTransactionId", result.pgTransactionId());
-        receiptBody.put("amountMinor", payment.amountMinor());
-        receiptBody.put("currency", payment.currency());
-        receiptBody.put("status", PaymentStatus.SUCCESS.name());
-        receiptBody.put("issuedAt", issuedAt.toString());
-
-        String plaintext;
-        try {
-            plaintext = objectMapper.writeValueAsString(receiptBody);
-        } catch (JacksonException | IllegalArgumentException exception) {
-            throw new PayException(
-                    PayErrorCode.INTERNAL_ERROR,
-                    "결제 영수증을 생성할 수 없습니다.",
-                    PaymentStatus.SUCCESS.name(),
-                    PayErrorCode.INTERNAL_ERROR.defaultNextAction(),
-                    exception);
-        }
-        ArtifactEncryptionService.EncryptedArtifact encrypted = encryptionService.encrypt(plaintext);
-        repository.insertReceipt(new PaymentExecutionRepository.PaymentReceipt(
-                UUID.randomUUID().toString(),
-                payment.id(),
-                encrypted.hash(),
-                encrypted.ciphertext(),
-                issuedAt));
     }
 
     private ChargeResult normalize(ChargeResult result) {

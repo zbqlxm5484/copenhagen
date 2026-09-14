@@ -4,5 +4,6 @@ public enum PgMockOutcome {
 
     SUCCESS,
     FAILED,
-    TIMEOUT
+    TIMEOUT,
+    UNKNOWN
 }

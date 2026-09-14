@@ -9,10 +9,10 @@ public interface ReconciliationJobRepository {
 
     Optional<ReconciliationJob> claimNext(Instant now, Instant leaseExpiresAt);
 
-    Optional<ReconciliationJob> findById(String jobId);
+    boolean lockOwned(ReconciliationJob job, Instant now);
 
     boolean complete(
-            String jobId,
+            ReconciliationJob job,
             ReconciliationJobStatus targetStatus,
             Instant nextRunAt,
             Instant completedAt,

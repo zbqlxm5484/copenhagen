@@ -25,3 +25,12 @@ PG_MOCK_OUTCOME=TIMEOUT
 `TIMEOUT`은 `PG_MOCK_RESPONSE_DELAY_MILLIS`만큼 응답을 지연합니다. 값을 생략하면
 Pay의 요청 타임아웃을 초과하도록 5초 지연을 사용합니다. Mock은 결제 원장이나 카드정보를
 저장하지 않습니다.
+
+## 기존 거래 조회
+
+`GET /internal/v1/charges?pgTransactionId=...` 또는 `?pgRequestId=...`로 기존 거래를 조회합니다.
+Mock은 접수한 요청 식별자와 결과만 메모리에 보관하며 카드 토큰·결제 요청 원문은 보관하지 않습니다.
+재시작하면 사라지므로 미발견 응답은 Pay에서 UNKNOWN으로 취급합니다.
+
+`PG_MOCK_OUTCOME=TIMEOUT`일 때 조회 결과는 `PG_MOCK_LOOKUP_OUTCOME`으로 지정합니다.
+`SUCCESS`, `FAILED`, `UNKNOWN`을 지원하며 기본값은 `UNKNOWN`입니다. 조회는 새 거래를 만들지 않습니다.

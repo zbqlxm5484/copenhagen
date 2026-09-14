@@ -1,13 +1,12 @@
 package com.copenhagen.pay.payment.reconciliation;
 
+import com.copenhagen.pay.payment.policy.ReconciliationJobStatus;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-
-import com.copenhagen.pay.payment.policy.ReconciliationJobStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -17,44 +16,61 @@ public class JdbcReconciliationJobRepository implements ReconciliationJobReposit
 
     private static final String CLAIM_NEXT_SQL = """
             WITH candidate AS (
-                SELECT id
-                FROM payment_reconciliation_jobs
-                WHERE ((status IN ('PENDING', 'FAILED') AND next_run_at <= ?)
-                   OR (status = 'RUNNING' AND lease_expires_at IS NOT NULL
-                       AND lease_expires_at <= ?))
-                ORDER BY next_run_at, id
-                FOR UPDATE SKIP LOCKED
+                SELECT job.id, payment.status AS payment_status
+                FROM payment_reconciliation_jobs job
+                JOIN payment_attempts attempt ON attempt.id = job.payment_attempt_id
+                JOIN payments payment ON payment.id = attempt.payment_id
+                WHERE ((job.status IN ('PENDING', 'FAILED')
+                        AND job.next_run_at <= CAST(? AS TIMESTAMPTZ))
+                   OR (job.status = 'RUNNING'
+                        AND job.lease_expires_at <= CAST(? AS TIMESTAMPTZ)))
+                  AND NOT EXISTS (
+                      SELECT 1 FROM payment_reconciliation_jobs other
+                      JOIN payment_attempts other_attempt ON other_attempt.id = other.payment_attempt_id
+                      WHERE other_attempt.payment_id = payment.id AND other.id <> job.id
+                        AND other.status = 'RUNNING'
+                        AND other.lease_expires_at > CAST(? AS TIMESTAMPTZ)
+                  )
+                ORDER BY job.next_run_at, job.id
+                FOR UPDATE OF job, payment SKIP LOCKED
                 LIMIT 1
             )
             UPDATE payment_reconciliation_jobs job
-            SET status = 'RUNNING',
-                lease_expires_at = ?,
-                attempt_count = attempt_count + 1,
-                last_run_at = ?
+            SET status = CASE WHEN candidate.payment_status <> 'UNKNOWN' THEN 'CANCELLED'
+                              WHEN job.attempt_count >= 5 THEN 'EXHAUSTED' ELSE 'RUNNING' END,
+                lease_expires_at = CASE WHEN candidate.payment_status = 'UNKNOWN'
+                                            AND job.attempt_count < 5
+                                      THEN CAST(? AS TIMESTAMPTZ) ELSE NULL END,
+                attempt_count = job.attempt_count + CASE WHEN candidate.payment_status = 'UNKNOWN'
+                                            AND job.attempt_count < 5 THEN 1 ELSE 0 END,
+                last_run_at = CASE WHEN candidate.payment_status = 'UNKNOWN'
+                                            AND job.attempt_count < 5
+                                      THEN CAST(? AS TIMESTAMPTZ) ELSE job.last_run_at END,
+                last_error = CASE WHEN candidate.payment_status <> 'UNKNOWN' THEN 'PAYMENT_NOT_UNKNOWN'
+                                  WHEN job.attempt_count >= 5 THEN 'PG_LOOKUP_EXHAUSTED' ELSE NULL END
             FROM candidate
             WHERE job.id = candidate.id
-            RETURNING job.id, job.payment_attempt_id, job.status,
-                      job.attempt_count, job.lease_expires_at
+            RETURNING job.id, job.payment_attempt_id, job.status, job.attempt_count, job.lease_expires_at
             """;
 
-    private static final String FIND_BY_ID_SQL = """
-            SELECT id, payment_attempt_id, status, attempt_count, lease_expires_at
-            FROM payment_reconciliation_jobs
-            WHERE id = ?
+    private static final String LOCK_OWNED_SQL = """
+            SELECT id FROM payment_reconciliation_jobs
+            WHERE id = ? AND status = 'RUNNING' AND attempt_count = ?
+              AND lease_expires_at = CAST(? AS TIMESTAMPTZ)
+              AND lease_expires_at > CAST(? AS TIMESTAMPTZ)
+            FOR UPDATE
             """;
 
     private static final String COMPLETE_SQL = """
             UPDATE payment_reconciliation_jobs
-            SET status = ?,
-                next_run_at = ?,
-                lease_expires_at = NULL,
-                last_run_at = ?,
-                last_error = ?
-            WHERE id = ? AND status = 'RUNNING'
+            SET status = ?, next_run_at = CAST(? AS TIMESTAMPTZ),
+                lease_expires_at = NULL, last_error = ?
+            WHERE id = ? AND status = 'RUNNING' AND attempt_count = ?
+              AND lease_expires_at = CAST(? AS TIMESTAMPTZ)
+              AND lease_expires_at > CAST(? AS TIMESTAMPTZ)
             """;
 
-    private static final RowMapper<ReconciliationJob> ROW_MAPPER =
-            JdbcReconciliationJobRepository::mapJob;
+    private static final RowMapper<ReconciliationJob> ROW_MAPPER = JdbcReconciliationJobRepository::mapJob;
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -64,46 +80,37 @@ public class JdbcReconciliationJobRepository implements ReconciliationJobReposit
 
     @Override
     public Optional<ReconciliationJob> claimNext(Instant now, Instant leaseExpiresAt) {
-        List<ReconciliationJob> jobs = jdbcTemplate.query(
-                CLAIM_NEXT_SQL,
-                statement -> {
-                    statement.setTimestamp(1, Timestamp.from(now));
-                    statement.setTimestamp(2, Timestamp.from(now));
-                    statement.setTimestamp(3, Timestamp.from(leaseExpiresAt));
-                    statement.setTimestamp(4, Timestamp.from(now));
-                },
-                ROW_MAPPER);
+        Timestamp timestamp = Timestamp.from(now);
+        List<ReconciliationJob> jobs = jdbcTemplate.query(CLAIM_NEXT_SQL, ROW_MAPPER,
+                timestamp, timestamp, timestamp, Timestamp.from(leaseExpiresAt), timestamp);
         return jobs.stream().findFirst();
     }
 
     @Override
-    public Optional<ReconciliationJob> findById(String jobId) {
-        List<ReconciliationJob> jobs = jdbcTemplate.query(
-                FIND_BY_ID_SQL,
-                ROW_MAPPER,
-                jobId);
-        return jobs.stream().findFirst();
+    public boolean lockOwned(ReconciliationJob job, Instant now) {
+        if (job.leaseExpiresAt() == null) {
+            return false;
+        }
+        return !jdbcTemplate.queryForList(LOCK_OWNED_SQL, String.class,
+                job.id(), job.attemptCount(), Timestamp.from(job.leaseExpiresAt()), Timestamp.from(now)).isEmpty();
     }
 
     @Override
     public boolean complete(
-            String jobId,
+            ReconciliationJob job,
             ReconciliationJobStatus targetStatus,
             Instant nextRunAt,
             Instant completedAt,
             String lastError) {
-        int updated = jdbcTemplate.update(
-                COMPLETE_SQL,
-                targetStatus.name(),
-                Timestamp.from(nextRunAt),
-                Timestamp.from(completedAt),
-                lastError,
-                jobId);
-        return updated == 1;
+        if (job.leaseExpiresAt() == null) {
+            return false;
+        }
+        return jdbcTemplate.update(COMPLETE_SQL,
+                targetStatus.name(), Timestamp.from(nextRunAt), lastError, job.id(), job.attemptCount(),
+                Timestamp.from(job.leaseExpiresAt()), Timestamp.from(completedAt)) == 1;
     }
 
-    private static ReconciliationJob mapJob(ResultSet resultSet, int rowNumber)
-            throws SQLException {
+    private static ReconciliationJob mapJob(ResultSet resultSet, int rowNumber) throws SQLException {
         Timestamp leaseTimestamp = resultSet.getTimestamp("lease_expires_at");
         return new ReconciliationJob(
                 resultSet.getString("id"),

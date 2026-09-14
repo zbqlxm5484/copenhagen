@@ -10,6 +10,18 @@ public interface PaymentGateway {
 
     ChargeResult charge(ChargeRequest request);
 
+    StatusResult lookup(StatusRequest request);
+
+    record StatusRequest(String pgTransactionId, String pgRequestId) {
+    }
+
+    record StatusResult(ChargeResult.Outcome outcome, String pgTransactionId, String responseCode) {
+
+        public static StatusResult unknown(String code) {
+            return new StatusResult(ChargeResult.Outcome.UNKNOWN, null, code);
+        }
+    }
+
     record ChargeRequest(
             String paymentId,
             String pgRequestId,
