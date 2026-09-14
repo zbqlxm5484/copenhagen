@@ -5,6 +5,16 @@ import java.util.Optional;
 
 public interface PaymentPinCredentialRepository {
 
+    /**
+     * Reads a user's PIN without requiring a row lock.
+     *
+     * <p>The default keeps existing repository test doubles source-compatible;
+     * the JDBC implementation overrides it with a non-locking query.</p>
+     */
+    default Optional<PaymentPinCredential> findByUserId(String userId) {
+        return findByUserIdForUpdate(userId);
+    }
+
     Optional<PaymentPinCredential> findByUserIdForUpdate(String userId);
 
     void insert(
@@ -12,6 +22,16 @@ public interface PaymentPinCredentialRepository {
             String userId,
             String pinHash,
             Instant updatedAt);
+
+    default void insert(
+            String id,
+            String userId,
+            String pinHash,
+            String registrationIdempotencyKey,
+            String registrationRequestHash,
+            Instant updatedAt) {
+        insert(id, userId, pinHash, updatedAt);
+    }
 
     void updatePin(
             String id,

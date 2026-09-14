@@ -12,6 +12,12 @@ pay:
   auth:
     user-tokens: {}
     service-tokens: {}
+    jwt:
+      enabled: ${PAY_AUTH_JWT_ENABLED:false}
+      issuer: ${PAY_AUTH_JWT_ISSUER:}
+      audience: ${PAY_AUTH_JWT_AUDIENCE:pay-service}
+      jwk-set-json: ${PAY_AUTH_JWT_JWK_SET_JSON:}
+      clock-skew-seconds: ${PAY_AUTH_JWT_CLOCK_SKEW_SECONDS:60}
   pin:
     # Set PAY_PIN_PEPPER in deployed environments. It must never be stored in pay-db.
     pepper: ${PAY_PIN_PEPPER:}
