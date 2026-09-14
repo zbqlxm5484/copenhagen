@@ -85,6 +85,76 @@ class PaymentPinServiceTest {
         assertEquals(null, credential.lockedUntil());
     }
 
+    @Test
+    void statusReturnsNotRegisteredWhenCredentialDoesNotExist() {
+        assertEquals(
+                PaymentPinStatusResponse.notRegistered(),
+                service.status("user-001"));
+    }
+
+    @Test
+    void statusReturnsActiveWithoutExposingCredentialDetails() {
+        service.register("user-001", "123456");
+
+        assertEquals(
+                new PaymentPinStatusResponse(true, PaymentPinStatus.ACTIVE, "NONE"),
+                service.status("user-001"));
+    }
+
+    @Test
+    void statusMapsLockedCredentialToRetryAction() {
+        service.register("user-001", "123456");
+        for (int attempt = 0; attempt < 5; attempt++) {
+            assertThrows(
+                    PayException.class,
+                    () -> service.verify("user-001", "000000"));
+        }
+
+        assertEquals(
+                new PaymentPinStatusResponse(true, PaymentPinStatus.LOCKED, "WAIT_AND_RETRY"),
+                service.status("user-001"));
+    }
+
+    @Test
+    void statusMapsRevokedCredentialToReauthenticationAction() {
+        repository.insert(
+                "pin-001",
+                "user-001",
+                passwordEncoder.encode("123456"),
+                NOW);
+        repository.updateVerificationFailure(
+                "pin-001",
+                0,
+                null,
+                PaymentPinStatus.REVOKED,
+                NOW);
+
+        assertEquals(
+                new PaymentPinStatusResponse(true, PaymentPinStatus.REVOKED, "REAUTHENTICATE"),
+                service.status("user-001"));
+    }
+
+    @Test
+    void registerReusesSuccessfulResultForSameIdempotencyKeyAndRequest() {
+        service.register("user-001", "123456", "request-001", "hash-001");
+
+        service.register("user-001", "123456", "request-001", "hash-001");
+
+        assertEquals("request-001", repository.credential().orElseThrow().registrationIdempotencyKey());
+        assertEquals("hash-001", repository.credential().orElseThrow().registrationRequestHash());
+    }
+
+    @Test
+    void registerRejectsSameIdempotencyKeyWithDifferentRequest() {
+        service.register("user-001", "123456", "request-001", "hash-001");
+
+        PayException exception = assertThrows(
+                PayException.class,
+                () -> service.register("user-001", "123456", "request-001", "hash-002"));
+
+        assertEquals(PayErrorCode.IDEMPOTENCY_CONFLICT, exception.errorCode());
+    }
+
     private static final class InMemoryPaymentPinCredentialRepository
             implements PaymentPinCredentialRepository {
 
@@ -104,13 +174,26 @@ class PaymentPinServiceTest {
                 String userId,
                 String pinHash,
                 Instant updatedAt) {
+            insert(id, userId, pinHash, null, null, updatedAt);
+        }
+
+        @Override
+        public void insert(
+                String id,
+                String userId,
+                String pinHash,
+                String registrationIdempotencyKey,
+                String registrationRequestHash,
+                Instant updatedAt) {
             credential = new PaymentPinCredential(
                     id,
                     userId,
                     pinHash,
                     0,
                     null,
-                    PaymentPinStatus.ACTIVE);
+                    PaymentPinStatus.ACTIVE,
+                    registrationIdempotencyKey,
+                    registrationRequestHash);
         }
 
         @Override

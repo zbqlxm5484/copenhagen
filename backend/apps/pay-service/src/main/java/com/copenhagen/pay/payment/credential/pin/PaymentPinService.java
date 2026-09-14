@@ -2,11 +2,13 @@ package com.copenhagen.pay.payment.credential.pin;
 
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
+import com.copenhagen.pay.common.idempotency.IdempotencyGuard;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,20 +24,44 @@ public class PaymentPinService {
     private final PaymentPinCredentialRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
+    private final IdempotencyGuard idempotencyGuard;
 
     public PaymentPinService(
             PaymentPinCredentialRepository repository,
             PasswordEncoder passwordEncoder,
             Clock clock) {
+        this(repository, passwordEncoder, clock, new IdempotencyGuard());
+    }
+
+    @Autowired
+    public PaymentPinService(
+            PaymentPinCredentialRepository repository,
+            PasswordEncoder passwordEncoder,
+            Clock clock,
+            IdempotencyGuard idempotencyGuard) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
+        this.idempotencyGuard = idempotencyGuard;
     }
 
     @Transactional
     public void register(String userId, String pin) {
+        register(userId, pin, null, null);
+    }
+
+    @Transactional
+    public void register(
+            String userId,
+            String pin,
+            String idempotencyKey,
+            String requestHash) {
         validatePin(pin);
-        if (repository.findByUserIdForUpdate(userId).isPresent()) {
+        PaymentPinCredential existing = repository.findByUserIdForUpdate(userId).orElse(null);
+        if (existing != null) {
+            if (isReplay(existing, idempotencyKey, requestHash)) {
+                return;
+            }
             throw new PayException(PayErrorCode.PIN_ALREADY_REGISTERED);
         }
 
@@ -44,6 +70,8 @@ public class PaymentPinService {
                     UUID.randomUUID().toString(),
                     userId,
                     passwordEncoder.encode(pin),
+                    idempotencyKey,
+                    requestHash,
                     clock.instant());
         } catch (DuplicateKeyException exception) {
             throw new PayException(
@@ -53,6 +81,21 @@ public class PaymentPinService {
                     PayErrorCode.PIN_ALREADY_REGISTERED.defaultNextAction(),
                     exception);
         }
+    }
+
+    private boolean isReplay(
+            PaymentPinCredential existing,
+            String idempotencyKey,
+            String requestHash) {
+        if (idempotencyKey == null
+                || !idempotencyKey.equals(existing.registrationIdempotencyKey())
+                || requestHash == null) {
+            return false;
+        }
+        return idempotencyGuard.check(
+                existing.registrationRequestHash(),
+                requestHash,
+                existing.status().name()) == IdempotencyGuard.Decision.REPLAY;
     }
 
     @Transactional
@@ -87,6 +130,13 @@ public class PaymentPinService {
         }
 
         repository.resetVerificationState(credential.id(), clock.instant());
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentPinStatusResponse status(String userId) {
+        return repository.findByUserId(userId)
+                .map(PaymentPinStatusResponse::from)
+                .orElseGet(PaymentPinStatusResponse::notRegistered);
     }
 
     private PaymentPinCredential findCredential(String userId) {

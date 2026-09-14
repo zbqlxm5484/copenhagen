@@ -15,16 +15,25 @@ import org.springframework.stereotype.Repository;
 public class JdbcPaymentPinCredentialRepository implements PaymentPinCredentialRepository {
 
     private static final String FIND_BY_USER_FOR_UPDATE_SQL = """
-            SELECT id, user_id, pin_hash, failed_attempts, locked_until, status
+            SELECT id, user_id, pin_hash, failed_attempts, locked_until, status,
+                   registration_idempotency_key, registration_request_hash
             FROM payment_pin_credentials
             WHERE user_id = ?
             FOR UPDATE
             """;
 
+    private static final String FIND_BY_USER_SQL = """
+            SELECT id, user_id, pin_hash, failed_attempts, locked_until, status,
+                   registration_idempotency_key, registration_request_hash
+            FROM payment_pin_credentials
+            WHERE user_id = ?
+            """;
+
     private static final String INSERT_SQL = """
             INSERT INTO payment_pin_credentials
-                (id, user_id, pin_hash, failed_attempts, locked_until, status, updated_at)
-            VALUES (?, ?, ?, 0, NULL, 'ACTIVE', ?)
+                (id, user_id, pin_hash, failed_attempts, locked_until, status,
+                 registration_idempotency_key, registration_request_hash, updated_at)
+            VALUES (?, ?, ?, 0, NULL, 'ACTIVE', ?, ?, ?)
             """;
 
     private static final String UPDATE_PIN_SQL = """
@@ -56,10 +65,19 @@ public class JdbcPaymentPinCredentialRepository implements PaymentPinCredentialR
     }
 
     @Override
+    public Optional<PaymentPinCredential> findByUserId(String userId) {
+        return find(FIND_BY_USER_SQL, userId);
+    }
+
+    @Override
     public Optional<PaymentPinCredential> findByUserIdForUpdate(String userId) {
+        return find(FIND_BY_USER_FOR_UPDATE_SQL, userId);
+    }
+
+    private Optional<PaymentPinCredential> find(String sql, String userId) {
         try {
             PaymentPinCredential credential = jdbcTemplate.queryForObject(
-                    FIND_BY_USER_FOR_UPDATE_SQL,
+                    sql,
                     ROW_MAPPER,
                     userId);
             return Optional.ofNullable(credential);
@@ -74,11 +92,24 @@ public class JdbcPaymentPinCredentialRepository implements PaymentPinCredentialR
             String userId,
             String pinHash,
             Instant updatedAt) {
+        insert(id, userId, pinHash, null, null, updatedAt);
+    }
+
+    @Override
+    public void insert(
+            String id,
+            String userId,
+            String pinHash,
+            String registrationIdempotencyKey,
+            String registrationRequestHash,
+            Instant updatedAt) {
         jdbcTemplate.update(
                 INSERT_SQL,
                 id,
                 userId,
                 pinHash,
+                registrationIdempotencyKey,
+                registrationRequestHash,
                 Timestamp.from(updatedAt));
     }
 
@@ -128,6 +159,8 @@ public class JdbcPaymentPinCredentialRepository implements PaymentPinCredentialR
                 resultSet.getString("pin_hash"),
                 resultSet.getInt("failed_attempts"),
                 lockedUntil == null ? null : lockedUntil.toInstant(),
-                PaymentPinStatus.valueOf(resultSet.getString("status")));
+                PaymentPinStatus.valueOf(resultSet.getString("status")),
+                resultSet.getString("registration_idempotency_key"),
+                resultSet.getString("registration_request_hash"));
     }
 }
