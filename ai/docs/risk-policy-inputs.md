@@ -22,10 +22,15 @@ reference = RiskInputReference.from_input(supplied)
 기록된 계산 실패를 보존하기 위해 점수 계산기는 재실행하지 않는다.
 
 행동 결과는 원래 평가 시각에만 사용할 수 있다. 다른 시각이면 과거 빈도/시간대 점수도
-달라질 수 있으므로 새 입력으로 재평가한다. GPT 시각은 미래일 수 없으며
+달라질 수 있으므로 새 입력으로 재평가한다. 기본적으로 GPT 시각은 행동 기준보다 미래일 수 없으며
 `age < intent_max_age_seconds`, 명시한 `valid_until > evaluated_at`을 모두 만족해야 한다.
 경계에 도달한 결과는 거절한다. 만료된 개인 프로필이 진단에 남아 있는 유효 Cold 대체 결과는
 허용하되, 만료 프로필을 실제 개인 계산 근거로 사용하는 것은 기존 계약이 거절한다.
+
+통합 실행에서 GPT가 행동 기준 이후에 완료되는 경우에는 `policy_evaluated_at`으로 실제
+정책 판단 시각을 별도 제공한다. 이때 GPT 나이·미래 여부·만료는 정책 시각에서 확인하고
+행동 기준은 유지한다. 생략/`null`이면 기존 JSON·해시·시각 검증을 유지한다.
+구체적인 의미와 경계 검증은 [통합 요청과 시각](engine-inputs.md)을 참고한다.
 
 지원하는 스키마·점수 척도·단계 정책·Feature 수식 버전을 검증한다. 배포별 설정 `version`은
 제공자가 정하는 식별자이고, 결과와 입력의 내용 해시를 함께 보관하여 같은 이름의 설정 변경도
@@ -33,7 +38,10 @@ reference = RiskInputReference.from_input(supplied)
 
 ## 정책 설정
 
-`RiskPolicyConfig`에는 운영용 가중치·임계값 기본값이 없다. 모든 수치는 명시적으로 제공한다.
+`RiskPolicyConfig` 자체는 가중치·임계값을 명시적으로 요구한다.
+프로젝트 [기본 위험 정책](default-risk-policy.md)은 `default_risk_policy()`로 제공하며,
+`EngineEvaluationRequest`에서 `risk_policy`를 생략하면 요청에 해당 설정을 채운다.
+`RiskPolicyInput`을 직접 구성할 때는 `policy=default_risk_policy()`를 전달한다.
 
 | 그룹 | 고정 Feature 구성 |
 | --- | --- |

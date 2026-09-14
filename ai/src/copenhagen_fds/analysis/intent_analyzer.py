@@ -72,7 +72,22 @@ class IntentAnalyzer:
     ) -> IntentAnalysisRun:
         settings = self._adapter.settings
         shared = budget if budget is not None else AnalysisBudget.start(settings.evaluation_timeout_seconds)
-        extraction = await self._extractor.extract(request, trace_id=trace_id, budget=shared)
+        extraction = await self.extract(request, trace_id=trace_id, budget=shared)
+        comparison = await self.compare_extraction(request, extraction, trace_id=trace_id, budget=shared)
+        return IntentAnalysisRun(extraction=extraction, comparison=comparison).validate_for_request(request)
+
+    async def extract(self, request: IntentAnalysisRequest, *, trace_id: str, budget: AnalysisBudget) -> IntentExtractionResult:
+        """Expose the existing stage so an engine can retain it before comparison."""
+        return await self._extractor.extract(request, trace_id=trace_id, budget=budget)
+
+    async def compare_extraction(
+        self, request: IntentAnalysisRequest, extraction: IntentExtractionResult, *, trace_id: str, budget: AnalysisBudget,
+    ) -> IntentComparisonResult:
+        """Use the same mapping and skip rules as analyze, without another extraction."""
+        extraction = IntentExtractionResult.model_validate(extraction.model_dump()).validate_for_request(request)
+        if extraction.metadata.trace_id != trace_id:
+            raise ValueError("comparison must retain the extraction trace")
+        settings = self._adapter.settings
         if extraction.status != "SUCCESS":
             comparison = _comparison_without_call(settings, request.target, trace_id)
         else:
@@ -88,6 +103,6 @@ class IntentAnalyzer:
                 )
             else:
                 comparison = await self._comparator.compare(
-                    mapped, trace_id=trace_id, budget=shared, clarifications=extraction.clarifications,
+                    mapped, trace_id=trace_id, budget=budget, clarifications=extraction.clarifications,
                 )
-        return IntentAnalysisRun(extraction=extraction, comparison=comparison).validate_for_request(request)
+        return IntentAnalysisRun(extraction=extraction, comparison=comparison).validate_for_request(request).comparison
