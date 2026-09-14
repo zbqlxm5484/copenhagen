@@ -167,7 +167,7 @@ class CatalogServiceTest {
         ApiException thrown = assertThrows(ApiException.class,
                 () -> service.product(new CatalogMessages.ProductRequest("product-999")));
 
-        assertEquals("PRODUCT_NOT_FOUND", thrown.code());
+        assertEquals("PRODUCT_NOT_FOUND", thrown.errorCode());
         assertEquals(404, thrown.status().value());
     }
 
@@ -176,7 +176,7 @@ class CatalogServiceTest {
         ApiException thrown = assertThrows(ApiException.class,
                 () -> service.product(new CatalogMessages.ProductRequest("product-105")));
 
-        assertEquals("PRODUCT_NOT_FOUND", thrown.code());
+        assertEquals("PRODUCT_NOT_FOUND", thrown.errorCode());
     }
 
     @Test

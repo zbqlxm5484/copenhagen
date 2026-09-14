@@ -125,8 +125,8 @@ class CheckoutControllerTest {
         mockMvc.perform(get("/ucp/v1/checkout-sessions/{id}", "nope")
                         .header("X-Request-Id", "req-404"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("CHECKOUT_NOT_FOUND"))
-                .andExpect(jsonPath("$.requestId").value("req-404"));
+                .andExpect(jsonPath("$.errorCode").value("CHECKOUT_NOT_FOUND"))
+                .andExpect(jsonPath("$.nextAction").value("RETURN_TO_CART"));
     }
 
     @Test
@@ -155,7 +155,7 @@ class CheckoutControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(CREATE_BODY.replace("product-101\"", "product-999\"")))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("PRODUCT_NOT_FOUND"));
+                .andExpect(jsonPath("$.errorCode").value("PRODUCT_NOT_FOUND"));
     }
 
     @Test
@@ -164,7 +164,7 @@ class CheckoutControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(CREATE_BODY))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("CHECKOUT_NOT_FOUND"));
+                .andExpect(jsonPath("$.errorCode").value("CHECKOUT_NOT_FOUND"));
     }
 
     private String createAndReadId(String idempotencyKey) throws Exception {
