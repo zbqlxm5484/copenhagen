@@ -1,16 +1,20 @@
 package com.copenhagen.merchantmock.security;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.interfaces.ECPrivateKey;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.text.ParseException;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
 import com.copenhagen.merchantmock.support.MerchantProperties;
+import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSObject;
@@ -84,8 +88,8 @@ public class SigningKeyProvider {
             }
             LOG.info("공개키 JWK 로딩 완료. kid={} crv={}", parsed.getKeyID(), parsed.getCurve());
             return parsed;
-        } catch (Exception e) {
-            throw new IllegalStateException("merchant.signing.public-key-jwk 를 EC JWK 로 읽을 수 없다", e);
+        } catch (ParseException exception) {
+            throw new IllegalStateException("merchant.signing.public-key-jwk 를 EC JWK 로 읽을 수 없다", exception);
         }
     }
 
@@ -120,8 +124,8 @@ public class SigningKeyProvider {
         }
         try {
             return Files.readString(path);
-        } catch (Exception e) {
-            throw new IllegalStateException("서명 개인키 파일 읽기에 실패했다: " + location, e);
+        } catch (IOException exception) {
+            throw new IllegalStateException("서명 개인키 파일 읽기에 실패했다: " + location, exception);
         }
     }
 
@@ -135,8 +139,10 @@ public class SigningKeyProvider {
             byte[] der = Base64.getDecoder().decode(body);
             KeyFactory factory = KeyFactory.getInstance("EC");
             return (ECPrivateKey) factory.generatePrivate(new PKCS8EncodedKeySpec(der));
-        } catch (Exception e) {
-            throw new IllegalStateException("개인키를 PKCS#8 EC 키로 읽을 수 없다. BEGIN PRIVATE KEY 헤더가 필요하다", e);
+        } catch (IllegalArgumentException | GeneralSecurityException | ClassCastException exception) {
+            // base64 깨짐, PKCS#8 이 아닌 DER, EC 가 아닌 키 순서로 각각 걸린다.
+            throw new IllegalStateException(
+                    "개인키를 PKCS#8 EC 키로 읽을 수 없다. BEGIN PRIVATE KEY 헤더가 필요하다", exception);
         }
     }
 
@@ -150,10 +156,8 @@ public class SigningKeyProvider {
             if (!probe.verify(new ECDSAVerifier(key.toECPublicKey()))) {
                 throw new IllegalStateException("공개키와 개인키가 같은 쌍이 아니다");
             }
-        } catch (IllegalStateException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("서명 키 쌍 검증에 실패했다", e);
+        } catch (JOSEException exception) {
+            throw new IllegalStateException("서명 키 쌍 검증에 실패했다", exception);
         }
     }
 }

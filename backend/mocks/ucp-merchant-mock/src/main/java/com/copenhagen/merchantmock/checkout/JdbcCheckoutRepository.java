@@ -77,7 +77,7 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
                     s.id(), s.status().name(), s.currency(), s.totalAmount(),
                     s.fulfillmentAddressJson(), s.messagesJson(), s.canonicalCheckout(), s.expiresAt());
             return true;
-        } catch (DuplicateKeyException e) {
+        } catch (DuplicateKeyException exception) {
             return false;
         }
     }

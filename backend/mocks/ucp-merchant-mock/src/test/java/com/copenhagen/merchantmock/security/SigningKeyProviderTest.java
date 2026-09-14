@@ -12,6 +12,7 @@ import com.copenhagen.merchantmock.support.MerchantProperties;
 import com.copenhagen.merchantmock.support.MerchantPropertiesFixture;
 import com.nimbusds.jose.jwk.Curve;
 import com.nimbusds.jose.jwk.ECKey;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,31 +30,42 @@ class SigningKeyProviderTest {
     private static final String KID = "merchant-a-es256-1";
 
     @Test
-    void 공개키만_있으면_기동하고_서명은_못한다() {
+    @DisplayName("공개키만 있으면 기동하고 서명은 못 한다")
+    void load_publicKeyOnly_startsButCannotSign() {
+        // given & when
         SigningKeyProvider provider = new SigningKeyProvider(MerchantPropertiesFixture.defaults());
 
+        // then
         assertFalse(provider.canSign());
         assertTrue(provider.publicJwk().isPresent());
         assertThrows(IllegalStateException.class, provider::requireSigningKey);
     }
 
     @Test
-    void 공개키가_비어_있으면_keys는_빈값이다() {
+    @DisplayName("공개키가 비어 있으면 keys 는 빈 값이다")
+    void load_blankPublicKey_returnsEmptyJwk() {
+        // given
         MerchantProperties properties = MerchantPropertiesFixture.withSigning(
                 new MerchantProperties.Signing(KID, "ES256", "", "", ""));
 
+        // when
         SigningKeyProvider provider = new SigningKeyProvider(properties);
 
+        // then
         assertTrue(provider.publicJwk().isEmpty());
         assertFalse(provider.canSign());
     }
 
     @Test
-    void 공개키_JWK에_kid와_곡선이_실린다() {
+    @DisplayName("공개키 JWK 에 kid 와 곡선이 실린다")
+    void publicJwk_defaults_carriesKidAndCurve() {
+        // given
         SigningKeyProvider provider = new SigningKeyProvider(MerchantPropertiesFixture.defaults());
 
+        // when
         Map<String, Object> jwk = provider.publicJwk().orElseThrow();
 
+        // then
         assertEquals("EC", jwk.get("kty"));
         assertEquals("P-256", jwk.get("crv"));
         assertEquals(KID, jwk.get("kid"));
@@ -61,24 +73,31 @@ class SigningKeyProviderTest {
     }
 
     @Test
-    void 짝이_맞는_개인키를_읽으면_서명할_수_있다() throws Exception {
+    @DisplayName("짝이 맞는 개인키를 읽으면 서명할 수 있다")
+    void load_matchingKeyPair_enablesSigning() throws Exception {
+        // given
         KeyPair pair = generateP256();
         MerchantProperties properties = MerchantPropertiesFixture.withSigning(
                 new MerchantProperties.Signing(KID, "ES256", "", toPkcs8Pem(pair), publicJwkOf(pair)));
 
+        // when
         SigningKeyProvider provider = new SigningKeyProvider(properties);
 
+        // then
         assertTrue(provider.canSign());
         assertEquals(KID, provider.requireSigningKey().getKeyID());
     }
 
     @Test
-    void 짝이_안_맞는_개인키는_기동에서_잡는다() throws Exception {
+    @DisplayName("짝이 안 맞는 개인키는 기동에서 잡는다")
+    void load_mismatchedKeyPair_throwsOnStartup() throws Exception {
+        // given
         String otherPem = toPkcs8Pem(generateP256());
         String jwk = publicJwkOf(generateP256());
         MerchantProperties properties = MerchantPropertiesFixture.withSigning(
                 new MerchantProperties.Signing(KID, "ES256", "", otherPem, jwk));
 
+        // when & then
         IllegalStateException thrown =
                 assertThrows(IllegalStateException.class, () -> new SigningKeyProvider(properties));
 
@@ -86,19 +105,25 @@ class SigningKeyProviderTest {
     }
 
     @Test
-    void 개인키만_있으면_기동에서_잡는다() throws Exception {
+    @DisplayName("개인키만 있으면 기동에서 잡는다")
+    void load_privateKeyWithoutPublicKey_throwsOnStartup() throws Exception {
+        // given
         MerchantProperties properties = MerchantPropertiesFixture.withSigning(
                 new MerchantProperties.Signing(KID, "ES256", "", toPkcs8Pem(generateP256()), ""));
 
+        // when & then
         assertThrows(IllegalStateException.class, () -> new SigningKeyProvider(properties));
     }
 
     @Test
-    void 없는_경로를_주면_기동에서_잡는다() {
+    @DisplayName("없는 경로를 주면 기동에서 잡는다")
+    void load_missingKeyFile_throwsOnStartup() {
+        // given
         MerchantProperties properties = MerchantPropertiesFixture.withSigning(
                 new MerchantProperties.Signing(
                         KID, "ES256", "/does/not/exist.pem", "", MerchantPropertiesFixture.PUBLIC_JWK));
 
+        // when & then
         assertThrows(IllegalStateException.class, () -> new SigningKeyProvider(properties));
     }
 

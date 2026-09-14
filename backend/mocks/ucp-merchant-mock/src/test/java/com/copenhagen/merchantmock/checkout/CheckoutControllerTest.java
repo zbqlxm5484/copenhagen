@@ -3,6 +3,7 @@ package com.copenhagen.merchantmock.checkout;
 import com.copenhagen.merchantmock.checkout.CheckoutTestSupport.Harness;
 import com.copenhagen.merchantmock.support.ApiExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -57,7 +58,9 @@ class CheckoutControllerTest {
     }
 
     @Test
-    void 생성은_201_이고_Core_확정본_모양이다() throws Exception {
+    @DisplayName("생성은 201 이고 Core 확정본 모양이다")
+    void create_validRequest_returns201WithSnakeCaseBody() throws Exception {
+        // when & then
         mockMvc.perform(post("/ucp/v1/checkout-sessions")
                         .header("Idempotency-Key", "checkout-create-abc")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -86,7 +89,9 @@ class CheckoutControllerTest {
     }
 
     @Test
-    void 배송지_없는_생성은_201_incomplete_와_messages_다() throws Exception {
+    @DisplayName("배송지 없는 생성은 201 incomplete 와 messages 다")
+    void create_noAddress_returns201Incomplete() throws Exception {
+        // when & then
         mockMvc.perform(post("/ucp/v1/checkout-sessions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(NO_ADDRESS_BODY))
@@ -100,7 +105,9 @@ class CheckoutControllerTest {
     }
 
     @Test
-    void 같은_멱등_키로_두_번_보내면_같은_id_다() throws Exception {
+    @DisplayName("같은 멱등 키로 두 번 보내면 같은 id 다")
+    void create_sameIdempotencyKey_returnsSameId() throws Exception {
+        // when & then
         String first = createAndReadId("checkout-create-same");
         String second = createAndReadId("checkout-create-same");
 
@@ -109,9 +116,12 @@ class CheckoutControllerTest {
     }
 
     @Test
-    void 조회는_생성_응답과_같은_스냅샷이다() throws Exception {
+    @DisplayName("조회는 생성 응답과 같은 스냅샷이다")
+    void get_existingCheckout_returnsSameSnapshot() throws Exception {
+        // given & when
         String id = createAndReadId("checkout-create-get");
 
+        // then
         mockMvc.perform(get("/ucp/v1/checkout-sessions/{id}", id))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(id))
@@ -121,7 +131,9 @@ class CheckoutControllerTest {
     }
 
     @Test
-    void 없는_체크아웃_조회는_404_오류_Envelope_이다() throws Exception {
+    @DisplayName("없는 체크아웃 조회는 404 오류 Envelope 이다")
+    void get_unknownId_returns404WithErrorEnvelope() throws Exception {
+        // when & then
         mockMvc.perform(get("/ucp/v1/checkout-sessions/{id}", "nope")
                         .header("X-Request-Id", "req-404"))
                 .andExpect(status().isNotFound())
@@ -130,7 +142,9 @@ class CheckoutControllerTest {
     }
 
     @Test
-    void 수정은_200_이고_배송지를_채우면_ready_for_complete_다() throws Exception {
+    @DisplayName("수정은 200 이고 배송지를 채우면 ready_for_complete 다")
+    void update_addressAdded_returns200ReadyForComplete() throws Exception {
+        // given & when
         MvcResult created = mockMvc.perform(post("/ucp/v1/checkout-sessions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(NO_ADDRESS_BODY))
@@ -138,6 +152,7 @@ class CheckoutControllerTest {
                 .andReturn();
         String id = readId(created);
 
+        // then
         mockMvc.perform(put("/ucp/v1/checkout-sessions/{id}", id)
                         .header("Idempotency-Key", "checkout-update-1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -150,7 +165,9 @@ class CheckoutControllerTest {
     }
 
     @Test
-    void 없는_상품으로_생성하면_404_PRODUCT_NOT_FOUND_다() throws Exception {
+    @DisplayName("없는 상품으로 생성하면 404 PRODUCT_NOT_FOUND 다")
+    void create_unknownProduct_returns404() throws Exception {
+        // when & then
         mockMvc.perform(post("/ucp/v1/checkout-sessions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(CREATE_BODY.replace("product-101\"", "product-999\"")))
@@ -159,7 +176,9 @@ class CheckoutControllerTest {
     }
 
     @Test
-    void 없는_체크아웃_수정은_404_다() throws Exception {
+    @DisplayName("없는 체크아웃 수정은 404 다")
+    void update_unknownId_returns404() throws Exception {
+        // when & then
         mockMvc.perform(put("/ucp/v1/checkout-sessions/{id}", "nope")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(CREATE_BODY))
@@ -168,9 +187,12 @@ class CheckoutControllerTest {
     }
 
     @Test
-    void 취소는_200_이고_두_필드만_돌려준다() throws Exception {
+    @DisplayName("취소는 200 이고 두 필드만 돌려준다")
+    void cancel_existingCheckout_returns200WithTwoFields() throws Exception {
+        // given & when
         String id = createAndReadId("checkout-create-1");
 
+        // then
         mockMvc.perform(post("/ucp/v1/checkout-sessions/{id}/cancel", id))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(id))
@@ -184,7 +206,9 @@ class CheckoutControllerTest {
     }
 
     @Test
-    void 없는_체크아웃_취소는_404_다() throws Exception {
+    @DisplayName("없는 체크아웃 취소는 404 다")
+    void cancel_unknownId_returns404() throws Exception {
+        // when & then
         mockMvc.perform(post("/ucp/v1/checkout-sessions/{id}/cancel", "nope"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.errorCode").value("CHECKOUT_NOT_FOUND"))

@@ -31,8 +31,8 @@ final class CheckoutIds {
         MessageDigest sha1;
         try {
             sha1 = MessageDigest.getInstance("SHA-1");
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-1 을 쓸 수 없다", e);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-1 을 쓸 수 없다", exception);
         }
         ByteBuffer ns = ByteBuffer.allocate(16);
         ns.putLong(namespace.getMostSignificantBits());

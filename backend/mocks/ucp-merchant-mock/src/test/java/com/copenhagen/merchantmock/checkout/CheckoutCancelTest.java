@@ -4,6 +4,7 @@ import com.copenhagen.merchantmock.checkout.CheckoutMessages.CancelResult;
 import com.copenhagen.merchantmock.checkout.CheckoutMessages.Checkout;
 import com.copenhagen.merchantmock.checkout.CheckoutTestSupport.Harness;
 import com.copenhagen.merchantmock.support.ApiException;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static com.copenhagen.merchantmock.checkout.CheckoutTestSupport.harness;
@@ -24,27 +25,35 @@ class CheckoutCancelTest {
     }
 
     @Test
-    void 취소하면_두_필드만_돌려준다() {
+    @DisplayName("취소하면 두 필드만 돌려준다")
+    void cancel_cancelableCheckout_returnsIdAndStatusOnly() {
+        // given & when
         Harness harness = harness();
         String id = cancelableId(harness, "checkout-create-1");
 
         CancelResult result = harness.service().cancel(id);
 
+        // then
         assertEquals(id, result.id());
         assertEquals("canceled", result.status());
     }
 
     @Test
-    void 취소된_체크아웃은_GET_에서_canceled_다() {
+    @DisplayName("취소된 체크아웃은 GET 에서 canceled 다")
+    void get_canceledCheckout_returnsCanceledStatus() {
+        // given & when
         Harness harness = harness();
         String id = cancelableId(harness, "checkout-create-1");
         harness.service().cancel(id);
 
+        // then
         assertEquals("canceled", harness.service().get(id).status());
     }
 
     @Test
-    void 취소해도_저장된_스냅샷_문자열은_그대로다() {
+    @DisplayName("취소해도 저장된 스냅샷 문자열은 그대로다")
+    void cancel_always_keepsCanonicalCheckoutUnchanged() {
+        // given & when
         Harness harness = harness();
         String id = cancelableId(harness, "checkout-create-1");
         String before = harness.repository().findById(id).orElseThrow().canonicalCheckout();
@@ -52,40 +61,50 @@ class CheckoutCancelTest {
         harness.service().cancel(id);
 
         CheckoutSession after = harness.repository().findById(id).orElseThrow();
+        // then
         assertEquals(before, after.canonicalCheckout());
         assertEquals(CheckoutStatus.CANCELED, after.status());
     }
 
     @Test
-    void 재취소는_오류가_아니라_같은_응답을_재생한다() {
+    @DisplayName("재취소는 오류가 아니라 같은 응답을 재생한다")
+    void cancel_alreadyCanceled_replaysSameResult() {
+        // given & when
         Harness harness = harness();
         String id = cancelableId(harness, "checkout-create-1");
 
         CancelResult first = harness.service().cancel(id);
         CancelResult second = harness.service().cancel(id);
 
+        // then
         assertEquals(first, second);
         assertEquals(1L, harness.repository().findById(id).orElseThrow().version());
     }
 
     @Test
-    void incomplete_도_취소할_수_있다() {
+    @DisplayName("incomplete 도 취소할 수 있다")
+    void cancel_incompleteCheckout_succeeds() {
+        // given & when
         Harness harness = harness();
         Checkout created = harness.service().create(
                 CheckoutTestSupport.request(null, CheckoutTestSupport.line("product-101", "product-101-270", 1)),
                 "checkout-create-1");
+        // then
         assertEquals("incomplete", created.status());
 
         assertEquals("canceled", harness.service().cancel(created.id()).status());
     }
 
     @Test
-    void 완료된_체크아웃_취소는_409_다() {
+    @DisplayName("완료된 체크아웃 취소는 409 다")
+    void cancel_completedCheckout_throwsNotModifiable() {
+        // given & when
         Harness harness = harness();
         String id = cancelableId(harness, "checkout-create-1");
         CheckoutSession current = harness.repository().findById(id).orElseThrow();
         harness.repository().put(current.withStatus(CheckoutStatus.COMPLETED));
 
+        // then
         ApiException e = assertThrows(ApiException.class, () -> harness.service().cancel(id));
 
         assertEquals("CHECKOUT_NOT_MODIFIABLE", e.errorCode());
@@ -94,12 +113,15 @@ class CheckoutCancelTest {
     }
 
     @Test
-    void 진행_중인_체크아웃_취소도_409_다() {
+    @DisplayName("진행 중인 체크아웃 취소도 409 다")
+    void cancel_completeInProgressCheckout_throwsNotModifiable() {
+        // given & when
         Harness harness = harness();
         String id = cancelableId(harness, "checkout-create-1");
         CheckoutSession current = harness.repository().findById(id).orElseThrow();
         harness.repository().put(current.withStatus(CheckoutStatus.COMPLETE_IN_PROGRESS));
 
+        // then
         ApiException e = assertThrows(ApiException.class, () -> harness.service().cancel(id));
 
         assertEquals("CHECKOUT_NOT_MODIFIABLE", e.errorCode());
@@ -107,11 +129,14 @@ class CheckoutCancelTest {
     }
 
     @Test
-    void 취소된_체크아웃은_수정도_거절한다() {
+    @DisplayName("취소된 체크아웃은 수정도 거절한다")
+    void update_canceledCheckout_throwsNotModifiable() {
+        // given & when
         Harness harness = harness();
         String id = cancelableId(harness, "checkout-create-1");
         harness.service().cancel(id);
 
+        // then
         ApiException e = assertThrows(ApiException.class,
                 () -> harness.service().update(id, runningShoesToSeoul()));
 
@@ -120,7 +145,9 @@ class CheckoutCancelTest {
     }
 
     @Test
-    void 없는_체크아웃_취소는_404_다() {
+    @DisplayName("없는 체크아웃 취소는 404 다")
+    void cancel_unknownId_throwsCheckoutNotFound() {
+        // when & then
         ApiException e = assertThrows(ApiException.class, () -> harness().service().cancel("nope"));
 
         assertEquals("CHECKOUT_NOT_FOUND", e.errorCode());
