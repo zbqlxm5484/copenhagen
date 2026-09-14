@@ -32,6 +32,9 @@ merchant:
   checkout:
     # 서명 시각 + 이 값이 expires_at 이다. 설계서 D-03.
     ttl: PT5M
+    # 만료 스윕 워커(DESIGN.md 7.1절). @Scheduled 가 읽으므로 MerchantProperties 를 거치지 않는다.
+    sweep-interval: PT30S
+    sweep-batch-size: 100
   fulfillment:
     # MVP 는 정액 배송비. 배송 불가 지역은 시나리오 API 로 만든다.
     flat-fee: 3000

@@ -1,5 +1,6 @@
 package com.copenhagen.merchantmock.checkout;
 
+import com.copenhagen.merchantmock.checkout.CheckoutMessages.CancelResult;
 import com.copenhagen.merchantmock.checkout.CheckoutMessages.Checkout;
 import com.copenhagen.merchantmock.checkout.CheckoutMessages.CheckoutRequest;
 import org.springframework.http.HttpStatus;
@@ -15,9 +16,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Checkout 생성·조회·수정. 전체 구매 19단계 중 6단계다(DESIGN.md 3.3절).
+ * Checkout 생성·조회·수정·취소. 전체 구매 19단계 중 6단계다(DESIGN.md 3.3절).
  *
- * <p>Complete 와 Cancel 은 176·182 에서 이 클래스에 붙인다.
+ * <p>Complete 는 176 에서 이 클래스에 붙인다.
  */
 @RestController
 @RequestMapping(path = "/ucp/v1/checkout-sessions", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -46,5 +47,11 @@ public class CheckoutController {
     @PutMapping(path = "/{checkoutId}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public Checkout update(@PathVariable String checkoutId, @RequestBody CheckoutRequest request) {
         return service.update(checkoutId, request);
+    }
+
+    /** 취소. 바디가 없고 응답은 {@code {id, status}} 둘뿐이다(docs/API_SPEC.md). */
+    @PostMapping(path = "/{checkoutId}/cancel")
+    public CancelResult cancel(@PathVariable String checkoutId) {
+        return service.cancel(checkoutId);
     }
 }

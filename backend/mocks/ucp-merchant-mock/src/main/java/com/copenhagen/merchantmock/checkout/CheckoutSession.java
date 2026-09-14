@@ -23,4 +23,10 @@ public record CheckoutSession(
         return new CheckoutSession(id, status, currency, totalAmount, fulfillmentAddressJson,
                 messagesJson, canonicalCheckout, expiresAt, newVersion);
     }
+
+    /** 상태 전이. canonicalCheckout 은 그대로 둔다(DESIGN.md 7.1절). */
+    CheckoutSession withStatus(CheckoutStatus newStatus) {
+        return new CheckoutSession(id, newStatus, currency, totalAmount, fulfillmentAddressJson,
+                messagesJson, canonicalCheckout, expiresAt, version + 1);
+    }
 }

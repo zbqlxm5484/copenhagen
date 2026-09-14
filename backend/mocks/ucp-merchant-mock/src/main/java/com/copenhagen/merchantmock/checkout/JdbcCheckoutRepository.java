@@ -34,6 +34,25 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
              WHERE id = ? AND version = ?
             """;
 
+    private static final String CANCEL = """
+            UPDATE checkout_sessions
+               SET status = 'CANCELED', version = version + 1, updated_at = now()
+             WHERE id = ?
+               AND status IN ('INCOMPLETE', 'REQUIRES_ESCALATION', 'READY_FOR_COMPLETE')
+            """;
+
+    private static final String EXPIRE = """
+            UPDATE checkout_sessions
+               SET status = 'CANCELED', version = version + 1, updated_at = now()
+             WHERE id IN (SELECT id
+                            FROM checkout_sessions
+                           WHERE status = 'READY_FOR_COMPLETE'
+                             AND expires_at < ?
+                           ORDER BY expires_at
+                           LIMIT ?)
+               AND status = 'READY_FOR_COMPLETE'
+            """;
+
     private static final RowMapper<CheckoutSession> ROW_MAPPER = (rs, rowNum) -> new CheckoutSession(
             rs.getString("id"),
             CheckoutStatus.valueOf(rs.getString("status")),
@@ -66,6 +85,16 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
     @Override
     public Optional<CheckoutSession> findById(String id) {
         return jdbcTemplate.query(SELECT, ROW_MAPPER, id).stream().findFirst();
+    }
+
+    @Override
+    public boolean cancel(String id) {
+        return jdbcTemplate.update(CANCEL, id) == 1;
+    }
+
+    @Override
+    public int expireReady(OffsetDateTime now, int limit) {
+        return jdbcTemplate.update(EXPIRE, now, limit);
     }
 
     @Override

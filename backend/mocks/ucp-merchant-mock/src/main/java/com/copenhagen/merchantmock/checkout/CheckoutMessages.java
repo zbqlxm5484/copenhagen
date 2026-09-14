@@ -49,6 +49,24 @@ public final class CheckoutMessages {
             List<Total> totals,
             List<Message> messages,
             @JsonProperty("expires_at") String expiresAt) {
+
+        /**
+         * 저장된 스냅샷은 그대로 두고 나가는 응답의 상태만 바꾼다(DESIGN.md 7.1절).
+         *
+         * <p>canonical_checkout 은 서명 대상이라 불변 조건 5·6 이 고정한다. 취소·만료로 상태가 달라져도
+         * 저장된 바이트를 다시 쓰지 않고 이 자리에서만 덮는다.
+         */
+        Checkout withStatus(String newStatus) {
+            return new Checkout(id, newStatus, currency, lineItems, fulfillment, totals, messages, expiresAt);
+        }
+    }
+
+    /**
+     * 취소 응답. 전체 체크아웃이 아니라 두 필드뿐이다(docs/API_SPEC.md).
+     *
+     * <p>취소에 금액과 항목을 다시 실을 이유가 없다.
+     */
+    public record CancelResult(String id, String status) {
     }
 
     public record LineItem(String id, Item item, int quantity) {
