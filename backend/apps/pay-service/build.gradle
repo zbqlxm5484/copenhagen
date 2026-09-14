@@ -14,6 +14,7 @@ dependencies {
     implementation libs.nimbus.jose.jwt
     implementation libs.spring.boot.starter.actuator
     implementation libs.spring.boot.starter.jdbc
+    implementation libs.spring.boot.flyway
     implementation libs.flyway.core
     runtimeOnly libs.flyway.postgresql
     runtimeOnly libs.postgresql

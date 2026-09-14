@@ -12,6 +12,11 @@ pay:
   auth:
     user-tokens: {}
     service-tokens: {}
+    merchant-tokens: {}
+    # JSON maps principal subject to an opaque token. Values are injected only through environment variables or Secrets.
+    user-tokens-json: ${PAY_AUTH_USER_TOKENS_JSON:}
+    core-service-tokens-json: ${PAY_AUTH_CORE_SERVICE_TOKENS_JSON:}
+    merchant-service-tokens-json: ${PAY_AUTH_MERCHANT_SERVICE_TOKENS_JSON:}
     jwt:
       enabled: ${PAY_AUTH_JWT_ENABLED:false}
       issuer: ${PAY_AUTH_JWT_ISSUER:}

@@ -1,6 +1,7 @@
 """Failure injection at the Docker CLI boundary; no daemon or EC2 access."""
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import unittest
@@ -84,8 +85,12 @@ elif args[0] == 'run':
     else:
         url = args[-1]
         path = url.split('http://nginx')[-1]
-        print('{"status":"UP"}\n200' if '/actuator/health' in url
-              else '{"status":404,"path":"' + path + '"}\n404')
+        if '/actuator/health' in url:
+            print('{"status":"UP"}\n200')
+        elif path.startswith('/merchant/v1/'):
+            print('{"errorCode":"AUTHENTICATION_REQUIRED"}\n401')
+        else:
+            print('{"status":404,"path":"' + path + '"}\n404')
 elif args[0] == 'inspect':
     print('status=restarting ExitCode=1 OOMKilled=false health=unhealthy')
     if mode == 'diagnostic-error':
@@ -151,6 +156,21 @@ class SmokeDiagnosticsTest(unittest.TestCase):
                 self.assertNotIn('response-body-secret', output)
                 self.assertNotIn('response-body-secret', str(files))
                 self.assertIn('CLEANUP', output)
+
+    def test_merchant_auth_expectation_changes_when_pay_is_upgraded(self):
+        script = (ROOT / 'scripts/deploy-smoke.sh').read_text(encoding='utf-8')
+        calls = re.findall(r'^\s*check_http(?: (.+))?$', script, re.MULTILINE)
+
+        self.assertEqual(calls, ['401', '404', '"$merchant_status"', '401', '401'])
+        self.assertIn(
+            'merchant_status=404\nfor index in "${!services[@]}"; do',
+            script,
+        )
+        self.assertRegex(
+            script,
+            r'if \[ "\$\{services\[\$index\]\}" = pay-service \]; then\s+'
+            r'merchant_status=401\s+fi',
+        )
 
 
 class DeployDiagnosticsTest(unittest.TestCase):

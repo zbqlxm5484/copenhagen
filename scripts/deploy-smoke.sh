@@ -175,16 +175,32 @@ expect_dependency_http() {
 }
 
 check_http() {
-    local service path source variable
+    local merchant_status=${1:?merchant smoke status is required} service path source variable
     for service in "${services[@]}"; do
         expect_http "http://$service:8080/actuator/health" 200 '.status == "UP"'
     done
     compose exec -T nginx nginx -t
-    # 아직 업무 API가 없는 Core/MCP도 upstream에 도달한 JSON 404인지 확인합니다.
+    # 공개 경로는 upstream에 도달한 JSON 404인지 확인합니다.
     # Nginx 자체 404나 502를 정상 응답으로 인정하지 않습니다.
-    for path in /api/core/__smoke__ /api/pay/__smoke__ /mcp/__smoke__ /merchant/v1/__smoke__; do
+    for path in /api/core/__smoke__ /api/pay/__smoke__ /mcp/__smoke__; do
         expect_http "http://nginx$path" 404 ".status == 404 and .path == \"$path\""
     done
+    # Merchant 인증 경계는 Pay 버전에 따라 달라지므로 배포 단계의 기대값을 명시합니다.
+    case "$merchant_status" in
+        401)
+            expect_http http://nginx/merchant/v1/__smoke__ 401 \
+                '.errorCode == "AUTHENTICATION_REQUIRED"'
+            ;;
+        404)
+            expect_http http://nginx/merchant/v1/__smoke__ 404 \
+                '.status == 404 and .path == "/merchant/v1/__smoke__"'
+            ;;
+        *)
+            record "FAIL unsupported Merchant smoke status=$merchant_status"
+            return 1
+            ;;
+    esac
+    # 내부 API는 Nginx에서 외부 노출을 차단합니다.
     expect_http http://nginx/internal/v1/__smoke__ 404
     for source in core-service mcp-server pay-service ucp-merchant-mock; do
         case "$source" in
@@ -228,7 +244,7 @@ build_images "$root" candidate
 configure "$root" candidate
 phase=fresh-deploy
 compose up -d --no-build --wait --wait-timeout "$wait_timeout"
-check_http
+check_http 401
 record 'PASS fresh deployment'
 snapshot
 compose down --volumes --remove-orphans
@@ -239,7 +255,7 @@ build_images "$work/base" base
 configure "$work/base" base
 phase=baseline-deploy
 compose up -d --no-build --wait --wait-timeout "$wait_timeout"
-check_http
+check_http 404
 for database in core-db pay-db merchant-db; do
     database_sql "$database" <<SQL
 CREATE SCHEMA deploy_smoke;
@@ -251,18 +267,22 @@ snapshot
 
 # 기준 image의 .env와 DB를 유지하며 실제 배포처럼 서비스별로 갱신합니다.
 render_compose "$root"
+merchant_status=404
 for index in "${!services[@]}"; do
     phase="upgrade-${services[$index]}"
     (cd "$work" && sh "$root/scripts/deploy-dev-service.sh" \
         "${services[$index]}" "${image_variables[$index]}" \
         "$COMPOSE_PROJECT_NAME/${services[$index]}:candidate" "$work/compose.yml" "$wait_timeout")
-    check_http
+    if [ "${services[$index]}" = pay-service ]; then
+        merchant_status=401
+    fi
+    check_http "$merchant_status"
     check_data
 done
 sed -i "s|^SMOKE_NGINX_IMAGE=.*|SMOKE_NGINX_IMAGE=$COMPOSE_PROJECT_NAME/nginx:candidate|" "$work/.env"
 compose up -d --no-deps --no-build --pull never --wait --wait-timeout "$wait_timeout" nginx
 phase=upgrade-complete
-check_http
+check_http 401
 snapshot
 record 'PASS upgrade deployment'
 
@@ -281,6 +301,6 @@ fi
 cmp "$work/previous.env" "$work/.env"
 restored=$(docker inspect --format '{{.Image}}' "$(compose ps --quiet core-service)")
 [ "$restored" = "$(docker image inspect --format '{{.Id}}' "$COMPOSE_PROJECT_NAME/core-service:candidate")" ]
-check_http
+check_http 401
 check_data
 record 'PASS failed deployment restored the previous image and environment'

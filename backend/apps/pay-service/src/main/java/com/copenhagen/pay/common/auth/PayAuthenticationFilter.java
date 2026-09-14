@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Optional;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
@@ -24,12 +25,22 @@ public class PayAuthenticationFilter extends OncePerRequestFilter {
 
     private final PayTokenVerifier tokenVerifier;
     private final ApiErrorWriter errorWriter;
+    private final PayRouteAuthorizer routeAuthorizer;
 
     public PayAuthenticationFilter(
             PayTokenVerifier tokenVerifier,
             ApiErrorWriter errorWriter) {
+        this(tokenVerifier, errorWriter, PayRouteAuthorizer.allowAllForTests());
+    }
+
+    @Autowired
+    public PayAuthenticationFilter(
+            PayTokenVerifier tokenVerifier,
+            ApiErrorWriter errorWriter,
+            PayRouteAuthorizer routeAuthorizer) {
         this.tokenVerifier = tokenVerifier;
         this.errorWriter = errorWriter;
+        this.routeAuthorizer = routeAuthorizer;
     }
 
     @Override
@@ -49,7 +60,7 @@ public class PayAuthenticationFilter extends OncePerRequestFilter {
         try {
             String bearerToken = extractBearerToken(request.getHeader(HttpHeaders.AUTHORIZATION));
             PayPrincipal principal = verifyToken(bearerToken);
-            ensureRoutePermission(request, principal);
+            routeAuthorizer.authorize(request.getRequestURI(), principal);
             PayRequestContext.setPrincipal(request, principal);
             filterChain.doFilter(request, response);
         } catch (PayException exception) {
@@ -82,15 +93,4 @@ public class PayAuthenticationFilter extends OncePerRequestFilter {
         return principal.orElseThrow(() -> new PayException(PayErrorCode.INVALID_TOKEN));
     }
 
-    private void ensureRoutePermission(HttpServletRequest request, PayPrincipal principal) {
-        PayAuthenticationPolicy.RequiredPrincipal required =
-                PayAuthenticationPolicy.requiredPrincipal(request.getRequestURI());
-        boolean allowed = required == PayAuthenticationPolicy.RequiredPrincipal.USER
-                && principal.type() == PayPrincipal.Type.USER;
-        allowed = allowed || required == PayAuthenticationPolicy.RequiredPrincipal.SERVICE
-                && principal.type() == PayPrincipal.Type.SERVICE;
-        if (!allowed) {
-            throw new PayException(PayErrorCode.FORBIDDEN);
-        }
-    }
 }
