@@ -1,5 +1,8 @@
 package com.copenhagen.merchantmock.checkout;
 
+import java.time.OffsetDateTime;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,6 +30,28 @@ final class InMemoryCheckoutRepository implements CheckoutRepository {
         }
         rows.put(session.id(), session.withVersion(expectedVersion + 1));
         return true;
+    }
+
+    @Override
+    public boolean cancel(String id) {
+        CheckoutSession current = rows.get(id);
+        if (current == null || !current.status().modifiable()) {
+            return false;
+        }
+        rows.put(id, current.withStatus(CheckoutStatus.CANCELED));
+        return true;
+    }
+
+    @Override
+    public int expireReady(OffsetDateTime now, int limit) {
+        List<CheckoutSession> due = rows.values().stream()
+                .filter(r -> r.status() == CheckoutStatus.READY_FOR_COMPLETE)
+                .filter(r -> r.expiresAt() != null && r.expiresAt().isBefore(now))
+                .sorted(Comparator.comparing(CheckoutSession::expiresAt))
+                .limit(limit)
+                .toList();
+        due.forEach(r -> rows.put(r.id(), r.withStatus(CheckoutStatus.CANCELED)));
+        return due.size();
     }
 
     int size() {

@@ -2,6 +2,7 @@ package com.copenhagen.merchantmock.checkout;
 
 import java.util.Optional;
 
+import com.copenhagen.merchantmock.checkout.CheckoutMessages.CancelResult;
 import com.copenhagen.merchantmock.checkout.CheckoutMessages.Checkout;
 import com.copenhagen.merchantmock.checkout.CheckoutMessages.CheckoutRequest;
 import com.copenhagen.merchantmock.support.ApiException;
@@ -73,6 +74,48 @@ public class CheckoutService {
         return evaluation.checkout();
     }
 
+    /**
+     * 취소(Jira 182). 이미 취소된 건은 오류가 아니라 재생이다(DESIGN.md 7.1절).
+     *
+     * <p>멱등 키가 {@code checkout-cancel-{checkoutId}} 로 id 에서 나오므로 같은 키의 재시도가 곧 재취소다.
+     * 그것을 409 로 막으면 Core 가 재시도할 방법이 없어진다.
+     */
+    public CancelResult cancel(String checkoutId) {
+        CheckoutSession current = repository.findById(checkoutId)
+                .orElseThrow(() -> ApiException.checkoutNotFound(checkoutId));
+        if (current.status() == CheckoutStatus.CANCELED) {
+            LOG.info("체크아웃 취소 재시도. 상태 재생. id={}", checkoutId);
+            return canceled(checkoutId);
+        }
+        if (!current.status().modifiable()) {
+            throw ApiException.checkoutNotModifiable(checkoutId, current.status());
+        }
+        if (!repository.cancel(checkoutId)) {
+            return resolveCancelRace(checkoutId);
+        }
+        LOG.info("체크아웃 취소. id={} {} -> CANCELED", checkoutId, current.status());
+        return canceled(checkoutId);
+    }
+
+    /**
+     * 조건부 UPDATE 가 0행이면 읽은 뒤에 상태가 바뀐 것이다. 다시 읽어 판단한다.
+     *
+     * <p>다른 요청이 먼저 취소했으면 재생, Complete 가 집어 갔으면 409 다.
+     */
+    private CancelResult resolveCancelRace(String checkoutId) {
+        CheckoutSession latest = repository.findById(checkoutId)
+                .orElseThrow(() -> ApiException.checkoutNotFound(checkoutId));
+        if (latest.status() == CheckoutStatus.CANCELED) {
+            LOG.info("체크아웃 취소 경합. 이미 취소됨. id={}", checkoutId);
+            return canceled(checkoutId);
+        }
+        throw ApiException.checkoutNotModifiable(checkoutId, latest.status());
+    }
+
+    private static CancelResult canceled(String checkoutId) {
+        return new CancelResult(checkoutId, CheckoutStatus.CANCELED.apiValue());
+    }
+
     private CheckoutSession toSession(String id, CheckoutRequest request,
             CheckoutEvaluator.Evaluation evaluation, long version) {
         Checkout checkout = evaluation.checkout();
@@ -97,8 +140,15 @@ public class CheckoutService {
                 version);
     }
 
-    /** 저장된 스냅샷이 응답이다. 다시 계산하지 않는다. */
+    /**
+     * 저장된 스냅샷이 응답이다. 다시 계산하지 않는다.
+     *
+     * <p>상태만 예외다. 취소·만료는 status 컬럼만 바꾸고 스냅샷 문자열은 건드리지 않으므로(DESIGN.md 7.1절)
+     * 나갈 때 현재 값으로 덮는다. 저장된 것은 서명 대상이고 나가는 것은 현재 상태다.
+     */
     private Checkout snapshotOf(CheckoutSession session) {
-        return objectMapper.readValue(session.canonicalCheckout(), Checkout.class);
+        Checkout stored = objectMapper.readValue(session.canonicalCheckout(), Checkout.class);
+        String live = session.status().apiValue();
+        return live.equals(stored.status()) ? stored : stored.withStatus(live);
     }
 }

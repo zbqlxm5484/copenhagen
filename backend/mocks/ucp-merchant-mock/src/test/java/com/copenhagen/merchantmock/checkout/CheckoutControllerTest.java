@@ -16,7 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** 체크아웃 세 엔드포인트의 HTTP 계약. 필드 이름이 Core 확정본과 같은 snake_case 인지가 핵심이다. */
+/** 체크아웃 네 엔드포인트의 HTTP 계약. 필드 이름이 Core 확정본과 같은 snake_case 인지가 핵심이다. */
 class CheckoutControllerTest {
 
     private static final String CREATE_BODY = """
@@ -165,6 +165,30 @@ class CheckoutControllerTest {
                         .content(CREATE_BODY))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.errorCode").value("CHECKOUT_NOT_FOUND"));
+    }
+
+    @Test
+    void 취소는_200_이고_두_필드만_돌려준다() throws Exception {
+        String id = createAndReadId("checkout-create-1");
+
+        mockMvc.perform(post("/ucp/v1/checkout-sessions/{id}/cancel", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.status").value("canceled"))
+                .andExpect(jsonPath("$.totals").doesNotExist())
+                .andExpect(jsonPath("$.line_items").doesNotExist());
+
+        mockMvc.perform(get("/ucp/v1/checkout-sessions/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("canceled"));
+    }
+
+    @Test
+    void 없는_체크아웃_취소는_404_다() throws Exception {
+        mockMvc.perform(post("/ucp/v1/checkout-sessions/{id}/cancel", "nope"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.errorCode").value("CHECKOUT_NOT_FOUND"))
+                .andExpect(jsonPath("$.nextAction").value("RETURN_TO_CART"));
     }
 
     private String createAndReadId(String idempotencyKey) throws Exception {
