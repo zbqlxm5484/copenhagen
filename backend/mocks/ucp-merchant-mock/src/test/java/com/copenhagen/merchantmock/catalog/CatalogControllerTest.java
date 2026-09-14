@@ -2,6 +2,7 @@ package com.copenhagen.merchantmock.catalog;
 
 import com.copenhagen.merchantmock.support.ApiExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -27,7 +28,9 @@ class CatalogControllerTest {
     }
 
     @Test
-    void 검색이_items를_돌려준다() throws Exception {
+    @DisplayName("검색이 items 를 돌려준다")
+    void search_matchingQuery_returnsItems() throws Exception {
+        // when & then
         mockMvc.perform(post("/ucp/v1/catalog/search")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"query\":\"러닝화\",\"filters\":{\"maxPrice\":200000,\"currency\":\"KRW\"}}"))
@@ -41,7 +44,9 @@ class CatalogControllerTest {
     }
 
     @Test
-    void 검색_결과가_없으면_빈_배열이고_200이다() throws Exception {
+    @DisplayName("검색 결과가 없으면 빈 배열이고 200 이다")
+    void search_noMatch_returnsEmptyItemsWith200() throws Exception {
+        // when & then
         mockMvc.perform(post("/ucp/v1/catalog/search")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"query\":\"없는상품\"}"))
@@ -50,7 +55,9 @@ class CatalogControllerTest {
     }
 
     @Test
-    void 일괄조회가_요청한_순서로_준다() throws Exception {
+    @DisplayName("일괄조회가 요청한 순서로 돌려준다")
+    void lookup_multipleIds_keepsRequestedOrder() throws Exception {
+        // when & then
         mockMvc.perform(post("/ucp/v1/catalog/lookup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"productIds\":[\"product-104\",\"product-101\",\"product-999\"]}"))
@@ -61,7 +68,9 @@ class CatalogControllerTest {
     }
 
     @Test
-    void 상세조회가_옵션까지_돌려준다() throws Exception {
+    @DisplayName("상세조회가 옵션까지 돌려준다")
+    void product_existingId_returnsDetailWithOptions() throws Exception {
+        // when & then
         mockMvc.perform(post("/ucp/v1/catalog/product")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"productId\":\"product-102\"}"))
@@ -75,7 +84,9 @@ class CatalogControllerTest {
     }
 
     @Test
-    void 없는_상품은_404와_오류_Envelope이다() throws Exception {
+    @DisplayName("없는 상품은 404 와 오류 Envelope 이다")
+    void product_unknownId_returns404WithErrorEnvelope() throws Exception {
+        // when & then
         mockMvc.perform(post("/ucp/v1/catalog/product")
                         .header("X-Request-Id", "req-test-1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -87,7 +98,9 @@ class CatalogControllerTest {
     }
 
     @Test
-    void 단종_상품도_404다() throws Exception {
+    @DisplayName("단종 상품도 404 다")
+    void product_discontinuedId_returns404() throws Exception {
+        // when & then
         mockMvc.perform(post("/ucp/v1/catalog/product")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"productId\":\"product-105\"}"))

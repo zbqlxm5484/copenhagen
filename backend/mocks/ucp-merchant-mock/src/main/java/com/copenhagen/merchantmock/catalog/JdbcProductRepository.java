@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -66,8 +67,9 @@ public class JdbcProductRepository implements ProductRepository {
                         Product.ProductStatus.valueOf(node.path("status").asText("ACTIVE"))));
             }
             return List.copyOf(variants);
-        } catch (Exception e) {
-            throw new IllegalStateException("products.variants_json 을 읽을 수 없다: " + json, e);
+        } catch (JacksonException | IllegalArgumentException exception) {
+            // JacksonException 은 JSON 형식 오류, IllegalArgumentException 은 status 값이 enum 에 없는 경우다.
+            throw new IllegalStateException("products.variants_json 을 읽을 수 없다: " + json, exception);
         }
     }
 }

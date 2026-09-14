@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.ZoneId;
 
 import com.copenhagen.merchantmock.checkout.CheckoutTestSupport.Harness;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static com.copenhagen.merchantmock.checkout.CheckoutTestSupport.NOW;
@@ -31,39 +32,50 @@ class CheckoutExpirySweeperTest {
     }
 
     @Test
-    void 시한이_지난_ready_for_complete_를_canceled_로_닫는다() {
+    @DisplayName("시한이 지난 ready_for_complete 를 canceled 로 닫는다")
+    void sweep_expiredReadyCheckout_movesToCanceled() {
+        // given & when
         Harness harness = harness();
         String id = harness.service().create(runningShoesToSeoul(), "checkout-create-1").id();
 
         sweeperAt(harness, Duration.ofMinutes(6), 100).sweep();
 
+        // then
         assertEquals(CheckoutStatus.CANCELED, harness.repository().findById(id).orElseThrow().status());
         assertEquals("canceled", harness.service().get(id).status());
     }
 
     @Test
-    void 아직_시한_안에_있으면_건드리지_않는다() {
+    @DisplayName("아직 시한 안에 있으면 건드리지 않는다")
+    void sweep_notYetExpired_leavesCheckoutUntouched() {
+        // given & when
         Harness harness = harness();
         String id = harness.service().create(runningShoesToSeoul(), "checkout-create-1").id();
 
         sweeperAt(harness, Duration.ofMinutes(4), 100).sweep();
 
+        // then
         assertEquals(CheckoutStatus.READY_FOR_COMPLETE, harness.repository().findById(id).orElseThrow().status());
     }
 
     @Test
-    void incomplete_는_시한이_없어_스윕_대상이_아니다() {
+    @DisplayName("incomplete 는 시한이 없어 스윕 대상이 아니다")
+    void sweep_incompleteCheckout_isNotSwept() {
+        // given & when
         Harness harness = harness();
         String id = harness.service()
                 .create(request(null, line("product-101", "product-101-270", 1)), "checkout-create-1").id();
 
         sweeperAt(harness, Duration.ofDays(1), 100).sweep();
 
+        // then
         assertEquals(CheckoutStatus.INCOMPLETE, harness.repository().findById(id).orElseThrow().status());
     }
 
     @Test
-    void 결제가_시작된_건은_집지_않는다() {
+    @DisplayName("결제가 시작된 건은 집지 않는다")
+    void sweep_completeInProgressCheckout_isNotSwept() {
+        // given & when
         Harness harness = harness();
         String id = harness.service().create(runningShoesToSeoul(), "checkout-create-1").id();
         CheckoutSession current = harness.repository().findById(id).orElseThrow();
@@ -71,12 +83,15 @@ class CheckoutExpirySweeperTest {
 
         sweeperAt(harness, Duration.ofMinutes(6), 100).sweep();
 
+        // then
         assertEquals(CheckoutStatus.COMPLETE_IN_PROGRESS,
                 harness.repository().findById(id).orElseThrow().status());
     }
 
     @Test
-    void 이미_취소된_건은_다시_닫지_않는다() {
+    @DisplayName("이미 취소된 건은 다시 닫지 않는다")
+    void sweep_alreadyCanceledCheckout_isNotTouchedAgain() {
+        // given & when
         Harness harness = harness();
         String id = harness.service().create(runningShoesToSeoul(), "checkout-create-1").id();
         harness.service().cancel(id);
@@ -84,11 +99,14 @@ class CheckoutExpirySweeperTest {
 
         sweeperAt(harness, Duration.ofMinutes(6), 100).sweep();
 
+        // then
         assertEquals(versionAfterCancel, harness.repository().findById(id).orElseThrow().version());
     }
 
     @Test
-    void 배치_크기보다_많으면_나눠_닫는다() {
+    @DisplayName("배치 크기보다 많으면 나눠 닫는다")
+    void sweep_moreThanBatchSize_closesInBatches() {
+        // given & when
         Harness harness = harness();
         for (int i = 1; i <= 3; i++) {
             harness.service().create(runningShoesToSeoul(), "checkout-create-" + i);
@@ -97,16 +115,20 @@ class CheckoutExpirySweeperTest {
         CheckoutExpirySweeper sweeper = sweeperAt(harness, Duration.ofMinutes(6), 2);
         sweeper.sweep();
 
+        // then
         assertEquals(1, readyCount(harness));
         sweeper.sweep();
         assertEquals(0, readyCount(harness));
     }
 
     @Test
-    void 배치_크기가_0_이하면_기동에서_막는다() {
+    @DisplayName("배치 크기가 0 이하면 기동에서 막는다")
+    void constructor_nonPositiveBatchSize_throwsOnStartup() {
+        // given & when
         Harness harness = harness();
         Clock clock = Clock.fixed(NOW, SEOUL_ZONE);
 
+        // then
         assertThrows(IllegalArgumentException.class,
                 () -> new CheckoutExpirySweeper(harness.repository(), clock, 0));
     }

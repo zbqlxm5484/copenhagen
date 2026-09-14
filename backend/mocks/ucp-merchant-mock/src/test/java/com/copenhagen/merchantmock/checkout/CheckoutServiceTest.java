@@ -9,6 +9,7 @@ import com.copenhagen.merchantmock.checkout.CheckoutMessages.Total;
 import com.copenhagen.merchantmock.checkout.CheckoutTestSupport.Harness;
 import com.copenhagen.merchantmock.scenario.Scenario;
 import com.copenhagen.merchantmock.support.ApiException;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static com.copenhagen.merchantmock.checkout.CheckoutTestSupport.EXPECTED_EXPIRES_AT;
@@ -43,9 +44,12 @@ class CheckoutServiceTest {
     }
 
     @Test
-    void 조건이_다_차면_ready_for_complete_이고_금액을_확정한다() {
+    @DisplayName("조건이 다 차면 ready_for_complete 이고 금액을 확정한다")
+    void create_allConditionsMet_returnsReadyForCompleteWithTotals() {
+        // given & when
         Checkout checkout = harness().service().create(runningShoesToSeoul(), "checkout-create-1");
 
+        // then
         assertEquals("ready_for_complete", checkout.status());
         assertEquals("KRW", checkout.currency());
         assertEquals(1, checkout.lineItems().size());
@@ -63,10 +67,13 @@ class CheckoutServiceTest {
     }
 
     @Test
-    void 배송지가_없으면_incomplete_와_ADDRESS_REQUIRED_다() {
+    @DisplayName("배송지가 없으면 incomplete 와 ADDRESS_REQUIRED 다")
+    void create_noAddress_returnsIncompleteWithAddressRequired() {
+        // given & when
         Checkout checkout = harness().service().create(
                 request(null, line("product-101", "product-101-270", 1)), "checkout-create-2");
 
+        // then
         assertEquals("incomplete", checkout.status());
         assertEquals(List.of("ADDRESS_REQUIRED"), codes(checkout));
         assertEquals("fulfillment.destination", checkout.messages().get(0).target());
@@ -76,45 +83,60 @@ class CheckoutServiceTest {
     }
 
     @Test
-    void 옵션이_여럿인데_고르지_않으면_incomplete_다() {
+    @DisplayName("옵션이 여럿인데 고르지 않으면 incomplete 다")
+    void create_noOptionSelectedOnMultiVariant_returnsIncomplete() {
+        // given & when
         Checkout checkout = harness().service().create(
                 request(SEOUL, line("product-101", null, 1)), "checkout-create-3");
 
+        // then
         assertEquals("incomplete", checkout.status());
         assertEquals(List.of("CHECKOUT_INCOMPLETE"), codes(checkout));
         assertEquals("line_items[0].option_value_ids", checkout.messages().get(0).target());
     }
 
     @Test
-    void 옵션이_하나뿐인_상품은_생략해도_된다() {
+    @DisplayName("옵션이 하나뿐인 상품은 생략해도 된다")
+    void create_singleVariantProduct_allowsOmittedOption() {
+        // given & when
         Checkout checkout = harness().service().create(
                 request(SEOUL, line("product-104", null, 2)), "checkout-create-4");
 
+        // then
         assertEquals("ready_for_complete", checkout.status());
         assertEquals(27000L * 2 + 3000L, total(checkout, "total"));
     }
 
     @Test
-    void 옵션_추가금이_단가에_붙는다() {
+    @DisplayName("옵션 추가금이 단가에 붙는다")
+    void create_variantWithPriceDelta_addsDeltaToUnitPrice() {
+        // given & when
         Checkout checkout = harness().service().create(
                 request(SEOUL, line("product-102", "product-102-xl-black", 1)), "checkout-create-5");
 
+        // then
         assertEquals(134000L, checkout.lineItems().get(0).item().price(), "129000 + XL 추가금 5000");
     }
 
     @Test
-    void 상품에_없는_옵션이면_incomplete_다() {
+    @DisplayName("상품에 없는 옵션이면 incomplete 다")
+    void create_unknownOptionValue_returnsIncomplete() {
+        // given & when
         Checkout checkout = harness().service().create(
                 request(SEOUL, line("product-101", "product-102-m-black", 1)), "checkout-create-6");
 
+        // then
         assertEquals("incomplete", checkout.status());
         assertEquals(List.of("CHECKOUT_INCOMPLETE"), codes(checkout));
     }
 
     @Test
-    void 없는_상품이면_체크아웃을_만들지_않고_404_다() {
+    @DisplayName("없는 상품이면 체크아웃을 만들지 않고 404 다")
+    void create_unknownProduct_throwsProductNotFound() {
+        // given & when
         Harness h = harness();
 
+        // then
         ApiException thrown = assertThrows(ApiException.class, () -> h.service().create(
                 request(SEOUL, line("product-999", null, 1)), "checkout-create-7"));
 
@@ -123,7 +145,9 @@ class CheckoutServiceTest {
     }
 
     @Test
-    void 단종_상품도_404_다() {
+    @DisplayName("단종 상품도 404 다")
+    void create_discontinuedProduct_throwsProductNotFound() {
+        // when & then
         ApiException thrown = assertThrows(ApiException.class, () -> harness().service().create(
                 request(SEOUL, line("product-105", "product-105-navy", 1)), "checkout-create-8"));
 
@@ -131,45 +155,60 @@ class CheckoutServiceTest {
     }
 
     @Test
-    void 재고가_0인_옵션은_CHECKOUT_STOCK_INSUFFICIENT_다() {
+    @DisplayName("재고가 0 인 옵션은 CHECKOUT_STOCK_INSUFFICIENT 다")
+    void create_zeroStockVariant_returnsStockInsufficient() {
+        // given & when
         Checkout checkout = harness().service().create(
                 request(SEOUL, line("product-101", "product-101-280", 1)), "checkout-create-9");
 
+        // then
         assertEquals("incomplete", checkout.status());
         assertEquals(List.of("CHECKOUT_STOCK_INSUFFICIENT"), codes(checkout));
     }
 
     @Test
-    void 수량이_재고를_넘으면_CHECKOUT_STOCK_INSUFFICIENT_다() {
+    @DisplayName("수량이 재고를 넘으면 CHECKOUT_STOCK_INSUFFICIENT 다")
+    void create_quantityOverStock_returnsStockInsufficient() {
+        // given & when
         Checkout checkout = harness().service().create(
                 request(SEOUL, line("product-101", "product-101-270", 8)), "checkout-create-10");
 
+        // then
         assertEquals(List.of("CHECKOUT_STOCK_INSUFFICIENT"), codes(checkout), "270 사이즈 재고는 7");
     }
 
     @Test
-    void 수량이_0이면_incomplete_다() {
+    @DisplayName("수량이 0 이면 incomplete 다")
+    void create_zeroQuantity_returnsIncomplete() {
+        // given & when
         Checkout checkout = harness().service().create(
                 request(SEOUL, line("product-101", "product-101-270", 0)), "checkout-create-11");
 
+        // then
         assertEquals("incomplete", checkout.status());
         assertTrue(codes(checkout).contains("CHECKOUT_INCOMPLETE"));
     }
 
     @Test
-    void 시나리오_OUT_OF_STOCK_은_재고가_있어도_품절이다() {
+    @DisplayName("시나리오 OUT_OF_STOCK 은 재고가 있어도 품절이다")
+    void create_outOfStockScenario_returnsStockInsufficient() {
+        // given & when
         Checkout checkout = harness(Scenario.OUT_OF_STOCK).service().create(
                 runningShoesToSeoul(), "checkout-create-12");
 
+        // then
         assertEquals("incomplete", checkout.status());
         assertEquals(List.of("CHECKOUT_STOCK_INSUFFICIENT"), codes(checkout));
     }
 
     @Test
-    void 시나리오_ADDRESS_NOT_SERVICEABLE_은_배송_불가다() {
+    @DisplayName("시나리오 ADDRESS_NOT_SERVICEABLE 은 배송 불가다")
+    void create_addressNotServiceableScenario_marksFulfillmentUnavailable() {
+        // given & when
         Checkout checkout = harness(Scenario.ADDRESS_NOT_SERVICEABLE).service().create(
                 runningShoesToSeoul(), "checkout-create-13");
 
+        // then
         assertEquals("incomplete", checkout.status());
         assertEquals(List.of("ADDRESS_NOT_SERVICEABLE"), codes(checkout));
         assertEquals("unavailable", checkout.fulfillment().status());
@@ -178,61 +217,78 @@ class CheckoutServiceTest {
     }
 
     @Test
-    void 시나리오_REQUIRES_ESCALATION_은_requires_escalation_이다() {
+    @DisplayName("시나리오 REQUIRES_ESCALATION 은 requires_escalation 이다")
+    void create_requiresEscalationScenario_returnsRequiresEscalation() {
+        // given & when
         Checkout checkout = harness(Scenario.REQUIRES_ESCALATION).service().create(
                 runningShoesToSeoul(), "checkout-create-14");
 
+        // then
         assertEquals("requires_escalation", checkout.status());
         assertEquals(List.of("MERCHANT_HANDOFF_REQUIRED"), codes(checkout));
         assertNull(checkout.expiresAt());
     }
 
     @Test
-    void 시나리오_PRICE_CHANGED_는_단가에_1000원을_더한다() {
+    @DisplayName("시나리오 PRICE_CHANGED 는 단가에 1,000원을 더한다")
+    void create_priceChangedScenario_addsDeltaToUnitPrice() {
+        // given & when
         Checkout checkout = harness(Scenario.PRICE_CHANGED).service().create(
                 runningShoesToSeoul(), "checkout-create-15");
 
+        // then
         assertEquals(90000L, checkout.lineItems().get(0).item().price());
         assertEquals("ready_for_complete", checkout.status(), "생성 시점에는 비교 대상이 없어 경고가 없다");
     }
 
     @Test
-    void 같은_멱등_키로_다시_만들면_같은_체크아웃을_돌려준다() {
+    @DisplayName("같은 멱등 키로 다시 만들면 같은 체크아웃을 돌려준다")
+    void create_sameIdempotencyKey_returnsExistingCheckout() {
+        // given & when
         Harness h = harness();
 
         Checkout first = h.service().create(runningShoesToSeoul(), "checkout-create-16");
         Checkout second = h.service().create(runningShoesToSeoul(), "checkout-create-16");
 
+        // then
         assertEquals(first.id(), second.id());
         assertEquals(first, second);
         assertEquals(1, h.repository().size());
     }
 
     @Test
-    void 멱등_키가_다르면_다른_체크아웃이다() {
+    @DisplayName("멱등 키가 다르면 다른 체크아웃이다")
+    void create_differentIdempotencyKey_createsNewCheckout() {
+        // given & when
         Harness h = harness();
 
         Checkout first = h.service().create(runningShoesToSeoul(), "checkout-create-17");
         Checkout second = h.service().create(runningShoesToSeoul(), "checkout-create-18");
         Checkout third = h.service().create(runningShoesToSeoul(), null);
 
+        // then
         assertNotEquals(first.id(), second.id());
         assertNotEquals(first.id(), third.id());
         assertEquals(3, h.repository().size());
     }
 
     @Test
-    void 조회는_저장된_스냅샷을_그대로_돌려준다() {
+    @DisplayName("조회는 저장된 스냅샷을 그대로 돌려준다")
+    void get_existingCheckout_returnsStoredSnapshot() {
+        // given & when
         Harness h = harness();
         Checkout created = h.service().create(runningShoesToSeoul(), "checkout-create-19");
 
         Checkout fetched = h.service().get(created.id());
 
+        // then
         assertEquals(created, fetched);
     }
 
     @Test
-    void 없는_체크아웃_조회는_CHECKOUT_NOT_FOUND_다() {
+    @DisplayName("없는 체크아웃 조회는 CHECKOUT_NOT_FOUND 다")
+    void get_unknownId_throwsCheckoutNotFound() {
+        // when & then
         ApiException thrown = assertThrows(ApiException.class, () -> harness().service().get("nope"));
 
         assertEquals("CHECKOUT_NOT_FOUND", thrown.errorCode());
@@ -240,10 +296,13 @@ class CheckoutServiceTest {
     }
 
     @Test
-    void 배송지를_PUT_하면_incomplete_가_ready_for_complete_로_간다() {
+    @DisplayName("배송지를 PUT 하면 incomplete 가 ready_for_complete 로 간다")
+    void update_addressAdded_movesToReadyForComplete() {
+        // given & when
         Harness h = harness();
         Checkout created = h.service().create(
                 request(null, line("product-101", "product-101-270", 1)), "checkout-create-20");
+        // then
         assertEquals("incomplete", created.status());
 
         Checkout updated = h.service().update(created.id(), runningShoesToSeoul());
@@ -257,13 +316,16 @@ class CheckoutServiceTest {
     }
 
     @Test
-    void PUT_에서_단가가_바뀌면_CHECKOUT_PRICE_CHANGED_경고를_얹고_200_이다() {
+    @DisplayName("PUT 에서 단가가 바뀌면 CHECKOUT_PRICE_CHANGED 경고를 얹고 200 이다")
+    void update_unitPriceChanged_addsPriceChangedWarning() {
+        // given & when
         Harness h = harness();
         Checkout created = h.service().create(runningShoesToSeoul(), "checkout-create-21");
         h.scenario().set(Scenario.PRICE_CHANGED);
 
         Checkout updated = h.service().update(created.id(), runningShoesToSeoul());
 
+        // then
         assertEquals(List.of("CHECKOUT_PRICE_CHANGED"), codes(updated));
         assertEquals("warning", updated.messages().get(0).severity());
         assertEquals(90000L, updated.lineItems().get(0).item().price(), "새 가격이 담긴다");
@@ -271,13 +333,16 @@ class CheckoutServiceTest {
     }
 
     @Test
-    void PUT_은_전체_교체다() {
+    @DisplayName("PUT 은 전체 교체다")
+    void update_newRequest_replacesEntireCheckout() {
+        // given & when
         Harness h = harness();
         Checkout created = h.service().create(runningShoesToSeoul(), "checkout-create-22");
 
         Checkout updated = h.service().update(created.id(), request(SEOUL,
                 line("product-104", null, 3), line("product-103", "product-103-black", 1)));
 
+        // then
         assertEquals(2, updated.lineItems().size());
         assertEquals("product-104", updated.lineItems().get(0).item().id());
         assertEquals("product-103", updated.lineItems().get(1).item().id());
@@ -285,7 +350,9 @@ class CheckoutServiceTest {
     }
 
     @Test
-    void completed_상태에서_PUT_하면_CHECKOUT_NOT_MODIFIABLE_이다() {
+    @DisplayName("completed 상태에서 PUT 하면 CHECKOUT_NOT_MODIFIABLE 이다")
+    void update_completedCheckout_throwsNotModifiable() {
+        // given & when
         Harness h = harness();
         Checkout created = h.service().create(runningShoesToSeoul(), "checkout-create-23");
         CheckoutSession row = h.repository().findById(created.id()).orElseThrow();
@@ -293,6 +360,7 @@ class CheckoutServiceTest {
                 row.totalAmount(), row.fulfillmentAddressJson(), row.messagesJson(), row.canonicalCheckout(),
                 row.expiresAt(), row.version()));
 
+        // then
         ApiException thrown = assertThrows(ApiException.class,
                 () -> h.service().update(created.id(), runningShoesToSeoul()));
 
@@ -301,7 +369,9 @@ class CheckoutServiceTest {
     }
 
     @Test
-    void 없는_체크아웃_PUT_은_CHECKOUT_NOT_FOUND_다() {
+    @DisplayName("없는 체크아웃 PUT 은 CHECKOUT_NOT_FOUND 다")
+    void update_unknownId_throwsCheckoutNotFound() {
+        // when & then
         ApiException thrown = assertThrows(ApiException.class,
                 () -> harness().service().update("nope", runningShoesToSeoul()));
 
@@ -309,12 +379,15 @@ class CheckoutServiceTest {
     }
 
     @Test
-    void 저장된_컬럼_캐시가_스냅샷과_맞는다() {
+    @DisplayName("저장된 컬럼 캐시가 스냅샷과 맞는다")
+    void create_always_keepsColumnCacheInSyncWithSnapshot() {
+        // given & when
         Harness h = harness();
         Checkout created = h.service().create(runningShoesToSeoul(), "checkout-create-24");
 
         CheckoutSession row = h.repository().findById(created.id()).orElseThrow();
 
+        // then
         assertEquals(CheckoutStatus.READY_FOR_COMPLETE, row.status());
         assertEquals("KRW", row.currency());
         assertEquals(92000L, row.totalAmount());
@@ -328,13 +401,16 @@ class CheckoutServiceTest {
     }
 
     @Test
-    void 스냅샷_JSON_에는_null_키가_없다() {
+    @DisplayName("스냅샷 JSON 에는 null 키가 없다")
+    void create_always_omitsNullKeysInSnapshot() {
+        // given & when
         Harness h = harness();
         Checkout created = h.service().create(
                 request(null, line("product-101", "product-101-270", 1)), "checkout-create-25");
 
         String json = h.repository().findById(created.id()).orElseThrow().canonicalCheckout();
 
+        // then
         assertTrue(json.contains("\"messages\""));
         assertTrue(!json.contains("\"fulfillment\""), "배송지가 없으면 fulfillment 키 자체가 없다");
         assertTrue(!json.contains("\"expires_at\""));

@@ -4,6 +4,7 @@ import com.copenhagen.merchantmock.security.SigningKeyProvider;
 import com.copenhagen.merchantmock.support.MerchantProperties;
 import com.copenhagen.merchantmock.support.MerchantPropertiesFixture;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -30,7 +31,9 @@ class BusinessProfileControllerTest {
     }
 
     @Test
-    void well_known_ucp가_Profile을_돌려준다() throws Exception {
+    @DisplayName("well-known/ucp 는 Profile 을 돌려준다")
+    void getProfile_always_returnsUcpProfile() throws Exception {
+        // when & then
         mockMvc.perform(get("/.well-known/ucp"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("application/json"))
@@ -41,7 +44,9 @@ class BusinessProfileControllerTest {
     }
 
     @Test
-    void payment_handlers가_snake_case로_나간다() throws Exception {
+    @DisplayName("payment_handlers 가 snake_case 로 나간다")
+    void getProfile_always_writesPaymentHandlersInSnakeCase() throws Exception {
+        // when & then
         mockMvc.perform(get("/.well-known/ucp"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ucp.payment_handlers['com.copenhagen.pay'][0].id")
@@ -50,7 +55,9 @@ class BusinessProfileControllerTest {
     }
 
     @Test
-    void keys에_공개키가_실리고_개인키_성분은_없다() throws Exception {
+    @DisplayName("keys 에 공개키가 실리고 개인키 성분은 없다")
+    void getProfile_always_exposesPublicKeyOnly() throws Exception {
+        // when & then
         mockMvc.perform(get("/.well-known/ucp"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.keys[0].kid").value("merchant-a-es256-1"))

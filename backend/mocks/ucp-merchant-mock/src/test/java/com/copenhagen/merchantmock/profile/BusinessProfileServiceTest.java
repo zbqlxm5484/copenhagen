@@ -6,6 +6,7 @@ import java.util.Map;
 import com.copenhagen.merchantmock.security.SigningKeyProvider;
 import com.copenhagen.merchantmock.support.MerchantProperties;
 import com.copenhagen.merchantmock.support.MerchantPropertiesFixture;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,9 +25,12 @@ class BusinessProfileServiceTest {
     }
 
     @Test
-    void 버전과_REST_엔드포인트를_광고한다() {
+    @DisplayName("버전과 REST 엔드포인트를 광고한다")
+    void build_defaults_advertisesVersionAndRestEndpoint() {
+        // given & when
         BusinessProfileResponse profile = build(MerchantPropertiesFixture.defaults());
 
+        // then
         assertEquals("2026-08-25", profile.ucp().version());
         List<BusinessProfileResponse.Service> shopping = profile.ucp().services().get("dev.ucp.shopping");
         assertEquals(1, shopping.size());
@@ -36,9 +40,12 @@ class BusinessProfileServiceTest {
     }
 
     @Test
-    void Capability_다섯개를_광고하고_Cart는_광고하지_않는다() {
+    @DisplayName("Capability 다섯 개를 광고하고 Cart 는 광고하지 않는다")
+    void build_defaults_advertisesFiveCapabilitiesWithoutCart() {
+        // given & when
         BusinessProfileResponse profile = build(MerchantPropertiesFixture.defaults());
 
+        // then
         Map<String, List<BusinessProfileResponse.Capability>> capabilities = profile.ucp().capabilities();
 
         assertEquals(5, capabilities.size());
@@ -51,9 +58,12 @@ class BusinessProfileServiceTest {
     }
 
     @Test
-    void Payment_Handler를_광고한다() {
+    @DisplayName("Payment Handler 를 광고한다")
+    void build_defaults_advertisesPaymentHandler() {
+        // given & when
         BusinessProfileResponse profile = build(MerchantPropertiesFixture.defaults());
 
+        // then
         List<BusinessProfileResponse.PaymentHandler> handlers =
                 profile.ucp().paymentHandlers().get("com.copenhagen.pay");
 
@@ -63,35 +73,48 @@ class BusinessProfileServiceTest {
     }
 
     @Test
-    void AP2_like_Capability는_기본으로_꺼져_있다() {
+    @DisplayName("AP2-like Capability 는 기본으로 꺼져 있다")
+    void build_defaults_hidesAp2LikeCapability() {
+        // given & when
         BusinessProfileResponse profile = build(MerchantPropertiesFixture.defaults());
 
+        // then
         assertFalse(profile.ucp().capabilities().containsKey("com.copenhagen.payment.ap2_like"));
     }
 
     @Test
-    void AP2_like_Capability를_켜면_광고한다() {
+    @DisplayName("AP2-like Capability 를 켜면 광고한다")
+    void build_ap2LikeEnabled_advertisesAp2LikeCapability() {
+        // given & when
         BusinessProfileResponse profile = build(MerchantPropertiesFixture.withAp2LikeEnabled());
 
+        // then
         assertTrue(profile.ucp().capabilities().containsKey("com.copenhagen.payment.ap2_like"));
         assertEquals(6, profile.ucp().capabilities().size());
     }
 
     @Test
-    void keys에_공개키가_실린다() {
+    @DisplayName("keys 에 공개키가 실린다")
+    void build_publicKeyConfigured_exposesKeyInKeys() {
+        // given & when
         BusinessProfileResponse profile = build(MerchantPropertiesFixture.defaults());
 
+        // then
         assertEquals(1, profile.keys().size());
         assertEquals("merchant-a-es256-1", profile.keys().get(0).get("kid"));
     }
 
     @Test
-    void 공개키가_없으면_keys는_빈_배열이다() {
+    @DisplayName("공개키가 없으면 keys 는 빈 배열이다")
+    void build_noPublicKey_returnsEmptyKeys() {
+        // given
         MerchantProperties properties = MerchantPropertiesFixture.withSigning(
                 new MerchantProperties.Signing("merchant-a-es256-1", "ES256", "", "", ""));
 
+        // when
         BusinessProfileResponse profile = build(properties);
 
+        // then
         assertTrue(profile.keys().isEmpty());
     }
 }
