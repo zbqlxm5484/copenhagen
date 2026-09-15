@@ -93,10 +93,12 @@ class BiometricChallengeServiceTest {
                 "user-001",
                 session.id(),
                 issued.challengeId(),
-                issued.challenge(),
                 assertion);
 
         assertEquals(BiometricChallengeService.VerificationResult.SUCCESS, result);
+        assertEquals(
+                issued.challenge(),
+                challengeRepository.challenges.get(issued.challengeId()).challengeValue());
         assertNotEquals(issued.challenge(), challengeRepository.challenges
                 .get(issued.challengeId()).challengeHash());
         assertEquals(
@@ -109,7 +111,6 @@ class BiometricChallengeServiceTest {
                         "user-001",
                         session.id(),
                         issued.challengeId(),
-                        issued.challenge(),
                         assertion));
         assertEquals(PayErrorCode.BIOMETRIC_CHALLENGE_REPLAYED, replay.errorCode());
     }
@@ -125,12 +126,64 @@ class BiometricChallengeServiceTest {
                 "user-001",
                 session.id(),
                 issued.challengeId(),
-                issued.challenge(),
                 "invalid-signature");
 
         assertEquals(BiometricChallengeService.VerificationResult.FALLBACK_TO_PIN, result);
         assertEquals(
                 BiometricChallengeStatus.FAILED,
+                challengeRepository.challenges.get(issued.challengeId()).status());
+    }
+
+    @Test
+    void challengeCannotBeUsedWithAnotherAuthorizationSession() {
+        BiometricChallengeService.IssuedChallenge issued = service.issue(
+                "user-001",
+                session,
+                "device-001");
+
+        PayException exception = assertThrows(
+                PayException.class,
+                () -> service.verify(
+                        "user-001",
+                        "session-002",
+                        issued.challengeId(),
+                        "invalid-signature"));
+
+        assertEquals(PayErrorCode.BIOMETRIC_CHALLENGE_INVALID, exception.errorCode());
+        assertEquals(
+                BiometricChallengeStatus.PENDING,
+                challengeRepository.challenges.get(issued.challengeId()).status());
+    }
+
+    @Test
+    void expiredChallengeIsConsumedAndFallsBackToPin() {
+        BiometricChallengeService.IssuedChallenge issued = service.issue(
+                "user-001",
+                session,
+                "device-001");
+        BiometricChallenge stored = challengeRepository.challenges.get(issued.challengeId());
+        challengeRepository.challenges.put(
+                issued.challengeId(),
+                new BiometricChallenge(
+                        stored.id(),
+                        stored.biometricCredentialId(),
+                        stored.authorizationSessionId(),
+                        stored.challengeHash(),
+                        stored.challengeValue(),
+                        stored.status(),
+                        NOW.minusSeconds(1),
+                        stored.usedAt(),
+                        stored.createdAt()));
+
+        BiometricChallengeService.VerificationResult result = service.verify(
+                "user-001",
+                session.id(),
+                issued.challengeId(),
+                "invalid-signature");
+
+        assertEquals(BiometricChallengeService.VerificationResult.FALLBACK_TO_PIN, result);
+        assertEquals(
+                BiometricChallengeStatus.EXPIRED,
                 challengeRepository.challenges.get(issued.challengeId()).status());
     }
 
@@ -210,6 +263,7 @@ class BiometricChallengeServiceTest {
                             challenge.biometricCredentialId(),
                             challenge.authorizationSessionId(),
                             challenge.challengeHash(),
+                            challenge.challengeValue(),
                             BiometricChallengeStatus.EXPIRED,
                             challenge.expiresAt(),
                             now,
@@ -293,6 +347,7 @@ class BiometricChallengeServiceTest {
                     challenge.biometricCredentialId(),
                     challenge.authorizationSessionId(),
                     challenge.challengeHash(),
+                    challenge.challengeValue(),
                     target,
                     challenge.expiresAt(),
                     now,

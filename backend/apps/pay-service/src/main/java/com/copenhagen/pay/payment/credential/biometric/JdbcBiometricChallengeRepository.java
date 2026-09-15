@@ -22,13 +22,13 @@ public class JdbcBiometricChallengeRepository implements BiometricChallengeRepos
     private static final String INSERT_SQL = """
             INSERT INTO biometric_challenges
                 (id, biometric_credential_id, authorization_session_id,
-                 challenge_hash, status, expires_at, used_at, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, NULL, ?)
+                 challenge_hash, challenge_value, status, expires_at, used_at, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)
             """;
 
     private static final String FIND_SQL = """
             SELECT id, biometric_credential_id, authorization_session_id,
-                   challenge_hash, status, expires_at, used_at, created_at
+                   challenge_hash, challenge_value, status, expires_at, used_at, created_at
             FROM biometric_challenges
             WHERE id = ? AND authorization_session_id = ?
             """;
@@ -71,7 +71,10 @@ public class JdbcBiometricChallengeRepository implements BiometricChallengeRepos
 
     @Override
     public int expirePendingForSession(String authorizationSessionId, Instant now) {
-        return jdbcTemplate.update(EXPIRE_SESSION_SQL, now, authorizationSessionId);
+        return jdbcTemplate.update(
+                EXPIRE_SESSION_SQL,
+                Timestamp.from(now),
+                authorizationSessionId);
     }
 
     @Override
@@ -82,9 +85,10 @@ public class JdbcBiometricChallengeRepository implements BiometricChallengeRepos
                 challenge.biometricCredentialId(),
                 challenge.authorizationSessionId(),
                 challenge.challengeHash(),
+                challenge.challengeValue(),
                 challenge.status().name(),
-                challenge.expiresAt(),
-                challenge.createdAt());
+                Timestamp.from(challenge.expiresAt()),
+                Timestamp.from(challenge.createdAt()));
     }
 
     @Override
@@ -103,10 +107,10 @@ public class JdbcBiometricChallengeRepository implements BiometricChallengeRepos
             Instant now) {
         return jdbcTemplate.update(
                 MARK_SUCCESS_SQL,
-                now,
+                Timestamp.from(now),
                 challengeId,
                 authorizationSessionId,
-                now) == 1;
+                Timestamp.from(now)) == 1;
     }
 
     @Override
@@ -116,10 +120,10 @@ public class JdbcBiometricChallengeRepository implements BiometricChallengeRepos
             Instant now) {
         return jdbcTemplate.update(
                 MARK_FAILED_SQL,
-                now,
+                Timestamp.from(now),
                 challengeId,
                 authorizationSessionId,
-                now) == 1;
+                Timestamp.from(now)) == 1;
     }
 
     @Override
@@ -129,10 +133,10 @@ public class JdbcBiometricChallengeRepository implements BiometricChallengeRepos
             Instant now) {
         return jdbcTemplate.update(
                 MARK_EXPIRED_SQL,
-                now,
+                Timestamp.from(now),
                 challengeId,
                 authorizationSessionId,
-                now) == 1;
+                Timestamp.from(now)) == 1;
     }
 
     private static BiometricChallenge mapChallenge(
@@ -146,6 +150,7 @@ public class JdbcBiometricChallengeRepository implements BiometricChallengeRepos
                 resultSet.getString("biometric_credential_id"),
                 resultSet.getString("authorization_session_id"),
                 resultSet.getString("challenge_hash"),
+                resultSet.getString("challenge_value"),
                 BiometricChallengeStatus.valueOf(resultSet.getString("status")),
                 expiresAt.toInstant(),
                 usedAt == null ? null : usedAt.toInstant(),
