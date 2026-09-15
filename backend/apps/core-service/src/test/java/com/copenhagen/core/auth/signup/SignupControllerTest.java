@@ -6,11 +6,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.copenhagen.core.common.auth.CoreAuthenticationFilter;
 import com.copenhagen.core.common.error.CoreErrorCode;
 import com.copenhagen.core.common.error.CoreException;
 import com.copenhagen.core.common.error.GlobalExceptionHandler;
@@ -24,7 +27,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = SignupController.class)
+/**
+ * {@code CoreAuthenticationFilter}는 {@code @WebMvcTest}가 필터로 함께 로드하는데, 이 슬라이스에는
+ * {@code CoreJwtVerifier} 같은 {@code @Service} 빈이 없어 그대로 두면 컨텍스트 로딩이 실패한다 — 이 컨트롤러
+ * 테스트와 무관하므로 제외한다.
+ */
+@WebMvcTest(
+        controllers = SignupController.class,
+        excludeFilters = @ComponentScan.Filter(
+                type = FilterType.ASSIGNABLE_TYPE, classes = CoreAuthenticationFilter.class))
 @Import(GlobalExceptionHandler.class)
 class SignupControllerTest {
 

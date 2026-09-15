@@ -21,4 +21,7 @@ public interface UserRepository {
     Optional<User> findById(long id);
 
     Optional<User> findByPublicId(UUID publicId);
+
+    /** 토큰 발급까지 성공한 로그인만 호출한다(INIT-02.3, "최종 로그인 성공 기준"). */
+    void updateLastLoginAt(long id, Instant now);
 }

@@ -39,6 +39,12 @@ public class JdbcUserRepository implements UserRepository {
             )
             """;
 
+    private static final String UPDATE_LAST_LOGIN_AT_SQL = """
+            UPDATE users
+            SET last_login_at = ?, updated_at = ?
+            WHERE id = ?
+            """;
+
     private static final RowMapper<User> ROW_MAPPER = JdbcUserRepository::mapUser;
 
     private final JdbcTemplate jdbcTemplate;
@@ -84,6 +90,11 @@ public class JdbcUserRepository implements UserRepository {
         } catch (EmptyResultDataAccessException exception) {
             return Optional.empty();
         }
+    }
+
+    @Override
+    public void updateLastLoginAt(long id, Instant now) {
+        jdbcTemplate.update(UPDATE_LAST_LOGIN_AT_SQL, Timestamp.from(now), Timestamp.from(now), id);
     }
 
     private static User mapUser(ResultSet resultSet, int rowNumber) throws SQLException {

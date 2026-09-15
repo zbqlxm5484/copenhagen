@@ -33,6 +33,27 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("CoreException의 retryAfterSeconds가 응답 본문까지 전달된다")
+    void handleCoreException_withRetryAfterSeconds_propagatesToBody() {
+        CoreException exception = new CoreException(
+                CoreErrorCode.AUTH_LOGIN_LOCKED, "잠김", null, "TRY_AGAIN_LATER", 900L, null);
+
+        ResponseEntity<ApiErrorResponse> response = handler.handleCoreException(exception);
+
+        assertEquals(900L, response.getBody().retryAfterSeconds());
+    }
+
+    @Test
+    @DisplayName("retryAfterSeconds를 지정하지 않은 CoreException은 응답에서도 null이다")
+    void handleCoreException_withoutRetryAfterSeconds_bodyFieldIsNull() {
+        CoreException exception = new CoreException(CoreErrorCode.AUTH_LOGIN_ID_DUPLICATED);
+
+        ResponseEntity<ApiErrorResponse> response = handler.handleCoreException(exception);
+
+        assertNull(response.getBody().retryAfterSeconds());
+    }
+
+    @Test
     @DisplayName("currentState가 null이어도 응답 레코드 필드 자체는 유지된다")
     void apiErrorResponse_nullCurrentState_fieldStillPresent() {
         ApiErrorResponse response = ApiErrorResponse.from(CoreErrorCode.INVALID_REQUEST);
