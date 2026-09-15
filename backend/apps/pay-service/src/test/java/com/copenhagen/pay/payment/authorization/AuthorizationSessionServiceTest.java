@@ -99,6 +99,134 @@ class AuthorizationSessionServiceTest {
     }
 
     @Test
+    void selectsCardAndResumesPaymentMethodRequiredSession() {
+        InMemoryAuthorizationSessionStore store = new InMemoryAuthorizationSessionStore();
+        InMemoryPaymentMethodRepository paymentMethods = new InMemoryPaymentMethodRepository();
+        AuthorizationSessionService service = service(store, paymentMethods);
+        AuthorizationSession before = service.create(command(), "request-001", "hash-001")
+                .session();
+        paymentMethods.add(paymentMethod("method-002", "user-001", true));
+
+        AuthorizationSession after = service.selectPaymentMethod(
+                "user-001",
+                before.id(),
+                "method-002");
+
+        assertEquals(AuthorizationSessionStatus.PENDING, after.status());
+        assertEquals("method-002", after.selectedPaymentMethodId());
+        assertEquals(before.checkoutDigest(), after.checkoutDigest());
+        assertEquals(before.displaySnapshotJson(), after.displaySnapshotJson());
+        assertEquals(before.amountMinor(), after.amountMinor());
+        assertEquals(before.currency(), after.currency());
+        assertEquals(before.expiresAt(), after.expiresAt());
+        assertEquals(1, store.sessions.size());
+        assertEquals(before.version() + 1, after.version());
+    }
+
+    @Test
+    void replacesOnlyCardOnPendingSession() {
+        InMemoryAuthorizationSessionStore store = new InMemoryAuthorizationSessionStore();
+        InMemoryPaymentMethodRepository paymentMethods = new InMemoryPaymentMethodRepository();
+        paymentMethods.add(paymentMethod("method-001", "user-001", true));
+        paymentMethods.add(paymentMethod("method-002", "user-001", false));
+        AuthorizationSessionService service = service(store, paymentMethods);
+        AuthorizationSession before = service.create(command(), "request-001", "hash-001")
+                .session();
+
+        AuthorizationSession after = service.selectPaymentMethod(
+                "user-001",
+                before.id(),
+                "method-002");
+
+        assertEquals(AuthorizationSessionStatus.PENDING, after.status());
+        assertEquals("method-002", after.selectedPaymentMethodId());
+        assertEquals(before.requiredAction(), after.requiredAction());
+        assertEquals(before.purchaseRequestId(), after.purchaseRequestId());
+        assertEquals(before.externalCheckoutId(), after.externalCheckoutId());
+        assertEquals(before.expiresAt(), after.expiresAt());
+    }
+
+    @Test
+    void cannotSelectCardForAnotherUsersSession() {
+        InMemoryAuthorizationSessionStore store = new InMemoryAuthorizationSessionStore();
+        InMemoryPaymentMethodRepository paymentMethods = new InMemoryPaymentMethodRepository();
+        paymentMethods.add(paymentMethod("method-001", "user-001", true));
+        AuthorizationSessionService service = service(store, paymentMethods);
+        AuthorizationSession session = service.create(command(), "request-001", "hash-001")
+                .session();
+
+        PayException exception = assertThrows(
+                PayException.class,
+                () -> service.selectPaymentMethod("user-002", session.id(), "method-001"));
+
+        assertEquals(PayErrorCode.RESOURCE_NOT_FOUND, exception.errorCode());
+    }
+
+    @Test
+    void onlyAnActiveCardOwnedByTheUserCanBeSelected() {
+        InMemoryAuthorizationSessionStore store = new InMemoryAuthorizationSessionStore();
+        InMemoryPaymentMethodRepository paymentMethods = new InMemoryPaymentMethodRepository();
+        AuthorizationSessionService service = service(store, paymentMethods);
+        AuthorizationSession session = service.create(command(), "request-001", "hash-001")
+                .session();
+        paymentMethods.add(paymentMethod("method-002", "user-002", true));
+        paymentMethods.add(new PaymentMethod(
+                "method-003",
+                "user-001",
+                "PG_MOCK",
+                "token-003",
+                "VISA",
+                "0003",
+                12,
+                2030,
+                PaymentMethodStatus.REVOKED,
+                false));
+
+        PayException missing = assertThrows(
+                PayException.class,
+                () -> service.selectPaymentMethod("user-001", session.id(), "method-001"));
+        PayException inactive = assertThrows(
+                PayException.class,
+                () -> service.selectPaymentMethod("user-001", session.id(), "method-003"));
+        PayException anotherUser = assertThrows(
+                PayException.class,
+                () -> service.selectPaymentMethod("user-001", session.id(), "method-002"));
+
+        assertEquals(PayErrorCode.PAYMENT_METHOD_NOT_FOUND, missing.errorCode());
+        assertEquals(PayErrorCode.PAYMENT_METHOD_NOT_FOUND, inactive.errorCode());
+        assertEquals(PayErrorCode.PAYMENT_METHOD_NOT_FOUND, anotherUser.errorCode());
+    }
+
+    @Test
+    void terminalSessionsCannotChangePaymentMethod() {
+        InMemoryAuthorizationSessionStore store = new InMemoryAuthorizationSessionStore();
+        InMemoryPaymentMethodRepository paymentMethods = new InMemoryPaymentMethodRepository();
+        paymentMethods.add(paymentMethod("method-001", "user-001", true));
+        AuthorizationSessionService service = service(store, paymentMethods);
+        AuthorizationSession session = service.create(command(), "request-001", "hash-001")
+                .session();
+
+        for (AuthorizationSessionStatus status : List.of(
+                AuthorizationSessionStatus.APPROVED,
+                AuthorizationSessionStatus.COMPLETED,
+                AuthorizationSessionStatus.REJECTED,
+                AuthorizationSessionStatus.EXPIRED,
+                AuthorizationSessionStatus.INVALIDATED)) {
+            store.replaceStatus(session.id(), status);
+
+            PayException exception = assertThrows(
+                    PayException.class,
+                    () -> service.selectPaymentMethod(
+                            "user-001",
+                            session.id(),
+                            "method-001"));
+
+            assertEquals(PayErrorCode.STATE_CONFLICT, exception.errorCode());
+            assertEquals(status.name(), exception.currentState());
+        }
+    }
+
+    @Test
     void sameIdempotencyKeyAndRequestReturnsTheExistingSession() {
         InMemoryEvidenceRepository evidence = new InMemoryEvidenceRepository();
         AuthorizationSessionService service = service(
@@ -322,6 +450,23 @@ class AuthorizationSessionServiceTest {
                 base.currency());
     }
 
+    private PaymentMethod paymentMethod(
+            String id,
+            String userId,
+            boolean defaultMethod) {
+        return new PaymentMethod(
+                id,
+                userId,
+                "PG_MOCK",
+                "token-" + id,
+                "VISA",
+                "1234",
+                12,
+                2030,
+                PaymentMethodStatus.ACTIVE,
+                defaultMethod);
+    }
+
     private MerchantPublicKeyClient merchantPublicKeyClient() {
         return merchantId -> List.of(signingKey.toPublicJWK().toJSONObject());
     }
@@ -497,6 +642,83 @@ class AuthorizationSessionServiceTest {
                 String userId,
                 Instant now) {
             return 0;
+        }
+
+        @Override
+        public boolean selectPaymentMethod(
+                String authorizationSessionId,
+                String userId,
+                String paymentMethodId,
+                Instant now) {
+            AuthorizationSession current = sessions.get(authorizationSessionId);
+            if (current == null
+                    || !current.userId().equals(userId)
+                    || !now.isBefore(current.expiresAt())
+                    || current.status() != AuthorizationSessionStatus.PAYMENT_METHOD_REQUIRED
+                    && current.status() != AuthorizationSessionStatus.PENDING) {
+                return false;
+            }
+            AuthorizationSessionStatus nextStatus = current.status()
+                    == AuthorizationSessionStatus.PAYMENT_METHOD_REQUIRED
+                    ? AuthorizationSessionStatus.PENDING
+                    : current.status();
+            sessions.put(
+                    authorizationSessionId,
+                    new AuthorizationSession(
+                            current.id(),
+                            current.purchaseRequestId(),
+                            current.userId(),
+                            current.merchantAccountId(),
+                            current.merchantId(),
+                            current.merchantName(),
+                            current.externalCheckoutId(),
+                            current.checkoutDigest(),
+                            current.displaySnapshotJson(),
+                            current.amountMinor(),
+                            current.currency(),
+                            paymentMethodId,
+                            nextStatus,
+                            current.idempotencyKey(),
+                            current.requestHash(),
+                            current.requiredAction(),
+                            current.expiresAt(),
+                            current.approvedAt(),
+                            current.authMethod(),
+                            current.createdAt(),
+                            now,
+                            current.version() + 1));
+            return true;
+        }
+
+        private void replaceStatus(
+                String authorizationSessionId,
+                AuthorizationSessionStatus status) {
+            AuthorizationSession current = sessions.get(authorizationSessionId);
+            sessions.put(
+                    authorizationSessionId,
+                    new AuthorizationSession(
+                            current.id(),
+                            current.purchaseRequestId(),
+                            current.userId(),
+                            current.merchantAccountId(),
+                            current.merchantId(),
+                            current.merchantName(),
+                            current.externalCheckoutId(),
+                            current.checkoutDigest(),
+                            current.displaySnapshotJson(),
+                            current.amountMinor(),
+                            current.currency(),
+                            current.selectedPaymentMethodId(),
+                            status,
+                            current.idempotencyKey(),
+                            current.requestHash(),
+                            current.requiredAction(),
+                            current.expiresAt(),
+                            current.approvedAt(),
+                            current.authMethod(),
+                            current.createdAt(),
+                            current.updatedAt(),
+                            current.version()));
         }
     }
 

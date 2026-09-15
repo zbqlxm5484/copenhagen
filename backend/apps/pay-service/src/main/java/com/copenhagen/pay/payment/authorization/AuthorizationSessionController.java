@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -90,6 +91,19 @@ public class AuthorizationSessionController {
                 prepared.session(),
                 service.displaySnapshot(prepared.session()),
                 prepared.challenge().map(AuthorizationSessionController::toResponse).orElse(null)));
+    }
+
+    @PatchMapping("/api/pay/v1/payment-approvals/{approvalId}/payment-method")
+    public ResponseEntity<PaymentMethodSelectionResponse> selectPaymentMethod(
+            @PathVariable String approvalId,
+            @Valid @RequestBody PaymentMethodSelectionRequest request,
+            HttpServletRequest httpRequest) {
+        requireIdempotencyKey(httpRequest);
+        AuthorizationSession session = service.selectPaymentMethod(
+                userId(httpRequest),
+                approvalId,
+                request.paymentMethodId());
+        return ResponseEntity.ok(PaymentMethodSelectionResponse.from(session));
     }
 
     @PostMapping("/api/pay/v1/payment-approvals/{approvalId}/approve")
@@ -301,6 +315,29 @@ public class AuthorizationSessionController {
                     session.requiredAction(),
                     session.expiresAt(),
                     biometricChallenge);
+        }
+    }
+
+    public record PaymentMethodSelectionRequest(
+            @NotBlank @Size(max = 36) String paymentMethodId) {
+    }
+
+    public record PaymentMethodSelectionResponse(
+            String approvalId,
+            String status,
+            String selectedPaymentMethodId,
+            String requiredAction,
+            Instant expiresAt,
+            String nextAction) {
+
+        private static PaymentMethodSelectionResponse from(AuthorizationSession session) {
+            return new PaymentMethodSelectionResponse(
+                    session.id(),
+                    session.status().name(),
+                    session.selectedPaymentMethodId(),
+                    session.requiredAction(),
+                    session.expiresAt(),
+                    "APPROVE_IN_APP");
         }
     }
 

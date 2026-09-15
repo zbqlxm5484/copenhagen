@@ -167,6 +167,48 @@ public class AuthorizationSessionService {
                 .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
     }
 
+    @Transactional
+    public AuthorizationSession selectPaymentMethod(
+            String userId,
+            String authorizationSessionId,
+            String paymentMethodId) {
+        RequestValidation.requireLengthAtMost(userId, "userId", 36);
+        RequestValidation.requireLengthAtMost(
+                authorizationSessionId,
+                "approvalId",
+                36);
+        RequestValidation.requireLengthAtMost(
+                paymentMethodId,
+                "paymentMethodId",
+                36);
+
+        Instant now = clock.instant();
+        store.expireOverdueByIdAndUser(authorizationSessionId, userId, now);
+        AuthorizationSession session = store.findByIdAndUserId(
+                        authorizationSessionId,
+                        userId)
+                .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
+        ensurePaymentMethodSelectionAllowed(session, now);
+
+        paymentMethodRepository.findActiveByIdAndUserIdForUpdate(paymentMethodId, userId)
+                .orElseThrow(() -> new PayException(PayErrorCode.PAYMENT_METHOD_NOT_FOUND));
+
+        if (!store.selectPaymentMethod(
+                authorizationSessionId,
+                userId,
+                paymentMethodId,
+                now)) {
+            AuthorizationSession current = store.findByIdAndUserId(
+                            authorizationSessionId,
+                            userId)
+                    .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
+            throw stateConflict(current.status());
+        }
+
+        return store.findByIdAndUserId(authorizationSessionId, userId)
+                .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
+    }
+
     public AuthorizationDisplaySnapshot displaySnapshot(AuthorizationSession session) {
         try {
             return objectMapper.readValue(
@@ -315,6 +357,18 @@ public class AuthorizationSessionService {
                     "display.summary 항목 형식이 올바르지 않습니다.",
                     null,
                     "CHECK_DISPLAY_SNAPSHOT");
+        }
+    }
+
+    private void ensurePaymentMethodSelectionAllowed(
+            AuthorizationSession session,
+            Instant now) {
+        if (session.status() != AuthorizationSessionStatus.PAYMENT_METHOD_REQUIRED
+                && session.status() != AuthorizationSessionStatus.PENDING) {
+            throw stateConflict(session.status());
+        }
+        if (!now.isBefore(session.expiresAt())) {
+            throw stateConflict(session.status());
         }
     }
 
