@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -46,6 +47,19 @@ public class JdbcAuthorizationSessionRepository
             UPDATE authorization_sessions
             SET required_action = ?, updated_at = ?, version = version + 1
             WHERE id = ? AND user_id = ? AND status = ? AND expires_at > ?
+            """;
+
+    private static final String SELECT_PAYMENT_METHOD_SQL = """
+            UPDATE authorization_sessions
+            SET selected_payment_method_id = ?,
+                status = CASE
+                    WHEN status = 'PAYMENT_METHOD_REQUIRED' THEN 'PENDING'
+                    ELSE status
+                END,
+                updated_at = ?, version = version + 1
+            WHERE id = ? AND user_id = ?
+              AND status IN ('PAYMENT_METHOD_REQUIRED', 'PENDING')
+              AND expires_at > ?
             """;
 
     private static final String SELECT_BASE_SQL = """
@@ -292,6 +306,21 @@ public class JdbcAuthorizationSessionRepository
                 toTimestamp(now)) == 1;
     }
 
+    @Override
+    public boolean selectPaymentMethod(
+            String authorizationSessionId,
+            String userId,
+            String paymentMethodId,
+            Instant now) {
+        return jdbcTemplate.update(
+                SELECT_PAYMENT_METHOD_SQL,
+                paymentMethodId,
+                toTimestamp(now),
+                authorizationSessionId,
+                userId,
+                toTimestamp(now)) == 1;
+    }
+
     private static Timestamp toTimestamp(Instant instant) {
         return instant == null ? null : Timestamp.from(instant);
     }
@@ -316,11 +345,18 @@ public class JdbcAuthorizationSessionRepository
                 resultSet.getString("idempotency_key"),
                 resultSet.getString("request_hash"),
                 resultSet.getString("required_action"),
-                resultSet.getObject("expires_at", Instant.class),
-                resultSet.getObject("approved_at", Instant.class),
+                getInstant(resultSet, "expires_at"),
+                getInstant(resultSet, "approved_at"),
                 resultSet.getString("auth_method"),
-                resultSet.getObject("created_at", Instant.class),
-                resultSet.getObject("updated_at", Instant.class),
+                getInstant(resultSet, "created_at"),
+                getInstant(resultSet, "updated_at"),
                 resultSet.getInt("version"));
+    }
+
+    private static Instant getInstant(
+            ResultSet resultSet,
+            String columnName) throws SQLException {
+        OffsetDateTime value = resultSet.getObject(columnName, OffsetDateTime.class);
+        return value == null ? null : value.toInstant();
     }
 }

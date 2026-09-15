@@ -55,4 +55,12 @@ public interface AuthorizationSessionStore {
             Instant now) {
         return false;
     }
+
+    default boolean selectPaymentMethod(
+            String authorizationSessionId,
+            String userId,
+            String paymentMethodId,
+            Instant now) {
+        return false;
+    }
 }
