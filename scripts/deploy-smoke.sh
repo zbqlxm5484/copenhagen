@@ -255,7 +255,8 @@ build_images "$work/base" base
 configure "$work/base" base
 phase=baseline-deploy
 compose up -d --no-build --wait --wait-timeout "$wait_timeout"
-check_http 404
+# develop 기준 이미지에도 Pay 서비스 간 인증 정책이 포함되어 있어 Merchant 경로는 401이어야 한다.
+check_http 401
 for database in core-db pay-db merchant-db; do
     database_sql "$database" <<SQL
 CREATE SCHEMA deploy_smoke;
@@ -267,7 +268,7 @@ snapshot
 
 # 기준 image의 .env와 DB를 유지하며 실제 배포처럼 서비스별로 갱신합니다.
 render_compose "$root"
-merchant_status=404
+merchant_status=401
 for index in "${!services[@]}"; do
     phase="upgrade-${services[$index]}"
     (cd "$work" && sh "$root/scripts/deploy-dev-service.sh" \
