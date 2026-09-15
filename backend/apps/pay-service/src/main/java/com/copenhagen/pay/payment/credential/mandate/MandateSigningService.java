@@ -22,6 +22,7 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -32,10 +33,21 @@ public class MandateSigningService {
 
     private final MandateProperties properties;
     private final ECPrivateKey signingKey;
+    private final String signingKeyId;
 
-    public MandateSigningService(MandateProperties properties) {
+    @Autowired
+    public MandateSigningService(
+            MandateProperties properties,
+            MandateKeySet keySet) {
         this.properties = properties;
-        this.signingKey = resolveSigningKey(properties.signingPrivateKey());
+        this.signingKey = keySet.signingKey();
+        this.signingKeyId = keySet.signingKeyId();
+    }
+
+    MandateSigningService(MandateProperties properties) {
+        this.properties = properties;
+        this.signingKey = resolveLegacyTestSigningKey(properties.signingPrivateKey());
+        this.signingKeyId = properties.keyId();
     }
 
     public String createCheckoutMandate(
@@ -82,7 +94,7 @@ public class MandateSigningService {
 
     private String sign(JWTClaimsSet claims) {
         JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.ES256)
-                .keyID(properties.keyId())
+                .keyID(signingKeyId)
                 .type(JOSEObjectType.JWT)
                 .build();
         SignedJWT signedJwt = new SignedJWT(header, claims);
@@ -95,7 +107,7 @@ public class MandateSigningService {
         }
     }
 
-    private ECPrivateKey resolveSigningKey(String configuredKey) {
+    private ECPrivateKey resolveLegacyTestSigningKey(String configuredKey) {
         if (configuredKey == null || configuredKey.isBlank()) {
             return generateSigningKey();
         }

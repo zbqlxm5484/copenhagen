@@ -33,6 +33,12 @@ pay:
     issuer: ${PAY_MANDATE_ISSUER:pay-service}
     key-id: ${PAY_MANDATE_KEY_ID:pay-signing-key-1}
     signing-private-key: ${PAY_MANDATE_SIGNING_PRIVATE_KEY:}
+    # Public JWK is optional when the active public key can be derived from the private key.
+    public-key-jwk: ${PAY_MANDATE_PUBLIC_KEY_JWK:}
+    previous-verification-keys-json: ${PAY_MANDATE_PREVIOUS_VERIFICATION_KEYS_JSON:[]}
+    profile-cache-seconds: ${PAY_MANDATE_PROFILE_CACHE_SECONDS:300}
+    # Keep false for local development only; deployed environments should set it to true.
+    require-configured-key: ${PAY_MANDATE_REQUIRE_CONFIGURED_KEY:false}
     encryption-key: ${PAY_MANDATE_ENCRYPTION_KEY:}
   reconciliation:
     enabled: ${PAY_RECONCILIATION_ENABLED:true}
