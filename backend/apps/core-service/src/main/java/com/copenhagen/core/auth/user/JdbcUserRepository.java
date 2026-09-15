@@ -33,6 +33,12 @@ public class JdbcUserRepository implements UserRepository {
 
     private static final String FIND_BY_PUBLIC_ID_SQL = SELECT_COLUMNS + "WHERE public_id = ?";
 
+    private static final String EXISTS_BY_EMAIL_HASH_SQL = """
+            SELECT EXISTS (
+                SELECT 1 FROM users WHERE email_hash = ? AND deleted_at IS NULL
+            )
+            """;
+
     private static final RowMapper<User> ROW_MAPPER = JdbcUserRepository::mapUser;
 
     private final JdbcTemplate jdbcTemplate;
@@ -54,6 +60,12 @@ public class JdbcUserRepository implements UserRepository {
                 emailHash,
                 Timestamp.from(now),
                 Timestamp.from(now));
+    }
+
+    @Override
+    public boolean existsByEmailHash(String emailHash) {
+        Boolean exists = jdbcTemplate.queryForObject(EXISTS_BY_EMAIL_HASH_SQL, Boolean.class, emailHash);
+        return Boolean.TRUE.equals(exists);
     }
 
     @Override
