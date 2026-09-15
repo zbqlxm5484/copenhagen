@@ -95,3 +95,28 @@ Pay는 경로별 호출 주체를 구분합니다.
 Merchant 서비스 토큰의 주체는 Merchant `merchantId`와 같아야 하며, Pay DB의 활성
 `merchant_accounts`에 등록된 Merchant만 Merchant 경로를 호출할 수 있습니다. 인증 토큰과
 `Authorization` 헤더는 로그에 기록하지 않습니다.
+
+## Merchant Checkout 서명 검증
+
+승인 세션을 만들기 전에 Pay는 Merchant의 공식 UCP Profile에서 Checkout 검증 공개키를 조회합니다.
+
+```text
+GET ${MERCHANT_SERVICE_URL}/.well-known/ucp
+```
+
+Profile의 `keys[]`에 포함된 공개 JWK 중 Compact JWS Header의 `kid`와 일치하는 활성 서명키만 사용합니다.
+허용 알고리즘, `kid`, Merchant 서명, `merchantId`, `checkoutId`, `purchaseRequestId`, `amountMinor`,
+`currency`, `checkoutHash`를 검증한 뒤 성공한 경우에만 승인 세션과
+`pay_verified_checkout_evidence`를 같은 트랜잭션으로 저장합니다. 공개키 조회 장애와 서명·Claim 검증 실패는
+서로 다른 오류로 반환합니다.
+
+| 환경변수 | 기본값 | 용도 |
+| --- | --- | --- |
+| `MERCHANT_SERVICE_URL` | `http://ucp-merchant-mock:8080` | Merchant UCP Profile base URL |
+| `PAY_MERCHANT_PROFILE_PATH` | `/.well-known/ucp` | 공개키 Profile 경로 |
+| `PAY_MERCHANT_CHECKOUT_ALLOWED_ALGORITHMS` | `ES256` | 허용할 JWS 알고리즘 목록(CSV) |
+| `PAY_MERCHANT_CONNECT_TIMEOUT_MILLIS` | `1000` | 공개키 조회 연결 타임아웃 |
+| `PAY_MERCHANT_REQUEST_TIMEOUT_MILLIS` | `3000` | 공개키 조회 요청 타임아웃 |
+
+Profile 응답의 공개키와 Checkout JWS 원문은 로그에 기록하지 않습니다. Merchant Profile 주소와 운영 Secret은 배포
+환경에서 주입하며 저장소에 커밋하지 않습니다.

@@ -52,6 +52,13 @@ management:
         enabled: true
 
 services:
+  merchant:
+    # Merchant의 공개 Profile에서 Checkout 검증키를 조회한다. 실제 주소는 배포 환경에서 주입한다.
+    base-url: ${MERCHANT_SERVICE_URL:http://ucp-merchant-mock:8080}
+    profile-path: ${PAY_MERCHANT_PROFILE_PATH:/.well-known/ucp}
+    connect-timeout-millis: ${PAY_MERCHANT_CONNECT_TIMEOUT_MILLIS:1000}
+    request-timeout-millis: ${PAY_MERCHANT_REQUEST_TIMEOUT_MILLIS:3000}
+    allowed-algorithms: ${PAY_MERCHANT_CHECKOUT_ALLOWED_ALGORITHMS:ES256}
   pg:
     base-url: ${PG_SERVICE_URL:http://pg-mock:8080}
     connect-timeout-millis: ${PG_CONNECT_TIMEOUT_MILLIS:1000}

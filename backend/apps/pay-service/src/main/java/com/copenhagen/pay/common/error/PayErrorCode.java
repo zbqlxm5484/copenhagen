@@ -44,6 +44,16 @@ public enum PayErrorCode {
             "IDEMPOTENCY_KEY_INVALID",
             "Idempotency-Key 형식이 올바르지 않습니다.",
             "PROVIDE_VALID_IDEMPOTENCY_KEY"),
+    CHECKOUT_SIGNATURE_INVALID(
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            "CHECKOUT_SIGNATURE_INVALID",
+            "Merchant Checkout 서명을 검증할 수 없습니다.",
+            "RESTART_CHECKOUT"),
+    MERCHANT_KEY_UNAVAILABLE(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "MERCHANT_KEY_UNAVAILABLE",
+            "Merchant 공개키를 조회할 수 없습니다.",
+            "RETRY_LATER"),
     IDEMPOTENCY_CONFLICT(
             HttpStatus.CONFLICT,
             "IDEMPOTENCY_CONFLICT",

@@ -36,6 +36,8 @@ public class AuthorizationSessionService {
     private final ObjectMapper objectMapper;
     private final Clock clock;
     private final ApprovalProperties approvalProperties;
+    private final MerchantCheckoutVerifier checkoutVerifier;
+    private final VerifiedCheckoutEvidenceRepository evidenceRepository;
 
     public AuthorizationSessionService(
             AuthorizationSessionStore store,
@@ -44,7 +46,9 @@ public class AuthorizationSessionService {
             IdempotencyGuard idempotencyGuard,
             ObjectMapper objectMapper,
             Clock clock,
-            ApprovalProperties approvalProperties) {
+            ApprovalProperties approvalProperties,
+            MerchantCheckoutVerifier checkoutVerifier,
+            VerifiedCheckoutEvidenceRepository evidenceRepository) {
         this.store = store;
         this.merchantAccountRepository = merchantAccountRepository;
         this.paymentMethodRepository = paymentMethodRepository;
@@ -52,6 +56,8 @@ public class AuthorizationSessionService {
         this.objectMapper = objectMapper;
         this.clock = clock;
         this.approvalProperties = approvalProperties;
+        this.checkoutVerifier = checkoutVerifier;
+        this.evidenceRepository = evidenceRepository;
     }
 
     @Transactional
@@ -85,12 +91,14 @@ public class AuthorizationSessionService {
                     throw stateConflict(session.status());
                 });
 
+        MerchantCheckoutVerifier.VerificationResult verification = checkoutVerifier.verify(command);
         String displaySnapshotJson = serializeDisplaySnapshot(command.displaySnapshot());
         PaymentMethod selectedPaymentMethod = selectPaymentMethod(command.userId());
         AuthorizationSessionStatus status = selectedPaymentMethod == null
                 ? AuthorizationSessionStatus.PAYMENT_METHOD_REQUIRED
                 : AuthorizationSessionStatus.PENDING;
         Instant now = clock.instant();
+        String checkoutDigest = CheckoutHashCodec.toInternalDigest(command.checkoutHash());
         AuthorizationSession session = new AuthorizationSession(
                 UUID.randomUUID().toString(),
                 command.purchaseRequestId(),
@@ -99,7 +107,7 @@ public class AuthorizationSessionService {
                 merchantAccount.merchantId(),
                 merchantAccount.displayName(),
                 command.checkoutId(),
-                CheckoutHashCodec.toInternalDigest(command.checkoutHash()),
+                checkoutDigest,
                 displaySnapshotJson,
                 command.amountMinor(),
                 command.currency(),
@@ -116,6 +124,16 @@ public class AuthorizationSessionService {
                 0);
 
         if (store.insert(session)) {
+            VerifiedCheckoutEvidence evidence = VerifiedCheckoutEvidence.from(
+                    UUID.randomUUID().toString(),
+                    session.id(),
+                    command,
+                    checkoutDigest,
+                    verification,
+                    now);
+            if (!evidenceRepository.insert(evidence)) {
+                throw new PayException(PayErrorCode.INTERNAL_ERROR);
+            }
             return new CreateResult(session, false);
         }
 

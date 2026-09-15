@@ -3,6 +3,7 @@ package com.copenhagen.pay.payment.authorization;
 import com.copenhagen.pay.payment.policy.AuthorizationSessionStatus;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -192,11 +193,11 @@ public class JdbcAuthorizationSessionRepository
                 session.idempotencyKey(),
                 session.requestHash(),
                 session.requiredAction(),
-                session.expiresAt(),
-                session.approvedAt(),
+                toTimestamp(session.expiresAt()),
+                toTimestamp(session.approvedAt()),
                 session.authMethod(),
-                session.createdAt(),
-                session.updatedAt(),
+                toTimestamp(session.createdAt()),
+                toTimestamp(session.updatedAt()),
                 session.version());
         return inserted == 1;
     }
@@ -230,7 +231,7 @@ public class JdbcAuthorizationSessionRepository
 
     @Override
     public int expireOverdueForUser(String userId, Instant now) {
-        return jdbcTemplate.update(EXPIRE_OVERDUE_BY_USER_SQL, userId, now);
+        return jdbcTemplate.update(EXPIRE_OVERDUE_BY_USER_SQL, userId, toTimestamp(now));
     }
 
     @Override
@@ -242,7 +243,7 @@ public class JdbcAuthorizationSessionRepository
                 EXPIRE_OVERDUE_BY_ID_AND_USER_SQL,
                 authorizationSessionId,
                 userId,
-                now);
+                toTimestamp(now));
     }
 
     @Override
@@ -254,11 +255,11 @@ public class JdbcAuthorizationSessionRepository
         return jdbcTemplate.update(
                 APPROVE_SQL,
                 authMethod,
-                approvedAt,
-                approvedAt,
+                toTimestamp(approvedAt),
+                toTimestamp(approvedAt),
                 authorizationSessionId,
                 userId,
-                approvedAt) == 1;
+                toTimestamp(approvedAt)) == 1;
     }
 
     @Override
@@ -268,10 +269,10 @@ public class JdbcAuthorizationSessionRepository
             Instant rejectedAt) {
         return jdbcTemplate.update(
                 REJECT_SQL,
-                rejectedAt,
+                toTimestamp(rejectedAt),
                 authorizationSessionId,
                 userId,
-                rejectedAt) == 1;
+                toTimestamp(rejectedAt)) == 1;
     }
 
     @Override
@@ -284,11 +285,15 @@ public class JdbcAuthorizationSessionRepository
         return jdbcTemplate.update(
                 SET_REQUIRED_ACTION_SQL,
                 requiredAction,
-                now,
+                toTimestamp(now),
                 authorizationSessionId,
                 userId,
                 expectedStatus.name(),
-                now) == 1;
+                toTimestamp(now)) == 1;
+    }
+
+    private static Timestamp toTimestamp(Instant instant) {
+        return instant == null ? null : Timestamp.from(instant);
     }
 
     private static AuthorizationSession mapAuthorizationSession(
