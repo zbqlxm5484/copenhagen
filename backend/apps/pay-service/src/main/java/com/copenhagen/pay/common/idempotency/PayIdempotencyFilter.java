@@ -1,5 +1,6 @@
 package com.copenhagen.pay.common.idempotency;
 
+import com.copenhagen.pay.common.auth.PayPrincipal;
 import com.copenhagen.pay.common.auth.PayAuthenticationPolicy;
 import com.copenhagen.pay.common.error.ApiErrorWriter;
 import com.copenhagen.pay.common.error.PayException;
@@ -12,6 +13,8 @@ import java.io.IOException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.ContentCachingResponseWrapper;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
@@ -20,12 +23,29 @@ public class PayIdempotencyFilter extends OncePerRequestFilter {
 
     private final IdempotencyKeyResolver keyResolver;
     private final ApiErrorWriter errorWriter;
+    private final RequestHashGenerator requestHashGenerator;
+    private final PayIdempotencyService idempotencyService;
 
     public PayIdempotencyFilter(
             IdempotencyKeyResolver keyResolver,
             ApiErrorWriter errorWriter) {
+        this(
+                keyResolver,
+                errorWriter,
+                new RequestHashGenerator(new ObjectMapper()),
+                null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public PayIdempotencyFilter(
+            IdempotencyKeyResolver keyResolver,
+            ApiErrorWriter errorWriter,
+            RequestHashGenerator requestHashGenerator,
+            PayIdempotencyService idempotencyService) {
         this.keyResolver = keyResolver;
         this.errorWriter = errorWriter;
+        this.requestHashGenerator = requestHashGenerator;
+        this.idempotencyService = idempotencyService;
     }
 
     @Override
@@ -49,8 +69,45 @@ public class PayIdempotencyFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
         try {
-            PayRequestContext.setIdempotencyKey(request, keyResolver.require(request));
-            filterChain.doFilter(request, response);
+            IdempotencyKey idempotencyKey = keyResolver.require(request);
+            PayRequestContext.setIdempotencyKey(request, idempotencyKey);
+            if (idempotencyService == null) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            PayPrincipal principal = PayRequestContext.requirePrincipal(request);
+            byte[] requestBody = request.getInputStream().readAllBytes();
+            String requestHash = requestHashGenerator.generateBody(requestBody);
+            PayRequestContext.setRequestHash(request, requestHash);
+            IdempotencyScope scope = IdempotencyScope.from(request, principal, idempotencyKey);
+            PayIdempotencyService.AcquireResult acquisition = idempotencyService.acquire(
+                    scope,
+                    requestHash);
+            if (!acquisition.owner()) {
+                idempotencyService.replay(response, acquisition.record());
+                return;
+            }
+
+            ContentCachingResponseWrapper cachedResponse =
+                    new ContentCachingResponseWrapper(response);
+            boolean completed = false;
+            try {
+                filterChain.doFilter(
+                        new CachedBodyHttpServletRequest(request, requestBody),
+                        cachedResponse);
+                idempotencyService.complete(
+                        scope,
+                        cachedResponse.getStatus(),
+                        cachedResponse.getContentType(),
+                        cachedResponse.getContentAsByteArray());
+                completed = true;
+            } finally {
+                if (!completed) {
+                    idempotencyService.release(scope);
+                }
+                cachedResponse.copyBodyToResponse();
+            }
         } catch (PayException exception) {
             errorWriter.write(response, exception);
         }
