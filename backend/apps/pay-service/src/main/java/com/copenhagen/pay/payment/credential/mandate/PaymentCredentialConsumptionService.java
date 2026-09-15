@@ -48,6 +48,21 @@ public class PaymentCredentialConsumptionService {
         PaymentCredentialRecord credential = repository
                 .findCredentialForUpdate(command.credentialId())
                 .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
+
+        // A concurrent request may have committed the Payment while this request
+        // was waiting for the Credential row lock. Re-read the idempotent result
+        // before interpreting the now-consumed Credential as a conflict.
+        CreatedPayment concurrentExisting = repository.findPaymentByMerchantAndIdempotencyKey(
+                command.merchantAccountId(),
+                command.idempotencyKey()).orElse(null);
+        if (concurrentExisting != null) {
+            idempotencyGuard.check(
+                    concurrentExisting.requestHash(),
+                    command.requestHash(),
+                    concurrentExisting.status().name());
+            return concurrentExisting;
+        }
+
         validateCredential(credential, command);
 
         Instant now = clock.instant();

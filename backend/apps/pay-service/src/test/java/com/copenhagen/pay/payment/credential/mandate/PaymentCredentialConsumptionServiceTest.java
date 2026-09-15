@@ -67,6 +67,35 @@ class PaymentCredentialConsumptionServiceTest {
         assertEquals(PayErrorCode.IDEMPOTENCY_CONFLICT, exception.errorCode());
     }
 
+    @Test
+    void rechecksIdempotentPaymentAfterCredentialLock() {
+        InMemoryRepository repository = new InMemoryRepository() {
+            private boolean firstLookup = true;
+
+            @Override
+            public Optional<CreatedPayment> findPaymentByMerchantAndIdempotencyKey(
+                    String merchantAccountId,
+                    String idempotencyKey) {
+                if (firstLookup) {
+                    firstLookup = false;
+                    return Optional.empty();
+                }
+                return super.findPaymentByMerchantAndIdempotencyKey(
+                        merchantAccountId,
+                        idempotencyKey);
+            }
+        };
+        PaymentCredentialConsumptionService service = new PaymentCredentialConsumptionService(
+                repository,
+                new IdempotencyGuard(),
+                Clock.fixed(NOW, ZoneOffset.UTC));
+
+        CreatedPayment first = service.consume(command("idempotency-001", "request-hash-001"));
+        CreatedPayment replay = service.consume(command("idempotency-001", "request-hash-001"));
+
+        assertEquals(first.id(), replay.id());
+    }
+
     private PaymentCredentialConsumptionService.ConsumeCommand command(
             String idempotencyKey,
             String requestHash) {
@@ -82,7 +111,7 @@ class PaymentCredentialConsumptionServiceTest {
                 requestHash);
     }
 
-    private static final class InMemoryRepository
+    private static class InMemoryRepository
             implements PaymentCredentialConsumptionRepository {
 
         private PaymentCredentialRecord credential = new PaymentCredentialRecord(
