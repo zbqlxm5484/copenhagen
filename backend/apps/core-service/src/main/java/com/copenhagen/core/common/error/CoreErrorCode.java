@@ -19,6 +19,31 @@ public enum CoreErrorCode {
             "AUTH_EMAIL_DUPLICATED",
             "이미 사용 중인 이메일입니다.",
             "USE_DIFFERENT_EMAIL"),
+    AUTH_INVALID_CREDENTIALS(
+            HttpStatus.UNAUTHORIZED,
+            "AUTH_INVALID_CREDENTIALS",
+            "아이디 또는 비밀번호가 올바르지 않습니다.",
+            "CHECK_CREDENTIALS"),
+    AUTH_ACCOUNT_UNAVAILABLE(
+            HttpStatus.FORBIDDEN,
+            "AUTH_ACCOUNT_UNAVAILABLE",
+            "이용할 수 없는 계정입니다.",
+            "CONTACT_SUPPORT"),
+    AUTH_LOGIN_LOCKED(
+            HttpStatus.LOCKED,
+            "AUTH_LOGIN_LOCKED",
+            "로그인이 일시적으로 제한되었습니다.",
+            "TRY_AGAIN_LATER"),
+    AUTH_TOKEN_MISSING(
+            HttpStatus.UNAUTHORIZED,
+            "AUTH_TOKEN_MISSING",
+            "인증 토큰이 필요합니다.",
+            "LOGIN_REQUIRED"),
+    AUTH_TOKEN_INVALID(
+            HttpStatus.UNAUTHORIZED,
+            "AUTH_TOKEN_INVALID",
+            "유효하지 않은 인증 토큰입니다.",
+            "LOGIN_REQUIRED"),
     REQUEST_METHOD_NOT_ALLOWED(
             HttpStatus.METHOD_NOT_ALLOWED,
             "REQUEST_METHOD_NOT_ALLOWED",

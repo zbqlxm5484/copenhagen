@@ -33,6 +33,12 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
             WHERE token_hash = ?
             """;
 
+    private static final String REVOKE_ACTIVE_BY_USER_ID_AND_DEVICE_ID_SQL = """
+            UPDATE refresh_tokens
+            SET revoked_at = ?
+            WHERE user_id = ? AND device_id = ? AND revoked_at IS NULL
+            """;
+
     private static final RowMapper<RefreshToken> ROW_MAPPER = JdbcRefreshTokenRepository::mapRefreshToken;
 
     private final JdbcTemplate jdbcTemplate;
@@ -73,6 +79,11 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
     @Override
     public int deleteByTokenHash(String tokenHash) {
         return jdbcTemplate.update(DELETE_BY_TOKEN_HASH_SQL, tokenHash);
+    }
+
+    @Override
+    public void revokeActiveByUserIdAndDeviceId(long userId, String deviceId, Instant now) {
+        jdbcTemplate.update(REVOKE_ACTIVE_BY_USER_ID_AND_DEVICE_ID_SQL, Timestamp.from(now), userId, deviceId);
     }
 
     private static RefreshToken mapRefreshToken(ResultSet resultSet, int rowNumber) throws SQLException {

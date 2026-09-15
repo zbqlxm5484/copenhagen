@@ -23,7 +23,8 @@ public class GlobalExceptionHandler {
                 exception.errorCode(),
                 exception.getMessage(),
                 exception.currentState(),
-                exception.nextAction());
+                exception.nextAction(),
+                exception.retryAfterSeconds());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -97,11 +98,21 @@ public class GlobalExceptionHandler {
             String message,
             String currentState,
             String nextAction) {
+        return response(errorCode, message, currentState, nextAction, null);
+    }
+
+    private ResponseEntity<ApiErrorResponse> response(
+            CoreErrorCode errorCode,
+            String message,
+            String currentState,
+            String nextAction,
+            Long retryAfterSeconds) {
         ApiErrorResponse response = new ApiErrorResponse(
                 errorCode.code(),
                 message,
                 currentState,
-                nextAction);
+                nextAction,
+                retryAfterSeconds);
         return ResponseEntity.status(errorCode.httpStatus()).body(response);
     }
 }

@@ -237,6 +237,11 @@ class SignupServiceTest {
         public Optional<User> findByPublicId(UUID publicId) {
             return byId.values().stream().filter(u -> u.publicId().equals(publicId)).findFirst();
         }
+
+        @Override
+        public void updateLastLoginAt(long id, Instant now) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static class FakeLocalAccountRepository implements LocalAccountRepository {
@@ -257,6 +262,11 @@ class SignupServiceTest {
         }
 
         @Override
+        public Optional<LocalAccount> findByIdForUpdate(long id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public long insert(long userId, String loginId, String passwordHash, Instant now) {
             if (duplicateKeyMessageOnInsert != null) {
                 throw new DuplicateKeyException(duplicateKeyMessageOnInsert);
@@ -266,6 +276,17 @@ class SignupServiceTest {
             byLoginId.put(loginId,
                     new LocalAccount(id, userId, loginId, passwordHash, 0, null, null, now, now));
             return id;
+        }
+
+        @Override
+        public void recordLoginFailure(
+                long id, int failedLoginCount, Instant lastFailedLoginAt, Instant lockedUntil, Instant now) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void resetLoginFailure(long id, Instant now) {
+            throw new UnsupportedOperationException();
         }
     }
 }

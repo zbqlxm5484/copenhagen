@@ -7,13 +7,15 @@ public record ApiErrorResponse(
         String errorCode,
         String message,
         String currentState,
-        String nextAction) {
+        String nextAction,
+        Long retryAfterSeconds) {
 
     public static ApiErrorResponse from(CoreErrorCode errorCode) {
         return new ApiErrorResponse(
                 errorCode.code(),
                 errorCode.defaultMessage(),
                 null,
-                errorCode.defaultNextAction());
+                errorCode.defaultNextAction(),
+                null);
     }
 }
