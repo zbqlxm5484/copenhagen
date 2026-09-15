@@ -77,6 +77,7 @@ class MerchantPaymentPostgresIntegrationTest {
     private AnnotationConfigApplicationContext context;
     private RecordingPaymentGateway gateway;
     private MerchantPaymentService service;
+    private MerchantPaymentQueryService queryService;
 
     @BeforeAll
     void startPostgres() throws IOException {
@@ -113,6 +114,7 @@ class MerchantPaymentPostgresIntegrationTest {
         gateway = new RecordingPaymentGateway();
         context = createContext();
         service = context.getBean(MerchantPaymentService.class);
+        queryService = context.getBean(MerchantPaymentQueryService.class);
     }
 
     @AfterEach
@@ -178,6 +180,57 @@ class MerchantPaymentPostgresIntegrationTest {
     }
 
     @Test
+    void merchantCanReadOwnedPaymentWithoutCallingPgOrChangingLedgers() {
+        gateway.outcome = ChargeResult.Outcome.UNKNOWN;
+        MerchantPaymentService.PaymentResult created = service.create(command());
+        int gatewayCallsBeforeQuery = gateway.calls.get();
+        String paymentStatusBeforeQuery = status("payments");
+        int attemptsBeforeQuery = count("payment_attempts");
+        int transactionsBeforeQuery = count("pg_transactions");
+        int receiptsBeforeQuery = count("payment_receipts");
+        int reconciliationJobsBeforeQuery = count("payment_reconciliation_jobs");
+        String authorizationStatusBeforeQuery = status("authorization_sessions");
+
+        MerchantPaymentQueryRepository.PaymentView payment = queryService.find(
+                MERCHANT_ID,
+                created.payment().id());
+
+        assertEquals(created.payment().id(), payment.paymentId());
+        assertEquals(PaymentStatus.UNKNOWN, payment.status());
+        assertEquals(AMOUNT_MINOR, payment.amountMinor());
+        assertEquals("KRW", payment.currency());
+        assertEquals(gatewayCallsBeforeQuery, gateway.calls.get());
+        assertEquals(paymentStatusBeforeQuery, status("payments"));
+        assertEquals(attemptsBeforeQuery, count("payment_attempts"));
+        assertEquals(transactionsBeforeQuery, count("pg_transactions"));
+        assertEquals(receiptsBeforeQuery, count("payment_receipts"));
+        assertEquals(reconciliationJobsBeforeQuery, count("payment_reconciliation_jobs"));
+        assertEquals(authorizationStatusBeforeQuery, status("authorization_sessions"));
+    }
+
+    @Test
+    void anotherMerchantCannotDiscoverPayment() {
+        MerchantPaymentService.PaymentResult created = service.create(command());
+
+        PayException exception = assertThrows(
+                PayException.class,
+                () -> queryService.find("merchant-other", created.payment().id()));
+
+        assertEquals(PayErrorCode.RESOURCE_NOT_FOUND, exception.errorCode());
+    }
+
+    @Test
+    void missingPaymentReturnsNotFound() {
+        PayException exception = assertThrows(
+                PayException.class,
+                () -> queryService.find(
+                        MERCHANT_ID,
+                        "00000000-0000-0000-0000-000000000099"));
+
+        assertEquals(PayErrorCode.RESOURCE_NOT_FOUND, exception.errorCode());
+    }
+
+    @Test
     void invalidCredentialScopeDoesNotCreatePaymentOrConsumeCredential() {
         MerchantPaymentService.CreateCommand invalid = new MerchantPaymentService.CreateCommand(
                 MERCHANT_ID,
@@ -239,6 +292,7 @@ class MerchantPaymentPostgresIntegrationTest {
         created.register(
                 JdbcMerchantAccountRepository.class,
                 JdbcPaymentCredentialConsumptionRepository.class,
+                JdbcMerchantPaymentQueryRepository.class,
                 JdbcPaymentExecutionRepository.class,
                 JdbcPaymentRepository.class,
                 JdbcAuthorizationSessionRepository.class,
@@ -249,7 +303,8 @@ class MerchantPaymentPostgresIntegrationTest {
                 PaymentExecutionPreparationService.class,
                 PaymentExecutionSettlementService.class,
                 PaymentExecutionService.class,
-                MerchantPaymentService.class);
+                MerchantPaymentService.class,
+                MerchantPaymentQueryService.class);
         created.refresh();
         return created;
     }
