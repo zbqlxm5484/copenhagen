@@ -296,6 +296,7 @@ class JdbcCheckoutRepositoryPostgresTest {
                 92000L,
                 "{\"recipient\":\"홍길동\",\"address_line1\":\"서울특별시 강남구 테헤란로 1\"}",
                 "[{\"code\":\"ADDRESS_REQUIRED\",\"severity\":\"error\"}]",
+                "{\"line-1\":\"product-101-260\"}",
                 "{\"id\":\"" + id + "\",\"status\":\"ready_for_complete\"}",
                 expiresAt == null ? null : expiresAt.truncatedTo(ChronoUnit.SECONDS),
                 0L);
@@ -305,15 +306,15 @@ class JdbcCheckoutRepositoryPostgresTest {
     private static CheckoutSession expiredWithStatus(String id, CheckoutStatus status) {
         CheckoutSession base = ready(id, NOW.minusMinutes(5));
         return new CheckoutSession(base.id(), status, base.currency(), base.totalAmount(),
-                base.fulfillmentAddressJson(), base.messagesJson(), base.canonicalCheckout(),
-                base.expiresAt(), base.version());
+                base.fulfillmentAddressJson(), base.messagesJson(), base.lineSkusJson(),
+                base.canonicalCheckout(), base.expiresAt(), base.version());
     }
 
     private static CheckoutSession withStatus(String id, CheckoutStatus status) {
         CheckoutSession base = ready(id, null);
         return new CheckoutSession(base.id(), status, base.currency(), base.totalAmount(),
-                base.fulfillmentAddressJson(), base.messagesJson(), base.canonicalCheckout(),
-                base.expiresAt(), base.version());
+                base.fulfillmentAddressJson(), base.messagesJson(), base.lineSkusJson(),
+                base.canonicalCheckout(), base.expiresAt(), base.version());
     }
 
     private int count() {

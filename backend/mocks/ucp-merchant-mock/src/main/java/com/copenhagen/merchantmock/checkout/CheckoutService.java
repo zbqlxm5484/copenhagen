@@ -128,6 +128,8 @@ public class CheckoutService {
                 && request.fulfillment().destination() != null;
         String address = hasAddress ? objectMapper.writeValueAsString(request.fulfillment().destination()) : null;
         String messages = checkout.messages() == null ? null : objectMapper.writeValueAsString(checkout.messages());
+        String lineSkus = evaluation.lineSkus().isEmpty()
+                ? null : objectMapper.writeValueAsString(evaluation.lineSkus());
         return new CheckoutSession(
                 id,
                 evaluation.status(),
@@ -135,6 +137,7 @@ public class CheckoutService {
                 total,
                 address,
                 messages,
+                lineSkus,
                 objectMapper.writeValueAsString(checkout),
                 evaluation.expiresAt(),
                 version);
