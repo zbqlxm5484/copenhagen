@@ -8,6 +8,7 @@ dependencies {
     implementation project(':libs:internal-api-contract')
     implementation libs.spring.boot.starter.web
     implementation libs.spring.boot.starter.actuator
+    implementation 'io.modelcontextprotocol.sdk:mcp:2.0.1'
 
     testImplementation libs.spring.boot.starter.test
     testImplementation project(':libs:test-support')
