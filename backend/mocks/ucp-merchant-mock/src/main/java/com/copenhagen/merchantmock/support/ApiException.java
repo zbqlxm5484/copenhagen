@@ -42,6 +42,17 @@ public class ApiException extends RuntimeException {
     }
 
     /**
+     * 없는 주문. 주문 조회는 장바구니 단계가 아니라 {@code RETURN_TO_CART} 를 쓰지 않는다.
+     *
+     * <p>Core 가 이 API 를 부르는 것은 웹훅이 유실됐다고 의심될 때다(Core 확정본 6.2). 없다는 답을 받은
+     * Core 가 할 일은 거래 상태를 다시 확인하는 것이라 {@code CHECK_PURCHASE_STATUS} 를 쓴다.
+     */
+    public static ApiException orderNotFound(String orderId) {
+        return new ApiException("ORDER_NOT_FOUND", HttpStatus.NOT_FOUND,
+                "주문을 찾을 수 없다: " + orderId, null, "CHECK_PURCHASE_STATUS");
+    }
+
+    /**
      * 완료·취소된 체크아웃을 수정하거나 취소하려 했다. 이미 끝난 건이라 먼저 상태를 확인해야 한다.
      * 설계서 표의 {@code COMPLETION_UNKNOWN} 과 같은 안내다.
      */

@@ -15,13 +15,13 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
     private static final String INSERT = """
             INSERT INTO checkout_sessions
                 (id, status, currency, total_amount, fulfillment_address, messages_json,
-                 canonical_checkout, expires_at)
-            VALUES (?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?)
+                 line_skus_json, canonical_checkout, expires_at)
+            VALUES (?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?)
             """;
 
     private static final String SELECT = """
             SELECT id, status, currency, total_amount, fulfillment_address::text, messages_json::text,
-                   canonical_checkout, expires_at, version
+                   line_skus_json::text, canonical_checkout, expires_at, version
               FROM checkout_sessions
              WHERE id = ?
             """;
@@ -29,8 +29,8 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
     private static final String UPDATE = """
             UPDATE checkout_sessions
                SET status = ?, currency = ?, total_amount = ?, fulfillment_address = ?::jsonb,
-                   messages_json = ?::jsonb, canonical_checkout = ?, expires_at = ?,
-                   version = version + 1, updated_at = now()
+                   messages_json = ?::jsonb, line_skus_json = ?::jsonb, canonical_checkout = ?,
+                   expires_at = ?, version = version + 1, updated_at = now()
              WHERE id = ? AND version = ?
             """;
 
@@ -60,6 +60,7 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
             rs.getObject("total_amount", Long.class),
             rs.getString("fulfillment_address"),
             rs.getString("messages_json"),
+            rs.getString("line_skus_json"),
             rs.getString("canonical_checkout"),
             rs.getObject("expires_at", OffsetDateTime.class),
             rs.getLong("version"));
@@ -75,7 +76,8 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
         try {
             jdbcTemplate.update(INSERT,
                     s.id(), s.status().name(), s.currency(), s.totalAmount(),
-                    s.fulfillmentAddressJson(), s.messagesJson(), s.canonicalCheckout(), s.expiresAt());
+                    s.fulfillmentAddressJson(), s.messagesJson(), s.lineSkusJson(),
+                    s.canonicalCheckout(), s.expiresAt());
             return true;
         } catch (DuplicateKeyException exception) {
             return false;
@@ -101,7 +103,7 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
     public boolean update(CheckoutSession s, long expectedVersion) {
         int updated = jdbcTemplate.update(UPDATE,
                 s.status().name(), s.currency(), s.totalAmount(), s.fulfillmentAddressJson(),
-                s.messagesJson(), s.canonicalCheckout(), s.expiresAt(),
+                s.messagesJson(), s.lineSkusJson(), s.canonicalCheckout(), s.expiresAt(),
                 s.id(), expectedVersion);
         return updated == 1;
     }

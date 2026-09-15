@@ -16,6 +16,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -50,7 +51,7 @@ class MerchantMigrationPostgresTest {
     }
 
     @Test
-    @DisplayName("빈 DB 에 V1~V5 를 전부 적용한다")
+    @DisplayName("빈 DB 에 V1~V6 를 전부 적용한다")
     void migrate_emptyDatabase_appliesAllVersions() {
         // given
         String schema = postgres.newSchema();
@@ -61,13 +62,13 @@ class MerchantMigrationPostgresTest {
 
         // then
         JdbcTemplate jdbc = postgres.jdbcFor(dataSource);
-        assertEquals(5, applied);
-        assertEquals("5", currentVersion(jdbc, schema));
+        assertEquals(6, applied);
+        assertEquals("6", currentVersion(jdbc, schema));
         TABLES.forEach(table -> assertTrue(tableExists(jdbc, schema, table), table + " 가 없다"));
     }
 
     @Test
-    @DisplayName("V3 까지 적용된 DB 위에 V4·V5 가 올라간다")
+    @DisplayName("V3 까지 적용된 DB 위에 V4·V5·V6 가 올라간다")
     void migrate_databaseAtV3_appliesRemainingVersions() {
         // given
         String schema = postgres.newSchema();
@@ -81,8 +82,8 @@ class MerchantMigrationPostgresTest {
         int applied = postgres.flywayFor(dataSource, schema, null).migrate().migrationsExecuted;
 
         // then
-        assertEquals(2, applied);
-        assertEquals("5", currentVersion(jdbc, schema));
+        assertEquals(3, applied);
+        assertEquals("6", currentVersion(jdbc, schema));
         assertTrue(tableExists(jdbc, schema, "order_items"));
         assertEquals(5, seededProductCount(jdbc), "기존 시드 데이터가 살아 있어야 한다");
     }
@@ -143,6 +144,52 @@ class MerchantMigrationPostgresTest {
                 VALUES (?, ?, 1, ?, 'sku-1', '러닝화 A', 89000, 1, 89000)
                 """, "item-1", "11111111-1111-4111-8111-000000000000",
                 "11111111-1111-4111-8111-111111111111"));
+    }
+
+    @Test
+    @DisplayName("V5 까지 적용된 DB 위에 V6 가 올라가고 기존 체크아웃 행이 살아 있다")
+    void migrate_databaseAtV5_addsLineSkusColumn() {
+        // given
+        String schema = postgres.newSchema();
+        DataSource dataSource = postgres.dataSourceFor(schema);
+        postgres.flywayFor(dataSource, schema, "5").migrate();
+        JdbcTemplate jdbc = postgres.jdbcFor(dataSource);
+        jdbc.update("INSERT INTO checkout_sessions (id, status) VALUES (?, ?)",
+                "before-v6", "READY_FOR_COMPLETE");
+
+        // when
+        int applied = postgres.flywayFor(dataSource, schema, null).migrate().migrationsExecuted;
+
+        // then
+        assertEquals(1, applied);
+        assertEquals("6", currentVersion(jdbc, schema));
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT count(*) FROM checkout_sessions WHERE id = 'before-v6'", Integer.class));
+        assertNull(jdbc.queryForObject(
+                "SELECT line_skus_json::text FROM checkout_sessions WHERE id = 'before-v6'", String.class),
+                "V6 이전 행은 비어 있어야 한다");
+    }
+
+    @Test
+    @DisplayName("line_skus_json 은 jsonb 이고 객체를 그대로 담는다")
+    void lineSkusJson_jsonObject_roundTrips() {
+        // given
+        JdbcTemplate jdbc = migrated().jdbc();
+
+        // when
+        jdbc.update("""
+                INSERT INTO checkout_sessions (id, status, line_skus_json)
+                VALUES (?, 'READY_FOR_COMPLETE', ?::jsonb)
+                """, "skus-1", "{\"line-1\":\"product-101-270\",\"line-2\":\"product-104-single\"}");
+
+        // then
+        assertEquals("product-101-270", jdbc.queryForObject("""
+                SELECT line_skus_json ->> 'line-1' FROM checkout_sessions WHERE id = 'skus-1'
+                """, String.class));
+        assertThrows(RuntimeException.class, () -> jdbc.update("""
+                INSERT INTO checkout_sessions (id, status, line_skus_json)
+                VALUES (?, 'READY_FOR_COMPLETE', ?::jsonb)
+                """, "skus-2", "{깨진 JSON"));
     }
 
     /**

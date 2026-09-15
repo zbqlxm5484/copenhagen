@@ -7,6 +7,7 @@ plugins {
 dependencies {
     implementation project(':libs:ucp-contract')
     implementation project(':libs:payment-handler-contract')
+    implementation project(':libs:internal-api-contract')
     implementation libs.spring.boot.starter.web
     implementation libs.spring.boot.starter.actuator
     implementation libs.spring.boot.starter.jdbc

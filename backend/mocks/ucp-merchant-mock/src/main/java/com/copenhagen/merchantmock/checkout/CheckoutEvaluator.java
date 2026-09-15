@@ -5,7 +5,9 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,8 +56,14 @@ public class CheckoutEvaluator {
         this.clock = clock;
     }
 
-    /** 판정 결과. 응답 스냅샷과, 컬럼에 캐시할 값 둘. */
-    record Evaluation(Checkout checkout, CheckoutStatus status, OffsetDateTime expiresAt) {
+    /**
+     * 판정 결과. 응답 스냅샷과, 컬럼에 캐시할 값들.
+     *
+     * @param lineSkus line item id 에서 선택된 SKU 로. {@code canonical_checkout} 에 SKU 자리가 없어
+     *                 {@code line_skus_json} 으로 따로 남긴다(DESIGN.md 5.4절). 주문 상세가 이걸 읽는다.
+     */
+    record Evaluation(Checkout checkout, CheckoutStatus status, OffsetDateTime expiresAt,
+            Map<String, String> lineSkus) {
     }
 
     /**
@@ -63,7 +71,8 @@ public class CheckoutEvaluator {
      */
     Evaluation evaluate(String checkoutId, CheckoutRequest request, Optional<Checkout> previous) {
         List<Message> messages = new ArrayList<>();
-        List<LineItem> lines = resolveLines(request, messages);
+        Map<String, String> lineSkus = new LinkedHashMap<>();
+        List<LineItem> lines = resolveLines(request, messages, lineSkus);
         long subtotal = lines.stream().mapToLong(l -> l.item().price() * l.quantity()).sum();
 
         FulfillmentResult fulfillment = resolveFulfillment(request, messages);
@@ -93,10 +102,14 @@ public class CheckoutEvaluator {
                 totals,
                 messages.isEmpty() ? null : List.copyOf(messages),
                 expiresAt == null ? null : expiresAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
-        return new Evaluation(checkout, status, expiresAt);
+        // Map.copyOf 는 순서를 지키지 않는다. 서명 대상은 아니지만 같은 입력에 같은 바이트가 나오는 편이
+        // 읽기도 비교하기도 쉽다. 줄 번호 순서를 그대로 둔다.
+        return new Evaluation(checkout, status, expiresAt,
+                Collections.unmodifiableMap(new LinkedHashMap<>(lineSkus)));
     }
 
-    private List<LineItem> resolveLines(CheckoutRequest request, List<Message> messages) {
+    private List<LineItem> resolveLines(CheckoutRequest request, List<Message> messages,
+            Map<String, String> lineSkus) {
         List<CheckoutRequest.LineItemRequest> requested =
                 request == null || request.lineItems() == null ? List.of() : request.lineItems();
         if (requested.isEmpty()) {
@@ -130,7 +143,9 @@ public class CheckoutEvaluator {
                 messages.add(Message.error("CHECKOUT_STOCK_INSUFFICIENT", "재고가 부족하다", target));
             }
 
-            lines.add(new LineItem("line-" + (i + 1),
+            String lineId = "line-" + (i + 1);
+            variant.ifPresent(v -> lineSkus.put(lineId, v.sku()));
+            lines.add(new LineItem(lineId,
                     new Item(product.externalId(), product.title(), unitPrice),
                     Math.max(quantity, 0)));
         }

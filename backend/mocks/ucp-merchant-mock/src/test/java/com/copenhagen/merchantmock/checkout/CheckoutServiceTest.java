@@ -350,6 +350,55 @@ class CheckoutServiceTest {
     }
 
     @Test
+    @DisplayName("생성하면 선택된 옵션이 line_skus_json 에 남는다")
+    void create_withOptionValueIds_storesSelectedSku() {
+        // given
+        Harness h = harness();
+
+        // when
+        Checkout created = h.service().create(runningShoesToSeoul(), "checkout-create-skus-1");
+
+        // then
+        CheckoutSession row = h.repository().findById(created.id()).orElseThrow();
+        assertEquals("{\"line-1\":\"product-101-270\"}", row.lineSkusJson(),
+                "주문 상세가 이 값을 읽는다. 없으면 order_items.sku 를 채울 수 없다");
+    }
+
+    @Test
+    @DisplayName("옵션을 바꿔 PUT 하면 저장된 SKU 도 바뀐다")
+    void update_changedOption_replacesStoredSku() {
+        // given
+        Harness h = harness();
+        Checkout created = h.service().create(runningShoesToSeoul(), "checkout-create-skus-2");
+
+        // when
+        h.service().update(created.id(), request(SEOUL, line("product-101", "product-101-260", 1)));
+
+        // then
+        CheckoutSession row = h.repository().findById(created.id()).orElseThrow();
+        assertEquals("{\"line-1\":\"product-101-260\"}", row.lineSkusJson());
+    }
+
+    @Test
+    @DisplayName("줄이 여럿이면 줄마다 SKU 가 남는다")
+    void create_multipleLines_storesSkuPerLine() {
+        // given
+        Harness h = harness();
+
+        // when
+        Checkout created = h.service().create(
+                request(SEOUL,
+                        line("product-101", "product-101-270", 1),
+                        line("product-103", "product-103-black", 2)),
+                "checkout-create-skus-3");
+
+        // then
+        CheckoutSession row = h.repository().findById(created.id()).orElseThrow();
+        assertEquals("{\"line-1\":\"product-101-270\",\"line-2\":\"product-103-black\"}",
+                row.lineSkusJson());
+    }
+
+    @Test
     @DisplayName("completed 상태에서 PUT 하면 CHECKOUT_NOT_MODIFIABLE 이다")
     void update_completedCheckout_throwsNotModifiable() {
         // given & when
@@ -357,8 +406,8 @@ class CheckoutServiceTest {
         Checkout created = h.service().create(runningShoesToSeoul(), "checkout-create-23");
         CheckoutSession row = h.repository().findById(created.id()).orElseThrow();
         h.repository().put(new CheckoutSession(row.id(), CheckoutStatus.COMPLETED, row.currency(),
-                row.totalAmount(), row.fulfillmentAddressJson(), row.messagesJson(), row.canonicalCheckout(),
-                row.expiresAt(), row.version()));
+                row.totalAmount(), row.fulfillmentAddressJson(), row.messagesJson(), row.lineSkusJson(),
+                row.canonicalCheckout(), row.expiresAt(), row.version()));
 
         // then
         ApiException thrown = assertThrows(ApiException.class,
