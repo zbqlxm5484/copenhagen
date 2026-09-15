@@ -53,7 +53,8 @@ public class AuthorizationSessionController {
             HttpServletRequest httpRequest) {
         IdempotencyKey idempotencyKey = PayRequestContext.findIdempotencyKey(httpRequest)
                 .orElseThrow(() -> new PayException(PayErrorCode.IDEMPOTENCY_KEY_REQUIRED));
-        String requestHash = requestHashGenerator.generate(httpRequest, request);
+        String requestHash = PayRequestContext.findRequestHash(httpRequest)
+                .orElseGet(() -> requestHashGenerator.generate(httpRequest, request));
         AuthorizationSessionService.CreateResult result = service.create(
                 request.toCommand(),
                 idempotencyKey.value(),

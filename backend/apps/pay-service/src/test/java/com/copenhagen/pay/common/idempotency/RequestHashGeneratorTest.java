@@ -3,6 +3,7 @@ package com.copenhagen.pay.common.idempotency;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -43,5 +44,17 @@ class RequestHashGeneratorTest {
                 Map.of("amountMinor", 20000));
 
         assertNotEquals(first, changed);
+    }
+
+    @Test
+    void rawJsonUsesJcsBeforeSha256() {
+        String first = generator.generateBody(
+                "{ \"amount\": 1.0, \"items\": [true, null] }"
+                        .getBytes(StandardCharsets.UTF_8));
+        String second = generator.generateBody(
+                "{\"items\":[true,null],\"amount\":1}"
+                        .getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(first, second);
     }
 }

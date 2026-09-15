@@ -3,23 +3,13 @@ package com.copenhagen.pay.common.idempotency;
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.StringJoiner;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.node.ArrayNode;
-import tools.jackson.databind.node.ObjectNode;
+import org.erdtman.jcs.JsonCanonicalizer;
 
 @Component
 public class RequestHashGenerator {
@@ -31,94 +21,50 @@ public class RequestHashGenerator {
     }
 
     public String generate(HttpServletRequest request, Object body) {
-        Map<String, Collection<String>> queryParameters = request.getParameterMap().entrySet().stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> Arrays.asList(entry.getValue())));
-        return generate(request.getMethod(), request.getRequestURI(), queryParameters, body);
+        return generateBody(body);
     }
 
     public String generate(
             String method,
             String path,
-            Map<String, ? extends Collection<String>> queryParameters,
+            java.util.Map<String, ? extends java.util.Collection<String>> queryParameters,
             Object body) {
-        if (method == null || method.isBlank() || path == null || path.isBlank()) {
-            throw new PayException(
-                    PayErrorCode.INVALID_REQUEST,
-                    "요청 해시를 생성할 요청 정보가 부족합니다.",
-                    null,
-                    "CHECK_REQUEST");
-        }
-
-        String canonicalRequest = String.join(
-                "\n",
-                method.toUpperCase(java.util.Locale.ROOT),
-                path,
-                canonicalQuery(queryParameters),
-                canonicalBody(body));
-        return sha256(canonicalRequest);
+        return generateBody(body);
     }
 
-    private String canonicalQuery(Map<String, ? extends Collection<String>> queryParameters) {
-        if (queryParameters == null || queryParameters.isEmpty()) {
-            return "";
-        }
-
-        StringJoiner joiner = new StringJoiner("&");
-        queryParameters.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .forEach(entry -> {
-                    Collection<String> values = entry.getValue() == null
-                            ? List.of("")
-                            : entry.getValue();
-                    values.stream()
-                            .sorted(Comparator.nullsFirst(String::compareTo))
-                            .forEach(value -> joiner.add(entry.getKey() + "=" + value));
-                });
-        return joiner.toString();
-    }
-
-    private String canonicalBody(Object body) {
+    public String generateBody(Object body) {
         try {
-            JsonNode bodyTree = objectMapper.valueToTree(body);
-            return objectMapper.writeValueAsString(canonicalize(bodyTree));
-        } catch (IllegalArgumentException | JacksonException exception) {
-            throw new PayException(
-                    PayErrorCode.INVALID_REQUEST,
-                    "요청 본문을 해시할 수 없습니다.",
-                    null,
-                    "CHECK_REQUEST",
-                    exception);
+            return generateBody(objectMapper.writeValueAsString(body).getBytes(StandardCharsets.UTF_8));
+        } catch (IllegalArgumentException exception) {
+            throw invalidBodyHash(exception);
         }
     }
 
-    private JsonNode canonicalize(JsonNode node) {
-        if (node == null || node.isValueNode()) {
-            return node;
+    public String generateBody(byte[] body) {
+        byte[] json = body == null || body.length == 0
+                ? "null".getBytes(StandardCharsets.UTF_8)
+                : body;
+        try {
+            JsonCanonicalizer canonicalizer = new JsonCanonicalizer(json);
+            return sha256(canonicalizer.getEncodedUTF8());
+        } catch (IOException | RuntimeException exception) {
+            throw invalidBodyHash(exception);
         }
-        if (node.isObject()) {
-            ObjectNode normalized = objectMapper.createObjectNode();
-            List<String> fieldNames = new ArrayList<>(node.propertyNames());
-            fieldNames.sort(String::compareTo);
-            for (String fieldName : fieldNames) {
-                normalized.set(fieldName, canonicalize(node.get(fieldName)));
-            }
-            return normalized;
-        }
-        if (node.isArray()) {
-            ArrayNode normalized = objectMapper.createArrayNode();
-            node.forEach(element -> normalized.add(canonicalize(element)));
-            return normalized;
-        }
-        return node;
     }
 
-    private String sha256(String value) {
+    private PayException invalidBodyHash(Throwable cause) {
+        return new PayException(
+                PayErrorCode.INVALID_REQUEST,
+                "요청 본문을 해시할 수 없습니다.",
+                null,
+                "CHECK_REQUEST",
+                cause);
+    }
+
+    private String sha256(byte[] value) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return java.util.HexFormat.of().formatHex(
-                    digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+            return java.util.HexFormat.of().formatHex(digest.digest(value));
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is required by the runtime", exception);
         }

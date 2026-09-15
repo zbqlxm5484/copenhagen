@@ -50,7 +50,8 @@ public class PaymentPinController {
             HttpServletRequest httpRequest) {
         IdempotencyKey idempotencyKey = PayRequestContext.findIdempotencyKey(httpRequest)
                 .orElseThrow(() -> new PayException(PayErrorCode.IDEMPOTENCY_KEY_REQUIRED));
-        String requestHash = requestHashGenerator.generate(httpRequest, request);
+        String requestHash = PayRequestContext.findRequestHash(httpRequest)
+                .orElseGet(() -> requestHashGenerator.generate(httpRequest, request));
         service.register(userId(httpRequest), request.pin(), idempotencyKey.value(), requestHash);
         return ResponseEntity.noContent().build();
     }

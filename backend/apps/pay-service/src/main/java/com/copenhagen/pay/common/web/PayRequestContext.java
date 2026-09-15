@@ -13,6 +13,8 @@ public final class PayRequestContext {
     private static final String PRINCIPAL_ATTRIBUTE = PayRequestContext.class.getName() + ".principal";
     private static final String IDEMPOTENCY_KEY_ATTRIBUTE =
             PayRequestContext.class.getName() + ".idempotencyKey";
+    private static final String REQUEST_HASH_ATTRIBUTE =
+            PayRequestContext.class.getName() + ".requestHash";
 
     private PayRequestContext() {
     }
@@ -49,5 +51,14 @@ public final class PayRequestContext {
     public static Optional<IdempotencyKey> findIdempotencyKey(HttpServletRequest request) {
         return Optional.ofNullable(request.getAttribute(IDEMPOTENCY_KEY_ATTRIBUTE))
                 .map(IdempotencyKey.class::cast);
+    }
+
+    public static void setRequestHash(HttpServletRequest request, String requestHash) {
+        request.setAttribute(REQUEST_HASH_ATTRIBUTE, requestHash);
+    }
+
+    public static Optional<String> findRequestHash(HttpServletRequest request) {
+        return Optional.ofNullable(request.getAttribute(REQUEST_HASH_ATTRIBUTE))
+                .map(String.class::cast);
     }
 }

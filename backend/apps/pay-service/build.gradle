@@ -12,6 +12,7 @@ dependencies {
     implementation 'org.springframework.security:spring-security-crypto'
     implementation 'org.bouncycastle:bcprov-jdk18on:1.80'
     implementation libs.nimbus.jose.jwt
+    implementation libs.json.canonicalization
     implementation libs.spring.boot.starter.actuator
     implementation libs.spring.boot.starter.jdbc
     implementation libs.spring.boot.flyway
