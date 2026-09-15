@@ -1,0 +1,9 @@
+# 로컬 개발 전용 프로필.
+#
+# 아래 PII 키는 공개된 개발 전용 값이다. 운영에서 절대 사용하지 마라.
+# 운영 환경은 CORE_PII_ENC_KEY / CORE_PII_HASH_PEPPER 환경변수로 주입하며,
+# 미설정 시 core-service가 기동에 실패한다.
+core:
+  pii:
+    encryption-key: ZGV2LW9ubHktY29yZS1waWkta2V5LTMyLWJ5dGVzISE=
+    hash-pepper: dev-only-core-pii-hash-pepper-value-do-not-use-in-prod

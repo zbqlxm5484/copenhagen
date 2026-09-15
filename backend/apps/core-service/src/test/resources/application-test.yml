@@ -1,0 +1,7 @@
+# 테스트 전용 프로필.
+#
+# 아래 PII 키는 공개된 테스트 전용 값이다. 운영에서 절대 사용하지 마라.
+core:
+  pii:
+    encryption-key: ZGV2LW9ubHktY29yZS1waWkta2V5LTMyLWJ5dGVzISE=
+    hash-pepper: dev-only-core-pii-hash-pepper-value-do-not-use-in-prod

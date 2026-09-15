@@ -3,14 +3,18 @@ package com.copenhagen.core.auth.user;
 import java.time.Instant;
 import java.util.UUID;
 
+import com.copenhagen.core.common.crypto.EncryptedPii;
+
 public record User(
         long id,
         UUID publicId,
         String name,
         UserStatus status,
-        String email,
+        EncryptedPii emailEncrypted,
+        String emailHash,
         boolean emailVerified,
-        String phoneNumber,
+        EncryptedPii phoneEncrypted,
+        String phoneHash,
         Instant deletedAt,
         Instant pwChangedAt,
         Instant lastLoginAt,

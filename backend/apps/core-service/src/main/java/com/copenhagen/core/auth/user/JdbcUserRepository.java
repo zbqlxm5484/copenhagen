@@ -12,28 +12,26 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
+import com.copenhagen.core.common.crypto.EncryptedPii;
+
 @Repository
 public class JdbcUserRepository implements UserRepository {
 
     private static final String INSERT_SQL = """
-            INSERT INTO users (public_id, name, status, email, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO users (public_id, name, status, email_encrypted, email_hash, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             RETURNING id
             """;
 
-    private static final String FIND_BY_ID_SQL = """
-            SELECT id, public_id, name, status, email, email_verified, phone_number,
-                deleted_at, pw_changed_at, last_login_at, created_at, updated_at
+    private static final String SELECT_COLUMNS = """
+            SELECT id, public_id, name, status, email_encrypted, email_hash, email_verified,
+                phone_encrypted, phone_hash, deleted_at, pw_changed_at, last_login_at, created_at, updated_at
             FROM users
-            WHERE id = ?
             """;
 
-    private static final String FIND_BY_PUBLIC_ID_SQL = """
-            SELECT id, public_id, name, status, email, email_verified, phone_number,
-                deleted_at, pw_changed_at, last_login_at, created_at, updated_at
-            FROM users
-            WHERE public_id = ?
-            """;
+    private static final String FIND_BY_ID_SQL = SELECT_COLUMNS + "WHERE id = ?";
+
+    private static final String FIND_BY_PUBLIC_ID_SQL = SELECT_COLUMNS + "WHERE public_id = ?";
 
     private static final RowMapper<User> ROW_MAPPER = JdbcUserRepository::mapUser;
 
@@ -44,14 +42,16 @@ public class JdbcUserRepository implements UserRepository {
     }
 
     @Override
-    public long insert(UUID publicId, String name, UserStatus status, String email, Instant now) {
+    public long insert(UUID publicId, String name, UserStatus status,
+            EncryptedPii emailEncrypted, String emailHash, Instant now) {
         return jdbcTemplate.queryForObject(
                 INSERT_SQL,
                 Long.class,
                 publicId,
                 name,
                 status.name(),
-                email,
+                emailEncrypted == null ? null : emailEncrypted.toByteArray(),
+                emailHash,
                 Timestamp.from(now),
                 Timestamp.from(now));
     }
@@ -83,13 +83,20 @@ public class JdbcUserRepository implements UserRepository {
                 resultSet.getObject("public_id", UUID.class),
                 resultSet.getString("name"),
                 UserStatus.valueOf(resultSet.getString("status")),
-                resultSet.getString("email"),
+                EncryptedPii.of(resultSet.getBytes("email_encrypted")),
+                trimmed(resultSet.getString("email_hash")),
                 resultSet.getBoolean("email_verified"),
-                resultSet.getString("phone_number"),
+                EncryptedPii.of(resultSet.getBytes("phone_encrypted")),
+                trimmed(resultSet.getString("phone_hash")),
                 deletedAt == null ? null : deletedAt.toInstant(),
                 pwChangedAt == null ? null : pwChangedAt.toInstant(),
                 lastLoginAt == null ? null : lastLoginAt.toInstant(),
                 resultSet.getTimestamp("created_at").toInstant(),
                 resultSet.getTimestamp("updated_at").toInstant());
+    }
+
+    /** CHAR(64)는 공백으로 채워져 돌아오므로 잘라낸다. 64자 해시는 영향을 받지 않는다. */
+    private static String trimmed(String value) {
+        return value == null ? null : value.trim();
     }
 }

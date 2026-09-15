@@ -16,7 +16,7 @@ import org.springframework.stereotype.Repository;
 public class JdbcOauthAccountRepository implements OauthAccountRepository {
 
     private static final String INSERT_SQL = """
-            INSERT INTO oauth_account
+            INSERT INTO oauth_accounts
                 (user_id, provider, provider_subject, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?)
             RETURNING id
@@ -24,13 +24,13 @@ public class JdbcOauthAccountRepository implements OauthAccountRepository {
 
     private static final String FIND_BY_PROVIDER_AND_SUBJECT_SQL = """
             SELECT id, user_id, provider, provider_subject, created_at, updated_at
-            FROM oauth_account
+            FROM oauth_accounts
             WHERE provider = ? AND provider_subject = ?
             """;
 
     private static final String FIND_ALL_BY_USER_ID_SQL = """
             SELECT id, user_id, provider, provider_subject, created_at, updated_at
-            FROM oauth_account
+            FROM oauth_accounts
             WHERE user_id = ?
             """;
 

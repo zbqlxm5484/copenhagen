@@ -25,6 +25,10 @@ services:
       CORE_DB_URL: jdbc:postgresql://core-db:5432/core-db
       CORE_DB_USER: ${CORE_DB_USER:-core}
       CORE_DB_PASSWORD: ${CORE_DB_PASSWORD:-core-dev-password}
+      # 개인정보 암호화 키. 아래 기본값은 CORE_DB_PASSWORD와 같은 성격의 개발 전용 값이다.
+      # 운영 배포에서는 반드시 환경변수로 덮어써야 하며, 값이 없으면 core-service가 기동에 실패한다.
+      CORE_PII_ENC_KEY: ${CORE_PII_ENC_KEY:-ZGV2LW9ubHktY29yZS1waWkta2V5LTMyLWJ5dGVzISE=}
+      CORE_PII_HASH_PEPPER: ${CORE_PII_HASH_PEPPER:-dev-only-core-pii-hash-pepper-value-do-not-use-in-prod}
       PAY_SERVICE_URL: http://pay-service:8080
       MERCHANT_SERVICE_URL: http://ucp-merchant-mock:8080
     depends_on:
