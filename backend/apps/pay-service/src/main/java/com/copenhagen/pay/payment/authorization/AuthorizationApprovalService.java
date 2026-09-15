@@ -115,7 +115,6 @@ public class AuthorizationApprovalService {
                     userId,
                     approvalId,
                     authentication.challengeId(),
-                    authentication.challenge(),
                     authentication.assertion());
             if (verification == BiometricChallengeService.VerificationResult.FALLBACK_TO_PIN) {
                 moveToPin(session);
@@ -228,9 +227,18 @@ public class AuthorizationApprovalService {
     public record AuthenticationCommand(
             String method,
             String challengeId,
-            String challenge,
             String assertion,
             String pin) {
+
+        @Override
+        public String toString() {
+            return "AuthenticationCommand["
+                    + "method='" + method + '\''
+                    + ", challengeId='" + challengeId + '\''
+                    + ", assertion=<redacted>"
+                    + ", pin=<redacted>"
+                    + ']';
+        }
     }
 
     public record PreparedDetail(

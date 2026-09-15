@@ -4,7 +4,6 @@ import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
 import com.copenhagen.pay.common.idempotency.IdempotencyGuard;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -18,19 +17,36 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentPinService {
 
     private static final Pattern PIN_PATTERN = Pattern.compile("\\d{6}");
-    private static final int MAX_FAILED_ATTEMPTS = 5;
-    private static final Duration LOCK_DURATION = Duration.ofMinutes(5);
 
     private final PaymentPinCredentialRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
     private final IdempotencyGuard idempotencyGuard;
+    private final PaymentPinFailureService failureService;
 
     public PaymentPinService(
             PaymentPinCredentialRepository repository,
             PasswordEncoder passwordEncoder,
             Clock clock) {
-        this(repository, passwordEncoder, clock, new IdempotencyGuard());
+        this(
+                repository,
+                passwordEncoder,
+                clock,
+                new IdempotencyGuard(),
+                new PaymentPinFailureService(repository, clock));
+    }
+
+    public PaymentPinService(
+            PaymentPinCredentialRepository repository,
+            PasswordEncoder passwordEncoder,
+            Clock clock,
+            IdempotencyGuard idempotencyGuard) {
+        this(
+                repository,
+                passwordEncoder,
+                clock,
+                idempotencyGuard,
+                new PaymentPinFailureService(repository, clock));
     }
 
     @Autowired
@@ -38,11 +54,13 @@ public class PaymentPinService {
             PaymentPinCredentialRepository repository,
             PasswordEncoder passwordEncoder,
             Clock clock,
-            IdempotencyGuard idempotencyGuard) {
+            IdempotencyGuard idempotencyGuard,
+            PaymentPinFailureService failureService) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
         this.idempotencyGuard = idempotencyGuard;
+        this.failureService = failureService;
     }
 
     @Transactional
@@ -106,7 +124,7 @@ public class PaymentPinService {
         PaymentPinCredential credential = findCredential(userId);
         ensureNotLocked(credential);
         if (!passwordEncoder.matches(currentPin, credential.pinHash())) {
-            recordFailure(credential);
+            recordFailure(userId);
         }
         if (passwordEncoder.matches(newPin, credential.pinHash())) {
             throw new PayException(PayErrorCode.PIN_MUST_DIFFER);
@@ -125,8 +143,7 @@ public class PaymentPinService {
         PaymentPinCredential credential = findCredential(userId);
         ensureNotLocked(credential);
         if (!passwordEncoder.matches(pin, credential.pinHash())) {
-            recordFailure(credential);
-            return;
+            recordFailure(userId);
         }
 
         repository.resetVerificationState(credential.id(), clock.instant());
@@ -140,45 +157,33 @@ public class PaymentPinService {
     }
 
     private PaymentPinCredential findCredential(String userId) {
-        return repository.findByUserIdForUpdate(userId)
+        return repository.findByUserId(userId)
                 .orElseThrow(() -> new PayException(PayErrorCode.PIN_NOT_REGISTERED));
     }
 
     private void ensureNotLocked(PaymentPinCredential credential) {
         Instant lockedUntil = credential.lockedUntil();
-        if (lockedUntil != null && clock.instant().isBefore(lockedUntil)) {
+        if (credential.status() == PaymentPinStatus.LOCKED
+                && (lockedUntil == null || clock.instant().isBefore(lockedUntil))) {
             throw new PayException(
                     PayErrorCode.PIN_TEMPORARILY_LOCKED,
                     PayErrorCode.PIN_TEMPORARILY_LOCKED.defaultMessage(),
                     credential.status().name(),
-                    "TRY_AGAIN_AFTER_" + lockedUntil);
+                    lockedUntil == null
+                            ? PayErrorCode.PIN_TEMPORARILY_LOCKED.defaultNextAction()
+                            : "TRY_AGAIN_AFTER_" + lockedUntil);
         }
     }
 
-    private void recordFailure(PaymentPinCredential credential) {
-        int failedAttempts = Math.min(credential.failedAttempts() + 1, MAX_FAILED_ATTEMPTS);
-        Instant now = clock.instant();
-        if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
-            Instant lockedUntil = now.plus(LOCK_DURATION);
-            repository.updateVerificationFailure(
-                    credential.id(),
-                    failedAttempts,
-                    lockedUntil,
-                    PaymentPinStatus.LOCKED,
-                    now);
+    private void recordFailure(String userId) {
+        PaymentPinFailureService.FailureResult failure = failureService.record(userId);
+        if (failure.locked()) {
             throw new PayException(
                     PayErrorCode.PIN_TEMPORARILY_LOCKED,
                     PayErrorCode.PIN_TEMPORARILY_LOCKED.defaultMessage(),
                     PaymentPinStatus.LOCKED.name(),
-                    "TRY_AGAIN_AFTER_" + lockedUntil);
+                    "TRY_AGAIN_AFTER_" + failure.lockedUntil());
         }
-
-        repository.updateVerificationFailure(
-                credential.id(),
-                failedAttempts,
-                null,
-                PaymentPinStatus.ACTIVE,
-                now);
         throw new PayException(PayErrorCode.PIN_INVALID);
     }
 

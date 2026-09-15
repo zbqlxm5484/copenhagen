@@ -326,6 +326,15 @@ public class AuthorizationSessionController {
             String challengeId,
             String challenge,
             Instant expiresAt) {
+
+        @Override
+        public String toString() {
+            return "BiometricChallengeResponse["
+                    + "challengeId='" + challengeId + '\''
+                    + ", challenge=<redacted>"
+                    + ", expiresAt=" + expiresAt
+                    + ']';
+        }
     }
 
     private static BiometricChallengeResponse toResponse(
@@ -358,7 +367,6 @@ public class AuthorizationSessionController {
     public record AuthenticationRequest(
             @NotBlank @Size(max = 20) String method,
             @Size(max = 36) String challengeId,
-            @Size(max = 256) String challenge,
             @Size(max = 4096) String assertion,
             @Size(max = 6) String pin) {
 
@@ -366,7 +374,6 @@ public class AuthorizationSessionController {
             return new AuthorizationApprovalService.AuthenticationCommand(
                     method,
                     challengeId,
-                    challenge,
                     assertion,
                     pin);
         }
@@ -376,7 +383,6 @@ public class AuthorizationSessionController {
             return "AuthenticationRequest["
                     + "method='" + method + '\''
                     + ", challengeId='" + challengeId + '\''
-                    + ", challenge=<redacted>"
                     + ", assertion=<redacted>"
                     + ", pin=<redacted>"
                     + ']';

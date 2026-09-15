@@ -78,6 +78,7 @@ public class BiometricChallengeService {
                 credential.id(),
                 session.id(),
                 hash(challenge),
+                challenge,
                 BiometricChallengeStatus.PENDING,
                 expiresAt,
                 null,
@@ -96,10 +97,15 @@ public class BiometricChallengeService {
             String userId,
             String authorizationSessionId,
             String challengeId,
-            String challenge,
             String assertion) {
+        if (challengeId == null || challengeId.isBlank()) {
+            throw new PayException(PayErrorCode.BIOMETRIC_CHALLENGE_INVALID);
+        }
         BiometricChallenge storedChallenge = challengeRepository
                 .findByIdAndSession(challengeId, authorizationSessionId)
+                .orElseThrow(() -> new PayException(PayErrorCode.BIOMETRIC_CHALLENGE_INVALID));
+        BiometricCredential credential = credentialRepository
+                .findActiveByIdAndUser(storedChallenge.biometricCredentialId(), userId)
                 .orElseThrow(() -> new PayException(PayErrorCode.BIOMETRIC_CHALLENGE_INVALID));
         Instant now = clock.instant();
         if (storedChallenge.status() != BiometricChallengeStatus.PENDING) {
@@ -110,24 +116,23 @@ public class BiometricChallengeService {
                     PayErrorCode.BIOMETRIC_CHALLENGE_REPLAYED.defaultNextAction());
         }
         if (!now.isBefore(storedChallenge.expiresAt())) {
-            challengeRepository.markExpiredIfPending(challengeId, authorizationSessionId, now);
+            if (!challengeRepository.markExpiredIfPending(
+                    challengeId,
+                    authorizationSessionId,
+                    now)) {
+                throw new PayException(PayErrorCode.BIOMETRIC_CHALLENGE_REPLAYED);
+            }
             return VerificationResult.FALLBACK_TO_PIN;
         }
+        String challenge = storedChallenge.challengeValue();
         if (challenge == null || challenge.isBlank()
+                || !MessageDigest.isEqual(
+                storedChallenge.challengeHash().getBytes(StandardCharsets.UTF_8),
+                hash(challenge).getBytes(StandardCharsets.UTF_8))
                 || assertion == null || assertion.isBlank()) {
             markFailed(authorizationSessionId, challengeId, now);
             return VerificationResult.FALLBACK_TO_PIN;
         }
-        if (!MessageDigest.isEqual(
-                storedChallenge.challengeHash().getBytes(StandardCharsets.UTF_8),
-                hash(challenge).getBytes(StandardCharsets.UTF_8))) {
-            markFailed(authorizationSessionId, challengeId, now);
-            return VerificationResult.FALLBACK_TO_PIN;
-        }
-
-        BiometricCredential credential = credentialRepository
-                .findActiveByIdAndUser(storedChallenge.biometricCredentialId(), userId)
-                .orElseThrow(() -> new PayException(PayErrorCode.BIOMETRIC_CHALLENGE_INVALID));
         if (!assertionVerifier.verify(credential.publicKey(), challenge, assertion)) {
             markFailed(authorizationSessionId, challengeId, now);
             return VerificationResult.FALLBACK_TO_PIN;
@@ -180,5 +185,15 @@ public class BiometricChallengeService {
             String challenge,
             Instant expiresAt,
             String biometricCredentialId) {
+
+        @Override
+        public String toString() {
+            return "IssuedChallenge["
+                    + "challengeId='" + challengeId + '\''
+                    + ", challenge=<redacted>"
+                    + ", expiresAt=" + expiresAt
+                    + ", biometricCredentialId='" + biometricCredentialId + '\''
+                    + ']';
+        }
     }
 }

@@ -86,6 +86,39 @@ class PaymentPinServiceTest {
     }
 
     @Test
+    void correctPinIsRejectedWhileCredentialIsLocked() {
+        service.register("user-001", "123456");
+
+        for (int attempt = 0; attempt < 5; attempt++) {
+            assertThrows(
+                    PayException.class,
+                    () -> service.verify("user-001", "000000"));
+        }
+
+        PayException exception = assertThrows(
+                PayException.class,
+                () -> service.verify("user-001", "123456"));
+
+        assertEquals(PayErrorCode.PIN_TEMPORARILY_LOCKED, exception.errorCode());
+        assertEquals(5, repository.credential().orElseThrow().failedAttempts());
+    }
+
+    @Test
+    void failedCurrentPinDuringChangeIsPersistedBeforeError() {
+        service.register("user-001", "123456");
+
+        PayException exception = assertThrows(
+                PayException.class,
+                () -> service.change("user-001", "000000", "654321"));
+
+        assertEquals(PayErrorCode.PIN_INVALID, exception.errorCode());
+        PaymentPinCredential credential = repository.credential().orElseThrow();
+        assertEquals(1, credential.failedAttempts());
+        assertEquals(PaymentPinStatus.ACTIVE, credential.status());
+        assertTrue(passwordEncoder.matches("123456", credential.pinHash()));
+    }
+
+    @Test
     void statusReturnsNotRegisteredWhenCredentialDoesNotExist() {
         assertEquals(
                 PaymentPinStatusResponse.notRegistered(),

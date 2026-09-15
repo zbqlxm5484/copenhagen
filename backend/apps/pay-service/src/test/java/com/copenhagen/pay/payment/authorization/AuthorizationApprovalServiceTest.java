@@ -2,6 +2,8 @@ package com.copenhagen.pay.payment.authorization;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
@@ -29,13 +31,14 @@ class AuthorizationApprovalServiceTest {
     private static final Instant NOW = Instant.parse("2026-09-09T00:00:00Z");
 
     private InMemoryAuthorizationSessionStore sessionStore;
+    private PaymentPinService pinService;
     private AuthorizationApprovalService service;
 
     @BeforeEach
     void setUp() {
         sessionStore = new InMemoryAuthorizationSessionStore(session());
         PaymentPinCredentialRepository pinRepository = new InMemoryPinRepository();
-        PaymentPinService pinService = new PaymentPinService(
+        pinService = new PaymentPinService(
                 pinRepository,
                 NoOpPasswordEncoder.getInstance(),
                 Clock.fixed(NOW, ZoneOffset.UTC));
@@ -66,7 +69,6 @@ class AuthorizationApprovalServiceTest {
                                 "PIN",
                                 null,
                                 null,
-                                null,
                                 "123456")));
 
         assertEquals(AuthorizationSessionStatus.APPROVED.name(), result.status());
@@ -89,7 +91,6 @@ class AuthorizationApprovalServiceTest {
                                 "PIN",
                                 null,
                                 null,
-                                null,
                                 "123456")));
 
         PayException exception = assertThrows(
@@ -103,10 +104,67 @@ class AuthorizationApprovalServiceTest {
                                         "PIN",
                                         null,
                                         null,
-                                        null,
                                         "123456"))));
 
         assertEquals(PayErrorCode.STATE_CONFLICT, exception.errorCode());
+    }
+
+    @Test
+    void failedPinApprovalNeverApprovesSession() {
+        sessionStore.replace(withRequiredAction("PIN"));
+
+        for (int attempt = 0; attempt < 5; attempt++) {
+            assertThrows(
+                    PayException.class,
+                    () -> service.approve(
+                            "user-001",
+                            "session-001",
+                            new AuthorizationApprovalService.ApproveCommand(
+                                    "method-001",
+                                    new AuthorizationApprovalService.AuthenticationCommand(
+                                            "PIN",
+                                            null,
+                                            null,
+                                            "000000"))));
+        }
+
+        assertEquals(
+                AuthorizationSessionStatus.PENDING,
+                sessionStore.session().status());
+    }
+
+    @Test
+    void biometricFailureSwitchesSessionToPinWithoutApproving() {
+        BiometricChallengeService challengeService = mock(BiometricChallengeService.class);
+        when(challengeService.verify(
+                "user-001",
+                "session-001",
+                "challenge-001",
+                "assertion-001"))
+                .thenReturn(BiometricChallengeService.VerificationResult.FALLBACK_TO_PIN);
+        service = new AuthorizationApprovalService(
+                sessionStore,
+                challengeService,
+                pinService,
+                Clock.fixed(NOW, ZoneOffset.UTC));
+
+        AuthorizationApprovalService.ApprovalResult result = service.approve(
+                "user-001",
+                "session-001",
+                new AuthorizationApprovalService.ApproveCommand(
+                        "method-001",
+                        new AuthorizationApprovalService.AuthenticationCommand(
+                                "BIOMETRIC",
+                                "challenge-001",
+                                "assertion-001",
+                                null)));
+
+        assertEquals(AuthorizationSessionStatus.PENDING.name(), result.status());
+        assertEquals("PIN", result.requiredAction());
+        assertEquals(
+                AuthorizationSessionStatus.PENDING,
+                sessionStore.session().status());
+        assertEquals("PIN", sessionStore.session().requiredAction());
     }
 
     @Test
