@@ -14,6 +14,9 @@ import com.copenhagen.core.common.crypto.PiiHasher;
 @Configuration
 public class AuthConfiguration {
 
+    /** 라이브러리 기본값에 의존하지 않고 명시적으로 고정한다. */
+    public static final int BCRYPT_STRENGTH = 10;
+
     @Bean
     public Clock coreClock() {
         return Clock.systemUTC();
@@ -21,7 +24,7 @@ public class AuthConfiguration {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        return new BCryptPasswordEncoder(BCRYPT_STRENGTH);
     }
 
     /**

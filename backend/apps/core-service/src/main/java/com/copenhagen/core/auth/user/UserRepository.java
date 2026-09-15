@@ -15,6 +15,9 @@ public interface UserRepository {
     long insert(UUID publicId, String name, UserStatus status,
             EncryptedPii emailEncrypted, String emailHash, Instant now);
 
+    /** {@code uq_users_email_hash_active}(WHERE deleted_at IS NULL) 기준 활성 사용자만 대상으로 한다. */
+    boolean existsByEmailHash(String emailHash);
+
     Optional<User> findById(long id);
 
     Optional<User> findByPublicId(UUID publicId);
