@@ -3,7 +3,9 @@ package com.copenhagen.pay.payment.credential.mandate;
 import com.copenhagen.pay.payment.policy.PaymentStatus;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -109,7 +111,10 @@ public class JdbcPaymentCredentialConsumptionRepository
 
     @Override
     public boolean consumeCredential(String credentialId, Instant consumedAt) {
-        return jdbcTemplate.update(CONSUME_CREDENTIAL_SQL, consumedAt, credentialId) == 1;
+        return jdbcTemplate.update(
+                CONSUME_CREDENTIAL_SQL,
+                Timestamp.from(consumedAt),
+                credentialId) == 1;
     }
 
     private static CreatedPayment mapCreatedPayment(ResultSet resultSet, int rowNumber)
@@ -140,9 +145,14 @@ public class JdbcPaymentCredentialConsumptionRepository
                 resultSet.getLong("amount_minor"),
                 resultSet.getString("currency"),
                 PaymentCredentialStatus.valueOf(resultSet.getString("status")),
-                resultSet.getObject("expires_at", Instant.class),
-                resultSet.getObject("consumed_at", Instant.class),
+                toInstant(resultSet, "expires_at"),
+                toInstant(resultSet, "consumed_at"),
                 MandateStatus.valueOf(resultSet.getString("checkout_mandate_status")),
                 MandateStatus.valueOf(resultSet.getString("payment_mandate_status")));
+    }
+
+    private static Instant toInstant(ResultSet resultSet, String columnName) throws SQLException {
+        OffsetDateTime value = resultSet.getObject(columnName, OffsetDateTime.class);
+        return value == null ? null : value.toInstant();
     }
 }

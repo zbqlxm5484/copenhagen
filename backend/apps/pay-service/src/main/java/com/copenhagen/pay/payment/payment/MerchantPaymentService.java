@@ -1,0 +1,112 @@
+package com.copenhagen.pay.payment.payment;
+
+import com.copenhagen.pay.common.error.PayErrorCode;
+import com.copenhagen.pay.common.error.PayException;
+import com.copenhagen.pay.common.validation.RequestValidation;
+import com.copenhagen.pay.payment.credential.mandate.CreatedPayment;
+import com.copenhagen.pay.payment.credential.mandate.PaymentCredentialConsumptionService;
+import com.copenhagen.pay.payment.merchant.MerchantAccount;
+import com.copenhagen.pay.payment.merchant.MerchantAccountRepository;
+import com.copenhagen.pay.payment.policy.PaymentStatus;
+import org.springframework.stereotype.Service;
+
+/** Merchant 결제 요청을 Credential 소비와 단일 PG 실행으로 연결합니다. */
+@Service
+public class MerchantPaymentService {
+
+    private static final String IDEMPOTENCY_PREFIX = "merchant-payment-";
+    private static final String KRW = "KRW";
+
+    private final MerchantAccountRepository merchantAccountRepository;
+    private final PaymentCredentialConsumptionService credentialConsumptionService;
+    private final PaymentExecutionService paymentExecutionService;
+
+    public MerchantPaymentService(
+            MerchantAccountRepository merchantAccountRepository,
+            PaymentCredentialConsumptionService credentialConsumptionService,
+            PaymentExecutionService paymentExecutionService) {
+        this.merchantAccountRepository = merchantAccountRepository;
+        this.credentialConsumptionService = credentialConsumptionService;
+        this.paymentExecutionService = paymentExecutionService;
+    }
+
+    /**
+     * Credential 소비 트랜잭션이 종료된 뒤에만 PG를 호출하도록 이 메서드에는
+     * 트랜잭션을 선언하지 않습니다.
+     */
+    public PaymentResult create(CreateCommand command) {
+        validate(command);
+        MerchantAccount merchant = merchantAccountRepository
+                .findActiveByMerchantId(command.merchantId())
+                .orElseThrow(() -> new PayException(PayErrorCode.FORBIDDEN));
+
+        CreatedPayment payment = credentialConsumptionService.consume(
+                new PaymentCredentialConsumptionService.ConsumeCommand(
+                        merchant.id(),
+                        command.merchantId(),
+                        command.businessCheckoutId(),
+                        command.checkoutHash(),
+                        command.amountMinor(),
+                        command.currency(),
+                        command.credentialId(),
+                        command.idempotencyKey(),
+                        command.requestHash()));
+        PaymentExecutionResult execution = paymentExecutionService.execute(
+                new PaymentExecutionCommand(
+                        payment.id(),
+                        command.idempotencyKey(),
+                        command.requestHash()));
+        return new PaymentResult(payment, execution);
+    }
+
+    private void validate(CreateCommand command) {
+        if (command == null) {
+            throw new PayException(PayErrorCode.INVALID_REQUEST);
+        }
+        RequestValidation.requireLengthAtMost(command.merchantId(), "merchantId", 100);
+        RequestValidation.requireLengthAtMost(
+                command.businessCheckoutId(),
+                "businessCheckoutId",
+                150);
+        RequestValidation.requireLengthAtMost(command.checkoutHash(), "checkoutHash", 100);
+        RequestValidation.requireLengthAtMost(command.credentialId(), "credentialId", 36);
+        RequestValidation.requireLengthAtMost(command.idempotencyKey(), "idempotencyKey", 100);
+        RequestValidation.requireLengthAtMost(command.requestHash(), "requestHash", 64);
+        if (command.amountMinor() < 0 || !KRW.equals(command.currency())) {
+            throw new PayException(
+                    PayErrorCode.INVALID_REQUEST,
+                    "결제 금액 또는 통화가 올바르지 않습니다.",
+                    null,
+                    "CHECK_PAYMENT_AMOUNT");
+        }
+
+        String expectedKey = IDEMPOTENCY_PREFIX + command.credentialId();
+        if (!expectedKey.equals(command.idempotencyKey())) {
+            throw new PayException(
+                    PayErrorCode.INVALID_REQUEST,
+                    "Merchant 결제 멱등성 키 형식이 올바르지 않습니다.",
+                    null,
+                    "CHECK_IDEMPOTENCY_KEY");
+        }
+    }
+
+    public record CreateCommand(
+            String merchantId,
+            String businessCheckoutId,
+            String checkoutHash,
+            long amountMinor,
+            String currency,
+            String credentialId,
+            String idempotencyKey,
+            String requestHash) {
+    }
+
+    public record PaymentResult(
+            CreatedPayment payment,
+            PaymentExecutionResult execution) {
+
+        public PaymentStatus status() {
+            return execution.status();
+        }
+    }
+}
