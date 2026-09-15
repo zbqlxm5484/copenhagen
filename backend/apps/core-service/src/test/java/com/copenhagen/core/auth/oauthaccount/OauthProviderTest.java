@@ -9,14 +9,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class OauthProviderTest {
 
     @Test
-    @DisplayName("value()는 저장에 사용하는 소문자 provider 문자열을 반환한다")
-    void value_google_returnsLowercaseString() {
-        assertEquals("google", OauthProvider.GOOGLE.value());
+    @DisplayName("value()는 저장에 사용하는 대문자 provider 문자열을 반환한다")
+    void value_google_returnsUppercaseString() {
+        assertEquals("GOOGLE", OauthProvider.GOOGLE.value());
     }
 
     @Test
     @DisplayName("from()은 저장된 문자열로 provider를 역매핑한다")
     void from_google_returnsGoogleProvider() {
+        assertEquals(OauthProvider.GOOGLE, OauthProvider.from("GOOGLE"));
+    }
+
+    @Test
+    @DisplayName("from()은 대소문자를 구분하지 않는다")
+    void from_lowercaseValue_returnsGoogleProvider() {
         assertEquals(OauthProvider.GOOGLE, OauthProvider.from("google"));
     }
 

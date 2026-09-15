@@ -16,7 +16,7 @@ public class JdbcLocalAccountRepository implements LocalAccountRepository {
 
     private static final String EXISTS_BY_LOGIN_ID_SQL = """
             SELECT EXISTS (
-                SELECT 1 FROM local_account WHERE login_id = ?
+                SELECT 1 FROM local_accounts WHERE login_id = ?
             )
             """;
 
@@ -24,12 +24,12 @@ public class JdbcLocalAccountRepository implements LocalAccountRepository {
             SELECT id, user_id, login_id, password_hash,
                 failed_login_count, last_failed_login_at, locked_until,
                 created_at, updated_at
-            FROM local_account
+            FROM local_accounts
             WHERE login_id = ?
             """;
 
     private static final String INSERT_SQL = """
-            INSERT INTO local_account
+            INSERT INTO local_accounts
                 (user_id, login_id, password_hash, failed_login_count, created_at, updated_at)
             VALUES (?, ?, ?, 0, ?, ?)
             RETURNING id

@@ -15,7 +15,7 @@ import org.springframework.stereotype.Repository;
 public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
 
     private static final String INSERT_SQL = """
-            INSERT INTO refresh_token
+            INSERT INTO refresh_tokens
                 (user_id, token_hash, device_id, device_name, issued_at, expires_at, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             RETURNING id
@@ -24,12 +24,12 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
     private static final String FIND_BY_TOKEN_HASH_SQL = """
             SELECT id, user_id, token_hash, device_id, device_name, issued_at, expires_at,
                 revoked_at, last_used_at, created_at
-            FROM refresh_token
+            FROM refresh_tokens
             WHERE token_hash = ?
             """;
 
     private static final String DELETE_BY_TOKEN_HASH_SQL = """
-            DELETE FROM refresh_token
+            DELETE FROM refresh_tokens
             WHERE token_hash = ?
             """;
 

@@ -23,3 +23,10 @@ services:
     base-url: ${PAY_SERVICE_URL:http://pay-service:8080}
   merchant:
     base-url: ${MERCHANT_SERVICE_URL:http://ucp-merchant-mock:8080}
+
+# 개인정보 암호화 키. 기본값을 두지 않는다 — 미설정 시 기동을 실패시키는 것이 의도된 동작이다.
+# 로컬 개발은 application-local.yml, 테스트는 src/test/resources/application-test.yml이 값을 채운다.
+core:
+  pii:
+    encryption-key: ${CORE_PII_ENC_KEY}
+    hash-pepper: ${CORE_PII_HASH_PEPPER}
