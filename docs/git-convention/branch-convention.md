@@ -204,7 +204,13 @@ feature/B 생성
 
 ## 8. Synchronizing with develop
 
-작업 중 `develop`에 새로운 변경사항이 반영되었다면 **Rebase**를 사용하여 최신 상태를 반영한다.
+작업 중 `develop`에 새로운 변경사항이 반영되었다면 **Rebase** 또는 **Merge** 중 한 가지를 선택하여 최신 상태를 반영한다.
+
+두 방식 모두 허용한다. 작업 브랜치는 `develop`에 **Squash Merge**로 병합되므로, 어떤 방식으로 동기화하더라도 `develop`의 이력은 Jira 이슈 단위로 유지된다.
+
+### Rebase
+
+작업 브랜치의 Commit을 최신 `develop` 위로 다시 쌓는다.
 
 ```bash
 git fetch origin
@@ -228,12 +234,31 @@ git push --force-with-lease
 
 `--force`는 사용하지 않는다.
 
-작업 브랜치에 `develop`을 Merge하여 동기화하는 방식은 사용하지 않는다.
+### Merge
+
+`develop`을 작업 브랜치로 병합한다. 이미 Push한 Commit History가 변경되지 않으므로 Force Push가 필요하지 않다.
 
 ```bash
-# 사용하지 않음
-git merge develop
+git fetch origin
+git merge origin/develop
 ```
+
+충돌이 발생하면 충돌을 해결한 뒤:
+
+```bash
+git add .
+git commit
+```
+
+### 선택 기준
+
+방식 선택은 작업자의 판단에 따르며, 다음을 참고한다.
+
+* 아직 Push하지 않았거나 혼자 작업 중인 브랜치는 Rebase가 이력을 깔끔하게 유지한다.
+* 이미 Push되어 다른 팀원이 참조 중이거나 Draft MR에서 리뷰가 진행 중인 브랜치는 Merge가 Force Push로 인한 혼란을 피할 수 있다.
+* Commit 수가 많고 충돌이 반복되는 경우 Merge가 충돌 해결 비용이 낮다.
+
+하나의 브랜치 안에서는 가급적 한 가지 방식을 일관되게 사용한다.
 
 ---
 
@@ -429,7 +454,7 @@ GitLab의 Merge 후 Source Branch 삭제 기능을 사용할 수 있다.
         ↓
 8. Push
         ↓
-9. 필요 시 develop Rebase
+9. 필요 시 develop 동기화 (Rebase 또는 Merge)
         ↓
 10. 작업 완료
         ↓
@@ -468,12 +493,17 @@ git commit -m "..."
 # 원격 Push
 git push origin feature/S15P21A207-123-payment-approval
 
-# develop 변경사항 반영이 필요한 경우
+# develop 변경사항 반영이 필요한 경우 (Rebase 또는 Merge 중 선택)
 git fetch origin
 git rebase origin/develop
 
 # 이미 Push한 브랜치를 Rebase했다면
 git push --force-with-lease
+
+# 또는 Merge로 동기화하는 경우 (Force Push 불필요)
+git fetch origin
+git merge origin/develop
+git push origin feature/S15P21A207-123-payment-approval
 ```
 
 작업 완료 후 GitLab에서:
