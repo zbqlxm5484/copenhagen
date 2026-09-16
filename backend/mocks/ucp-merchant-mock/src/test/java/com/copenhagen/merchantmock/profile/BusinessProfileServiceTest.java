@@ -105,8 +105,8 @@ class BusinessProfileServiceTest {
     }
 
     @Test
-    @DisplayName("공개키가 없으면 keys 는 빈 배열이다")
-    void build_noPublicKey_returnsEmptyKeys() {
+    @DisplayName("공개키 설정이 비어도 임시 키가 keys 에 실린다(DESIGN.md 3.5절)")
+    void build_noPublicKey_advertisesEphemeralKey() {
         // given
         MerchantProperties properties = MerchantPropertiesFixture.withSigning(
                 new MerchantProperties.Signing("merchant-a-es256-1", "ES256", "", "", ""));
@@ -115,6 +115,7 @@ class BusinessProfileServiceTest {
         BusinessProfileResponse profile = build(properties);
 
         // then
-        assertTrue(profile.keys().isEmpty());
+        assertEquals(1, profile.keys().size());
+        assertEquals("merchant-a-es256-1", profile.keys().get(0).get("kid"));
     }
 }

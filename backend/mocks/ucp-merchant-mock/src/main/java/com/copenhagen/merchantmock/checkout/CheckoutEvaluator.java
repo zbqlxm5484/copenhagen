@@ -33,7 +33,7 @@ import org.springframework.stereotype.Component;
  * <p>여기서 정한 값이 거래 조건의 원본이다. Core 는 Agent 가 준 가격을 믿지 않고 이 값을 쓴다.
  *
  * <p>상품이 없으면 계산서 자체를 못 만드니 404 다. 나머지 부족은 계산서를 만들고 messages 로 알린다.
- * 서명은 여기서 하지 않는다. 175 가 ready_for_complete 스냅샷에 도장을 찍는다.
+ * 서명은 여기서 하지 않는다. {@link CheckoutService} 가 ready_for_complete 판정 직후 도장을 찍는다(175).
  */
 @Component
 public class CheckoutEvaluator {
@@ -87,6 +87,7 @@ public class CheckoutEvaluator {
         totals.add(new Total("total", subtotal + fee));
 
         previous.ifPresent(p -> detectPriceChange(p, lines, messages));
+        requirePurchaseRequestId(request, messages);
 
         CheckoutStatus status = decide(messages);
         OffsetDateTime expiresAt = status == CheckoutStatus.READY_FOR_COMPLETE
@@ -187,6 +188,17 @@ public class CheckoutEvaluator {
             return new FulfillmentResult(SHIPPING, "unavailable", null);
         }
         return new FulfillmentResult(SHIPPING, "available", properties.fulfillment().flatFee());
+    }
+
+    /**
+     * Merchant Authorization 의 필수 claim 이다(DESIGN.md 6.4절). 없으면 서명할 수 없고 서명이 없으면 Complete 가
+     * {@code checkoutHash} 를 만들 수 없다. 완료로 갈 수 없는 체크아웃을 {@code ready_for_complete} 라 부르지 않는다.
+     */
+    private static void requirePurchaseRequestId(CheckoutRequest request, List<Message> messages) {
+        if (request == null || isBlank(request.purchaseRequestId())) {
+            messages.add(Message.error("CHECKOUT_INCOMPLETE", "purchase_request_id 가 필요하다",
+                    "purchase_request_id"));
+        }
     }
 
     private static void detectPriceChange(Checkout previous, List<LineItem> lines, List<Message> messages) {

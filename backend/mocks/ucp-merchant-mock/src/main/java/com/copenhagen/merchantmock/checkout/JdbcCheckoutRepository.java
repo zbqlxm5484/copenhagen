@@ -17,13 +17,14 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
     private static final String INSERT = """
             INSERT INTO checkout_sessions
                 (id, status, currency, total_amount, fulfillment_address, messages_json,
-                 line_skus_json, canonical_checkout, expires_at)
-            VALUES (?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?)
+                 line_skus_json, canonical_checkout, merchant_authorization_jws, expires_at)
+            VALUES (?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?, ?)
             """;
 
     private static final String SELECT = """
             SELECT id, status, currency, total_amount, fulfillment_address::text, messages_json::text,
-                   line_skus_json::text, canonical_checkout, expires_at, version
+                   line_skus_json::text, canonical_checkout, merchant_authorization_jws, expires_at,
+                   completion_response_json::text, payment_status, pay_payment_id, version
               FROM checkout_sessions
              WHERE id = ?
             """;
@@ -32,8 +33,27 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
             UPDATE checkout_sessions
                SET status = ?, currency = ?, total_amount = ?, fulfillment_address = ?::jsonb,
                    messages_json = ?::jsonb, line_skus_json = ?::jsonb, canonical_checkout = ?,
-                   expires_at = ?, version = version + 1, updated_at = now()
+                   merchant_authorization_jws = ?, expires_at = ?, version = version + 1, updated_at = now()
              WHERE id = ? AND version = ?
+            """;
+
+    private static final String BEGIN_COMPLETE = """
+            UPDATE checkout_sessions
+               SET status = 'COMPLETE_IN_PROGRESS', version = version + 1, updated_at = now()
+             WHERE id = ? AND status = 'READY_FOR_COMPLETE' AND expires_at > ?
+            """;
+
+    private static final String FINISH_COMPLETE = """
+            UPDATE checkout_sessions
+               SET status = 'COMPLETED', completion_response_json = ?::jsonb,
+                   version = version + 1, updated_at = now()
+             WHERE id = ? AND status = 'COMPLETE_IN_PROGRESS'
+            """;
+
+    private static final String REVERT_COMPLETE = """
+            UPDATE checkout_sessions
+               SET status = 'READY_FOR_COMPLETE', version = version + 1, updated_at = now()
+             WHERE id = ? AND status = 'COMPLETE_IN_PROGRESS'
             """;
 
     private static final String CANCEL = """
@@ -90,7 +110,7 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
                SET payment_status = 'PROCESSING', payment_requested_at = ?,
                    payment_credential_id = ?, payment_next_attempt_at = ?,
                    version = version + 1, updated_at = now()
-             WHERE id = ? AND payment_status IS NULL
+             WHERE id = ? AND (payment_status IS NULL OR payment_status = 'FAILED')
             """;
 
     private static final String FINISH_PAYMENT = """
@@ -118,8 +138,16 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
             rs.getString("messages_json"),
             rs.getString("line_skus_json"),
             rs.getString("canonical_checkout"),
+            rs.getString("merchant_authorization_jws"),
             rs.getObject("expires_at", OffsetDateTime.class),
+            rs.getString("completion_response_json"),
+            paymentStatusOf(rs.getString("payment_status")),
+            rs.getString("pay_payment_id"),
             rs.getLong("version"));
+
+    private static PaymentStatus paymentStatusOf(String value) {
+        return value == null ? null : PaymentStatus.valueOf(value);
+    }
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -133,7 +161,7 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
             jdbcTemplate.update(INSERT,
                     s.id(), s.status().name(), s.currency(), s.totalAmount(),
                     s.fulfillmentAddressJson(), s.messagesJson(), s.lineSkusJson(),
-                    s.canonicalCheckout(), s.expiresAt());
+                    s.canonicalCheckout(), s.merchantAuthorizationJws(), s.expiresAt());
             return true;
         } catch (DuplicateKeyException exception) {
             return false;
@@ -153,6 +181,21 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
     @Override
     public int expireReady(OffsetDateTime now, int limit) {
         return jdbcTemplate.update(EXPIRE, now, limit);
+    }
+
+    @Override
+    public boolean beginComplete(String id, OffsetDateTime now) {
+        return jdbcTemplate.update(BEGIN_COMPLETE, id, now) == 1;
+    }
+
+    @Override
+    public boolean finishComplete(String id, String completionResponseJson) {
+        return jdbcTemplate.update(FINISH_COMPLETE, completionResponseJson, id) == 1;
+    }
+
+    @Override
+    public boolean revertComplete(String id) {
+        return jdbcTemplate.update(REVERT_COMPLETE, id) == 1;
     }
 
     @Override
@@ -186,8 +229,8 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
     public boolean update(CheckoutSession s, long expectedVersion) {
         int updated = jdbcTemplate.update(UPDATE,
                 s.status().name(), s.currency(), s.totalAmount(), s.fulfillmentAddressJson(),
-                s.messagesJson(), s.lineSkusJson(), s.canonicalCheckout(), s.expiresAt(),
-                s.id(), expectedVersion);
+                s.messagesJson(), s.lineSkusJson(), s.canonicalCheckout(), s.merchantAuthorizationJws(),
+                s.expiresAt(), s.id(), expectedVersion);
         return updated == 1;
     }
 }

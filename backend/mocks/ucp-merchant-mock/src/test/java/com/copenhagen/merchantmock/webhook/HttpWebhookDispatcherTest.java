@@ -13,7 +13,6 @@ import com.copenhagen.merchantmock.security.HttpMessageSignature.Components;
 import com.copenhagen.merchantmock.security.SigningKeyProvider;
 import com.copenhagen.merchantmock.scenario.Scenario;
 import com.copenhagen.merchantmock.scenario.ScenarioState;
-import com.copenhagen.merchantmock.support.MerchantPropertiesFixture;
 import com.copenhagen.merchantmock.support.TestSigningKeys;
 import com.copenhagen.merchantmock.webhook.WebhookDispatcher.Result;
 import com.nimbusds.jose.jwk.ECKey;
@@ -179,26 +178,6 @@ class HttpWebhookDispatcherTest {
         assertEquals(WebhookStatus.PENDING, stored.status());
         assertNull(stored.responseStatus());
         assertEquals(1, stored.attemptCount());
-    }
-
-    @Test
-    @DisplayName("개인키가 없으면 보내지 않고 행을 그대로 둔다")
-    void dispatch_withoutSigningKey_skipsWithoutRequest() {
-        // given
-        RestClient.Builder builder = RestClient.builder();
-        MockRestServiceServer silent = MockRestServiceServer.bindTo(builder).build();
-        HttpWebhookDispatcher unsigned = dispatcher(new SigningKeyProvider(MerchantPropertiesFixture.defaults()),
-                builder);
-
-        // when
-        Result result = unsigned.dispatch(WEBHOOK_ID);
-
-        // then
-        assertEquals(Result.SKIPPED_NO_SIGNING_KEY, result);
-        WebhookDelivery stored = repository.findById(WEBHOOK_ID).orElseThrow();
-        assertEquals(WebhookStatus.PENDING, stored.status());
-        assertEquals(0, stored.attemptCount());
-        silent.verify();
     }
 
     @Test

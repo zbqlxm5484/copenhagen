@@ -321,6 +321,21 @@ class PaymentRecheckWorkerTest {
         }
 
         @Override
+        public boolean beginComplete(String id, OffsetDateTime now) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean finishComplete(String id, String completionResponseJson) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean revertComplete(String id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public boolean beginPayment(String id, OffsetDateTime requestedAt, String credentialId,
                 OffsetDateTime firstRecheckAt) {
             throw new UnsupportedOperationException();

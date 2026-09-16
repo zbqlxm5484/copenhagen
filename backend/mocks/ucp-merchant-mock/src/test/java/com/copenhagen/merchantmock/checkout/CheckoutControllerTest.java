@@ -33,7 +33,8 @@ class CheckoutControllerTest {
                   "address_line1": "서울특별시 강남구 테헤란로 1",
                   "address_line2": "101호"
                 }
-              }
+              },
+              "purchase_request_id": "pr-0001"
             }
             """;
 

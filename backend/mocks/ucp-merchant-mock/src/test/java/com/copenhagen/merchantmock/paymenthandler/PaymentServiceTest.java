@@ -205,6 +205,21 @@ class PaymentServiceTest {
         }
 
         @Override
+        public boolean beginComplete(String id, OffsetDateTime now) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean finishComplete(String id, String completionResponseJson) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean revertComplete(String id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public List<PaymentRecheck> claimUnknownDue(OffsetDateTime now, OffsetDateTime leaseUntil,
                 int maxAttempts, int limit) {
             throw new UnsupportedOperationException();
