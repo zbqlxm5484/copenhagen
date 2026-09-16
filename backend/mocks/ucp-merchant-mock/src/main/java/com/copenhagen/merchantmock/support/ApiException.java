@@ -64,8 +64,31 @@ public class ApiException extends RuntimeException {
     }
 
     /**
-     * 요청 형식 문제. 팀 명세 공통 규칙의 400 이다(DESIGN.md 10절). 지금 쓰는 곳은 시나리오 API 하나이고
-     * 그것을 부르는 것은 Core 가 아니라 사람이라 안내할 다음 행동이 없다. {@code nextAction} 은 null 이다.
+     * 아직 완료 조건을 못 채운 체크아웃에 Complete 가 왔다. 409 다(DESIGN.md 7.1절, 176).
+     *
+     * <p>{@code messages[]} 의 같은 코드와 같은 사실이라 이름을 같이 쓴다. {@code incomplete} 와
+     * {@code requires_escalation} 둘이 여기로 오고 {@code currentState} 로 구별한다.
+     */
+    public static ApiException checkoutIncomplete(String checkoutId, Enum<?> status) {
+        String state = status.name().toLowerCase(java.util.Locale.ROOT);
+        return new ApiException("CHECKOUT_INCOMPLETE", HttpStatus.CONFLICT,
+                "체크아웃이 아직 완료 조건을 채우지 못했다: " + checkoutId + " (" + status + ")",
+                state, "UPDATE_CHECKOUT_INPUT");
+    }
+
+    /**
+     * {@code expires_at} 이 지난 체크아웃에 Complete 가 왔다. 스윕 워커가 아직 닫지 않은 창이다(DESIGN.md 7.1절).
+     * Pay 가 만료된 {@code checkoutJwt} 에 주는 것과 같은 {@code RESTART_CHECKOUT} 이다.
+     */
+    public static ApiException checkoutExpired(String checkoutId) {
+        return new ApiException("CHECKOUT_EXPIRED", HttpStatus.CONFLICT,
+                "체크아웃이 만료됐다: " + checkoutId, "ready_for_complete", "RESTART_CHECKOUT");
+    }
+
+    /**
+     * 요청 형식 문제. 팀 명세 공통 규칙의 400 이다(DESIGN.md 10절). 시나리오 API 의 모르는 이름과 Complete 의
+     * {@code credentialId} 누락이 여기다. {@code nextAction} 은 null 이다 — 형식 문제는 사용자가 아니라 부르는
+     * 코드가 고칠 일이라 안내할 다음 행동이 없다.
      */
     public static ApiException invalidRequest(String message) {
         return new ApiException("INVALID_REQUEST", HttpStatus.BAD_REQUEST, message, null, null);

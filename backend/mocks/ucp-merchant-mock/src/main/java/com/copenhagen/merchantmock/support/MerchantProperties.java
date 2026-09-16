@@ -51,7 +51,16 @@ public record MerchantProperties(
         }
     }
 
-    public record Checkout(Duration ttl) {
+    /**
+     * @param ttl           ready_for_complete 판정 시각 + 이 값이 expires_at 이다(설계서 D-03)
+     * @param scenarioDelay COMPLETE_TIMEOUT_BEFORE_PROCESS·AFTER_ORDER 가 켜졌을 때 Complete 가 기다리는 시간(9.3절).
+     *                      Core 의 요청 타임아웃보다 길어야 응답 유실이 재현된다. 시나리오가 꺼져 있으면 읽지 않는다
+     */
+    public record Checkout(Duration ttl, Duration scenarioDelay) {
+
+        public Checkout {
+            scenarioDelay = scenarioDelay == null ? Duration.ofSeconds(10) : scenarioDelay;
+        }
     }
 
     public record Fulfillment(long flatFee) {

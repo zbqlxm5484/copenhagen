@@ -28,7 +28,7 @@ public final class MerchantPropertiesFixture {
                 "http://ucp-merchant-mock:8080",
                 "Copenhagen Demo Store",
                 new MerchantProperties.Catalog(""),
-                new MerchantProperties.Checkout(Duration.ofMinutes(5)),
+                new MerchantProperties.Checkout(Duration.ofMinutes(5), Duration.ofSeconds(5)),
                 new MerchantProperties.Fulfillment(3000L),
                 signing,
                 new MerchantProperties.Capabilities(

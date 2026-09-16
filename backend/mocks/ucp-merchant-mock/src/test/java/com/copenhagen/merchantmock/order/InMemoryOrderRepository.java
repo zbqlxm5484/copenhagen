@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>{@code checkout_session_id} UNIQUE 를 JDBC 구현과 같게 흉내 낸다. 그 제약이 중복 주문의 최종
  * 방어선이라(DESIGN.md 불변 조건 3번) 여기서도 같은 자리에서 막혀야 테스트가 의미를 가진다.
  */
-final class InMemoryOrderRepository implements OrderRepository {
+public final class InMemoryOrderRepository implements OrderRepository {
 
     private final Map<String, Order> orders = new ConcurrentHashMap<>();
     private final List<OrderItem> items = new ArrayList<>();

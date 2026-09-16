@@ -22,7 +22,7 @@ Core가 UCP REST로 이 모듈을 호출하고, 결제가 필요하면 이 모�
 
 로그 한 줄마다 `req= co= pay= ord= wh=` 다섯 칸이 붙습니다. `req` 는 `X-Request-Id` 입니다. Core 가 보낸 값이 있으면 그대로 쓰고 없으면 이 모듈이 만들어 응답 헤더로 돌려줍니다. 같은 값이 Pay 호출과 Order Webhook 의 `X-Request-Id` 헤더에 실리므로 세 서비스 로그를 한 값으로 이어 볼 수 있습니다. 워커가 집은 일은 `sweep-…`, `recheck-…`, `webhook-retry-…` 접두어의 requestId 를 새로 받습니다.
 
-상태 전이는 `AUDIT` 접두어의 한 줄 JSON 으로 따로 남습니다. `event` 는 `checkout.created|updated|canceled|expired`, `payment.started|finished|resolved|recheck_exhausted`, `order.created`, `webhook.enqueued|delivered|retry_scheduled|failed` 입니다. `before`·`after` 가 상태 전후, `reason` 이 사유입니다.
+상태 전이는 `AUDIT` 접두어의 한 줄 JSON 으로 따로 남습니다. `event` 는 `checkout.created|updated|canceled|expired|signed|completing|completed|complete_reverted|complete_replayed`, `payment.started|finished|resolved|recheck_exhausted`, `order.created`, `webhook.enqueued|delivered|retry_scheduled|failed`, `scenario.changed` 입니다. `before`·`after` 가 상태 전후, `reason` 이 사유입니다.
 
 ```bash
 # 요청 하나 따라가기
@@ -64,6 +64,16 @@ curl -s -X POST http://localhost:8080/internal/v1/scenarios -H 'Content-Type: ap
 curl -s -X POST http://localhost:8080/internal/v1/scenarios -H 'Content-Type: application/json' -d '{"scenario":"WEBHOOK_DELAYED"}'
 ```
 
-`INVALID_MERCHANT_SIGNATURE`, `COMPLETE_TIMEOUT_BEFORE_PROCESS`, `COMPLETE_TIMEOUT_AFTER_ORDER` 도 켜지지만 읽는 코드가 아직 없어 효과가 없습니다. 서명 발급(174)과 Complete(176)에서 붙입니다.
+# 다음 체크아웃부터 검증에 실패하는 Merchant Authorization 이 나간다. Pay 가 CHECKOUT_SIGNATURE_INVALID 로 거절하는지 본다
+curl -s -X POST http://localhost:8080/internal/v1/scenarios -H 'Content-Type: application/json' -d '{"scenario":"INVALID_MERCHANT_SIGNATURE"}'
+
+# Complete 가 결제 전에 merchant.checkout.scenario-delay(기본 10초) 만큼 멈춘다. Core 가 같은 키로 재시도하면 complete_in_progress 를 받는다
+curl -s -X POST http://localhost:8080/internal/v1/scenarios -H 'Content-Type: application/json' -d '{"scenario":"COMPLETE_TIMEOUT_BEFORE_PROCESS"}'
+
+# Complete 가 주문까지 만든 뒤 응답 직전에 멈춘다. Core 가 재결제 대신 체크아웃 조회(GET)로 completed 를 확인하는지 본다
+curl -s -X POST http://localhost:8080/internal/v1/scenarios -H 'Content-Type: application/json' -d '{"scenario":"COMPLETE_TIMEOUT_AFTER_ORDER"}'
+```
+
+열 종류 전부 읽는 코드가 있습니다.
 
 모르는 이름은 `400 INVALID_REQUEST` 입니다. compose 안에서는 `localhost:8080` 대신 `ucp-merchant-mock:8080` 으로 부릅니다.
