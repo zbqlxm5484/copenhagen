@@ -64,6 +64,16 @@ public enum CoreErrorCode {
             "ADDRESS_LIMIT_EXCEEDED",
             "등록 가능한 배송지 개수를 초과했습니다.",
             "DELETE_EXISTING_ADDRESS"),
+    PRODUCT_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "PRODUCT_NOT_FOUND",
+            "상품을 찾을 수 없습니다.",
+            "CHECK_REQUEST"),
+    MERCHANT_CATALOG_UNAVAILABLE(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "MERCHANT_CATALOG_UNAVAILABLE",
+            "판매자 서비스에 일시적으로 연결할 수 없습니다.",
+            "RETRY_LATER"),
     REQUEST_METHOD_NOT_ALLOWED(
             HttpStatus.METHOD_NOT_ALLOWED,
             "REQUEST_METHOD_NOT_ALLOWED",

@@ -40,4 +40,18 @@ class CoreAuthenticationPolicyTest {
     void requiresAuthentication_addressLikePrefix_false() {
         assertFalse(CoreAuthenticationPolicy.requiresAuthentication("/api/core/v1/addresses-history"));
     }
+
+    @Test
+    @DisplayName("상품 검색·상세조회 라우트는 모두 인증이 필요하다")
+    void requiresAuthentication_productRoutes_true() {
+        assertTrue(CoreAuthenticationPolicy.requiresAuthentication("/api/core/v1/products/search"));
+        assertTrue(CoreAuthenticationPolicy.requiresAuthentication("/api/core/v1/products/some-product-id"));
+    }
+
+    @Test
+    @DisplayName("상품 경로를 prefix로만 포함하는 다른 경로는 인증 대상이 아니다")
+    void requiresAuthentication_productLikePrefix_false() {
+        assertFalse(CoreAuthenticationPolicy.requiresAuthentication("/api/core/v1/products"));
+        assertFalse(CoreAuthenticationPolicy.requiresAuthentication("/api/core/v1/products-history"));
+    }
 }
