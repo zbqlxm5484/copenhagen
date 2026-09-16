@@ -7,6 +7,46 @@
 - Pay 연동을 재현하는 데 필요한 최소 계약과 동작만 구현합니다.
 - 제품 비즈니스 규칙을 이 모듈에 넣지 않습니다.
 
+## 카드 토큰화
+
+앱은 개발 환경에서 `POST /v1/payment-methods/tokenize`를 호출해 Pay 카드 등록에 사용할
+`providerTokenRef`를 발급받을 수 있습니다. 첫 카드 등록일 때만 4자리 `cardPassword`를
+전달하며, PG Mock은 사용자별 카드 보유 여부를 조회하지 않고 값의 형식만 검증합니다.
+
+```http
+POST /v1/payment-methods/tokenize
+Content-Type: application/json
+Idempotency-Key: tokenize-{uuid}
+```
+
+```json
+{
+  "cardNumber": "4111111111111111",
+  "expiryMonth": 12,
+  "expiryYear": 2030,
+  "cvc": "123",
+  "cardPassword": "1234"
+}
+```
+
+성공 응답은 Pay의 `tokenizationResult`와 같은 모양입니다.
+
+```json
+{
+  "provider": "mock-pg",
+  "providerTokenRef": "tok_mock_01JPGTOKEN123456789",
+  "brand": "VISA",
+  "last4": "1111",
+  "expiryMonth": 12,
+  "expiryYear": 2030
+}
+```
+
+카드번호, CVC, 카드 비밀번호는 저장하거나 로그에 기록하지 않습니다. 앱은 응답을 Pay의
+`POST /api/pay/v1/payment-methods/cards`에 전달하고, PG Mock의 `/internal/v1/charges`는
+직접 호출하지 않습니다. 상세 계약은 [카드 토큰화 API 레퍼런스](../../../docs/api/pg-mock-card-tokenization.md)를
+참고합니다.
+
 `backend/`에서 다음과 같이 검증합니다.
 
 ```bash
