@@ -18,9 +18,15 @@ import java.util.Set;
 final class QaAccessFilter implements Filter {
 
     private final String token;
+    private final boolean catalog;
 
     QaAccessFilter(String token) {
+        this(token, false);
+    }
+
+    QaAccessFilter(String token, boolean catalog) {
         this.token = token;
+        this.catalog = catalog;
     }
 
     @Override
@@ -32,10 +38,10 @@ final class QaAccessFilter implements Filter {
             output.setStatus(403);
             return;
         }
-        output.setHeader("X-Copenhagen-Qa", "connection-only");
+        output.setHeader("X-Copenhagen-Qa", catalog ? "catalog-mock" : "connection-only");
         output.setHeader("Cache-Control", "no-store");
         String path = http.getRequestURI();
-        if (path.equals("/qa") || path.equals("/qa/check")) {
+        if (path.equals("/qa") || path.equals("/qa/check") || (catalog && path.equals("/qa/tools"))) {
             String host = http.getHeader("Host");
             String origin = http.getHeader("Origin");
             if (host == null || !host.matches("(localhost|127\\.0\\.0\\.1):[0-9]+")

@@ -1,5 +1,6 @@
+param([ValidateSet(1, 2)][int]$Stage = 1)
 $ErrorActionPreference = 'Stop'
-$recordPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'build\qa\process.json'
+$recordPath = Join-Path (Split-Path -Parent $PSScriptRoot) $(if ($Stage -eq 2) { 'build\qa2\process.json' } else { 'build\qa\process.json' })
 if (-not (Test-Path -LiteralPath $recordPath)) { Write-Output 'No owned QA process.'; exit 0 }
 $record = Get-Content -LiteralPath $recordPath -Raw | ConvertFrom-Json
 $process = Get-Process -Id $record.id -ErrorAction SilentlyContinue

@@ -39,6 +39,7 @@ public class McpUiConfiguration {
     }
 
     @Bean
+    @ConditionalOnProperty(name = "mcp.catalog.enabled", havingValue = "false", matchIfMissing = true)
     McpToolDefinition openCopenhagen(McpHomeResource home) {
         return tool("open_copenhagen", "코펜하겐 열기",
                 "사용자가 코펜하겐을 열거나 연결을 확인하려고 하면 이 도구를 한 번 호출해 UI를 바로 표시합니다. "

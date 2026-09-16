@@ -20,6 +20,10 @@ services:
     max-response-bytes: ${CORE_MAX_RESPONSE_BYTES:262144}
 
 mcp:
+  catalog:
+    enabled: ${MCP_CATALOG_ENABLED:false}
+    detail-enabled: ${MCP_CATALOG_DETAIL_ENABLED:false}
+    required-scopes: ${MCP_CATALOG_REQUIRED_SCOPES:}
   ui:
     enabled: ${MCP_UI_ENABLED:false}
   merchants:
