@@ -4,12 +4,15 @@ package com.copenhagen.core.common.auth;
  * 보호 대상 라우트를 정의한다. {@code /auth/signup}·{@code /auth/login}·{@code /auth/token/refresh}·
  * {@code /auth/logout}은 공개 API다. {@code GET /api/core/v1/users/me}(순서 10)부터 보호 대상이 생겼고,
  * {@code /api/core/v1/addresses}(순서 17)부터 경로 변수가 있는 라우트도 prefix로 보호한다.
+ * {@code /api/core/v1/products}(순서 24)도 동일하게 prefix로 보호한다 — 상품 데이터는 사용자 소유가 아니지만
+ * 인증된 요청인지 게이트로만 사용한다.
  */
 public final class CoreAuthenticationPolicy {
 
     private static final String USERS_ME_PATH = "/api/core/v1/users/me";
     private static final String ADDRESSES_PATH = "/api/core/v1/addresses";
     private static final String ADDRESSES_PATH_PREFIX = ADDRESSES_PATH + "/";
+    private static final String PRODUCTS_PATH_PREFIX = "/api/core/v1/products/";
 
     private CoreAuthenticationPolicy() {
     }
@@ -17,6 +20,7 @@ public final class CoreAuthenticationPolicy {
     public static boolean requiresAuthentication(String path) {
         return USERS_ME_PATH.equals(path)
                 || ADDRESSES_PATH.equals(path)
-                || path.startsWith(ADDRESSES_PATH_PREFIX);
+                || path.startsWith(ADDRESSES_PATH_PREFIX)
+                || path.startsWith(PRODUCTS_PATH_PREFIX);
     }
 }
