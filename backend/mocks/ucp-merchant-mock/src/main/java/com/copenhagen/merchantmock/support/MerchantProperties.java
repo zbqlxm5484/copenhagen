@@ -87,12 +87,16 @@ public record MerchantProperties(
     /**
      * 웹훅 재시도 정책(DESIGN.md 7.4절). 실패 n회 뒤 다음 시도까지 {@code retryInitialDelay × 2^(n-1)}.
      * {@code retryMaxAttempts} 를 넘기면 184 워커가 FAILED 로 닫는다.
+     *
+     * <p>{@code scenarioDelay} 는 시나리오 {@code WEBHOOK_DELAYED} 가 켜졌을 때 보내기 전에 기다리는 시간이다(9.3절).
+     * 시나리오가 꺼져 있으면 읽지 않는다.
      */
-    public record Webhook(Duration retryInitialDelay, int retryMaxAttempts) {
+    public record Webhook(Duration retryInitialDelay, int retryMaxAttempts, Duration scenarioDelay) {
 
         public Webhook {
             retryInitialDelay = retryInitialDelay == null ? Duration.ofSeconds(10) : retryInitialDelay;
             retryMaxAttempts = retryMaxAttempts <= 0 ? 8 : retryMaxAttempts;
+            scenarioDelay = scenarioDelay == null ? Duration.ofSeconds(5) : scenarioDelay;
         }
     }
 }

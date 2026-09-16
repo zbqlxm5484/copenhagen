@@ -17,3 +17,37 @@ Core가 UCP REST로 이 모듈을 호출하고, 결제가 필요하면 이 모�
 ./gradlew :mocks:ucp-merchant-mock:test
 ./gradlew :mocks:ucp-merchant-mock:build
 ```
+
+## 시연용 시나리오 스위치
+
+Core·Pay 가 실패 상황을 잘 복구하는지 보이려면 이 모듈이 실패를 만들어 내야 합니다(설계서 12.5). 재기동 없이 켜고 끄는 내부 API 둘이 있습니다. Nginx 가 `/internal/` 을 막아 컨테이너 안에서만 닿습니다. 전역 하나이고 재기동하면 `NORMAL` 로 돌아옵니다.
+
+```bash
+# 지금 켜진 시나리오
+curl -s http://localhost:8080/internal/v1/scenarios
+
+# 정상으로 되돌리기
+curl -s -X POST http://localhost:8080/internal/v1/scenarios -H 'Content-Type: application/json' -d '{"scenario":"NORMAL"}'
+
+# 다음 체크아웃 생성·수정부터 단가가 올라 CHECKOUT_PRICE_CHANGED 가 실린다
+curl -s -X POST http://localhost:8080/internal/v1/scenarios -H 'Content-Type: application/json' -d '{"scenario":"PRICE_CHANGED"}'
+
+# 모든 항목이 재고 부족. incomplete + CHECKOUT_STOCK_INSUFFICIENT
+curl -s -X POST http://localhost:8080/internal/v1/scenarios -H 'Content-Type: application/json' -d '{"scenario":"OUT_OF_STOCK"}'
+
+# 배송 불가 지역. incomplete + ADDRESS_NOT_SERVICEABLE
+curl -s -X POST http://localhost:8080/internal/v1/scenarios -H 'Content-Type: application/json' -d '{"scenario":"ADDRESS_NOT_SERVICEABLE"}'
+
+# API 로 해결 불가. 상태 requires_escalation + MERCHANT_HANDOFF_REQUIRED
+curl -s -X POST http://localhost:8080/internal/v1/scenarios -H 'Content-Type: application/json' -d '{"scenario":"REQUIRES_ESCALATION"}'
+
+# 주문 웹훅을 같은 바이트·같은 서명으로 두 번 보낸다. Core Inbox 가 Webhook-Id 로 중복을 무시하는지 본다
+curl -s -X POST http://localhost:8080/internal/v1/scenarios -H 'Content-Type: application/json' -d '{"scenario":"WEBHOOK_DUPLICATE"}'
+
+# 주문 웹훅을 merchant.webhook.scenario-delay(기본 5초) 뒤에 보낸다. Core 가 주문 조회로 버티는지 본다
+curl -s -X POST http://localhost:8080/internal/v1/scenarios -H 'Content-Type: application/json' -d '{"scenario":"WEBHOOK_DELAYED"}'
+```
+
+`INVALID_MERCHANT_SIGNATURE`, `COMPLETE_TIMEOUT_BEFORE_PROCESS`, `COMPLETE_TIMEOUT_AFTER_ORDER` 도 켜지지만 읽는 코드가 아직 없어 효과가 없습니다. 서명 발급(174)과 Complete(176)에서 붙입니다.
+
+모르는 이름은 `400 INVALID_REQUEST` 입니다. compose 안에서는 `localhost:8080` 대신 `ucp-merchant-mock:8080` 으로 부릅니다.

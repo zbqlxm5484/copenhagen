@@ -5,10 +5,14 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.copenhagen.merchantmock.security.HttpMessageSignature;
 import com.copenhagen.merchantmock.security.HttpMessageSignature.Components;
 import com.copenhagen.merchantmock.security.SigningKeyProvider;
+import com.copenhagen.merchantmock.scenario.Scenario;
+import com.copenhagen.merchantmock.scenario.ScenarioState;
 import com.copenhagen.merchantmock.support.MerchantPropertiesFixture;
 import com.copenhagen.merchantmock.support.TestSigningKeys;
 import com.copenhagen.merchantmock.webhook.WebhookDispatcher.Result;
@@ -28,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.client.ExpectedCount.times;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withNoContent;
@@ -47,6 +52,8 @@ class HttpWebhookDispatcherTest {
 
     private final ECKey key = TestSigningKeys.generate();
     private final Clock clock = Clock.fixed(WebhookTestSupport.NOW, WebhookTestSupport.SEOUL);
+    private final ScenarioState scenario = new ScenarioState(Scenario.NORMAL);
+    private final List<Duration> slept = new ArrayList<>();
     private InMemoryWebhookRepository repository;
     private MockRestServiceServer server;
     private HttpWebhookDispatcher dispatcher;
@@ -60,9 +67,10 @@ class HttpWebhookDispatcherTest {
         dispatcher = dispatcher(TestSigningKeys.providerSigningWith(key), builder);
     }
 
+    /** 실제로 잠들지 않는다. 기다리라고 한 시간만 기록한다. */
     private HttpWebhookDispatcher dispatcher(SigningKeyProvider keys, RestClient.Builder builder) {
         return new HttpWebhookDispatcher(repository, () -> TARGET, keys,
-                TestSigningKeys.propertiesSigningWith(key), clock, builder);
+                TestSigningKeys.propertiesSigningWith(key), clock, scenario, slept::add, builder);
     }
 
     @Test
@@ -208,5 +216,90 @@ class HttpWebhookDispatcherTest {
         // when & then
         assertEquals("core-service:8080", HttpWebhookDispatcher.authorityOf(TARGET));
         assertEquals("core.example", HttpWebhookDispatcher.authorityOf(URI.create("https://core.example/x")));
+    }
+
+    @Test
+    @DisplayName("NORMAL 에서는 기다리지도 않고 두 번 보내지도 않는다")
+    void dispatch_normalScenario_neitherWaitsNorDuplicates() {
+        // given
+        server.expect(times(1), requestTo(TARGET.toString())).andRespond(withNoContent());
+
+        // when
+        dispatcher.dispatch(WEBHOOK_ID);
+
+        // then
+        assertTrue(slept.isEmpty());
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("WEBHOOK_DELAYED 면 설정 시간만큼 기다린 뒤 한 번 보낸다")
+    void dispatch_delayedScenario_waitsConfiguredDelayThenSendsOnce() {
+        // given
+        scenario.set(Scenario.WEBHOOK_DELAYED);
+        server.expect(times(1), requestTo(TARGET.toString())).andRespond(withNoContent());
+
+        // when
+        Result result = dispatcher.dispatch(WEBHOOK_ID);
+
+        // then
+        assertEquals(Result.DELIVERED, result);
+        assertEquals(List.of(Duration.ofSeconds(5)), slept, "fixture 의 scenario-delay 는 PT5S 다");
+        assertEquals(WebhookStatus.DELIVERED, repository.findById(WEBHOOK_ID).orElseThrow().status());
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("WEBHOOK_DUPLICATE 면 2xx 뒤 같은 바이트·같은 서명으로 한 번 더 보내고 행은 한 번 전달로 남는다")
+    void dispatch_duplicateScenario_repostsIdenticalRequestOnce() {
+        // given
+        scenario.set(Scenario.WEBHOOK_DUPLICATE);
+        List<String> signatures = new ArrayList<>();
+        List<String> signatureInputs = new ArrayList<>();
+        List<String> bodies = new ArrayList<>();
+        server.expect(times(2), requestTo(TARGET.toString()))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(request -> {
+                    HttpHeaders headers = request.getHeaders();
+                    assertEquals(WEBHOOK_ID, headers.getFirst(HttpWebhookDispatcher.HEADER_WEBHOOK_ID));
+                    signatures.add(headers.getFirst(HttpWebhookDispatcher.HEADER_SIGNATURE));
+                    signatureInputs.add(headers.getFirst(HttpWebhookDispatcher.HEADER_SIGNATURE_INPUT));
+                    bodies.add(new String(((MockClientHttpRequest) request).getBodyAsBytes(), StandardCharsets.UTF_8));
+                })
+                .andRespond(withNoContent());
+
+        // when
+        Result result = dispatcher.dispatch(WEBHOOK_ID);
+
+        // then
+        assertEquals(Result.DELIVERED, result);
+        assertEquals(2, signatures.size());
+        assertEquals(signatures.get(0), signatures.get(1), "두 번째는 재서명이 아니라 같은 서명이어야 한다");
+        assertEquals(signatureInputs.get(0), signatureInputs.get(1));
+        assertEquals(bodies.get(0), bodies.get(1));
+        WebhookDelivery stored = repository.findById(WEBHOOK_ID).orElseThrow();
+        assertEquals(WebhookStatus.DELIVERED, stored.status());
+        assertEquals(1, stored.attemptCount(), "두 번째 발송은 기록하지 않는다");
+        assertTrue(slept.isEmpty());
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("WEBHOOK_DUPLICATE 의 두 번째 발송이 실패해도 첫 결과는 DELIVERED 그대로다")
+    void dispatch_duplicateScenario_secondFailureIsIgnored() {
+        // given
+        scenario.set(Scenario.WEBHOOK_DUPLICATE);
+        server.expect(requestTo(TARGET.toString())).andRespond(withNoContent());
+        server.expect(requestTo(TARGET.toString())).andRespond(withServerError());
+
+        // when
+        Result result = dispatcher.dispatch(WEBHOOK_ID);
+
+        // then
+        assertEquals(Result.DELIVERED, result);
+        WebhookDelivery stored = repository.findById(WEBHOOK_ID).orElseThrow();
+        assertEquals(WebhookStatus.DELIVERED, stored.status());
+        assertEquals(204, stored.responseStatus());
+        server.verify();
     }
 }
