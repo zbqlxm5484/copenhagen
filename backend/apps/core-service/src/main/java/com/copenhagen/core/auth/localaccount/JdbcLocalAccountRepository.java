@@ -28,6 +28,14 @@ public class JdbcLocalAccountRepository implements LocalAccountRepository {
             WHERE login_id = ?
             """;
 
+    private static final String FIND_BY_USER_ID_SQL = """
+            SELECT id, user_id, login_id, password_hash,
+                failed_login_count, last_failed_login_at, locked_until,
+                created_at, updated_at
+            FROM local_accounts
+            WHERE user_id = ?
+            """;
+
     private static final String FIND_BY_ID_FOR_UPDATE_SQL = """
             SELECT id, user_id, login_id, password_hash,
                 failed_login_count, last_failed_login_at, locked_until,
@@ -74,6 +82,15 @@ public class JdbcLocalAccountRepository implements LocalAccountRepository {
     public Optional<LocalAccount> findByLoginId(String loginId) {
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject(FIND_BY_LOGIN_ID_SQL, ROW_MAPPER, loginId));
+        } catch (EmptyResultDataAccessException exception) {
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public Optional<LocalAccount> findByUserId(long userId) {
+        try {
+            return Optional.ofNullable(jdbcTemplate.queryForObject(FIND_BY_USER_ID_SQL, ROW_MAPPER, userId));
         } catch (EmptyResultDataAccessException exception) {
             return Optional.empty();
         }

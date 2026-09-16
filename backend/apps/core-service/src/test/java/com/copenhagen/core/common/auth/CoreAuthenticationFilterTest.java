@@ -35,10 +35,18 @@ class CoreAuthenticationFilterTest {
     private final CoreAuthenticationFilter filter = new CoreAuthenticationFilter(verifier, errorWriter);
 
     @Test
-    @DisplayName("보호 대상 라우트가 아니면 토큰 없이도 통과한다(이번 단계는 보호 라우트가 없다)")
-    void shouldNotFilter_currentRoutes_alwaysTrue() {
+    @DisplayName("공개 라우트는 토큰 없이도 통과한다")
+    void shouldNotFilter_publicRoutes_alwaysTrue() {
         assertTrue(filter.shouldNotFilter(request("GET", "/api/core/v1/auth/login")));
         assertTrue(filter.shouldNotFilter(request("POST", "/api/core/v1/auth/signup")));
+        assertTrue(filter.shouldNotFilter(request("POST", "/api/core/v1/auth/token/refresh")));
+        assertTrue(filter.shouldNotFilter(request("POST", "/api/core/v1/auth/logout")));
+    }
+
+    @Test
+    @DisplayName("/users/me는 보호 대상 라우트라 shouldNotFilter가 false다(순서 10부터 실제 보호 시작)")
+    void shouldNotFilter_usersMe_requiresAuthentication() {
+        assertFalse(filter.shouldNotFilter(request("GET", "/api/core/v1/users/me")));
     }
 
     @Test

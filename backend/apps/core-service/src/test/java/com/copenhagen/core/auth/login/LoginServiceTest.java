@@ -266,6 +266,11 @@ class LoginServiceTest {
         }
 
         @Override
+        public Optional<LocalAccount> findByUserId(long userId) {
+            return byId.values().stream().filter(account -> account.userId() == userId).findFirst();
+        }
+
+        @Override
         public long insert(long userId, String loginId, String passwordHash, Instant now) {
             throw new UnsupportedOperationException();
         }
