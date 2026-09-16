@@ -67,9 +67,19 @@ merchant:
   scenario:
     # 시나리오 제어 API 가 바꾸기 전 기본값. default 는 Java 예약어라 initial 로 둔다.
     initial: NORMAL
+  webhook:
+    # 발송 실패 n회 뒤 다음 시도까지 retry-initial-delay × 2^(n-1). 넘기면 184 워커가 FAILED 로 닫는다(DESIGN.md 7.4절).
+    retry-initial-delay: PT10S
+    retry-max-attempts: 8
 
 core:
+  # Platform Profile 을 가져오는 데만 쓴다. 웹훅 주소는 Profile 의 dev.ucp.shopping.order config.webhook_url 에서 읽는다.
   base-url: ${CORE_SERVICE_URL:http://core-service:8080}
+  # Profile 을 못 읽거나 webhook_url 이 없을 때만. Core 확정본 5.2 와 technical-flow 8절의 경로다(DESIGN.md 8.6절).
+  webhook-url-fallback: ${CORE_WEBHOOK_URL:}
+  profile-cache: PT5M
+  connect-timeout: PT1S
+  request-timeout: PT3S
 
 services:
   pay:

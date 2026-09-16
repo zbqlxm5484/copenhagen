@@ -35,7 +35,8 @@ public final class MerchantPropertiesFixture {
                 new MerchantProperties.PaymentHandler("com.copenhagen.pay", "copenhagen-pay-handler", "1"),
                 List.of(new MerchantProperties.TrustedPlatform(
                         "core", "http://core-service:8080/.well-known/ucp")),
-                new MerchantProperties.Scenario("NORMAL"));
+                new MerchantProperties.Scenario("NORMAL"),
+                new MerchantProperties.Webhook(Duration.ofSeconds(10), 8));
     }
 
     public static MerchantProperties withAp2LikeEnabled() {
@@ -53,6 +54,7 @@ public final class MerchantPropertiesFixture {
                         new MerchantProperties.Capabilities.Ap2Like(true, "com.copenhagen.payment.ap2_like")),
                 base.paymentHandler(),
                 base.trustedPlatforms(),
-                base.scenario());
+                base.scenario(),
+                base.webhook());
     }
 }

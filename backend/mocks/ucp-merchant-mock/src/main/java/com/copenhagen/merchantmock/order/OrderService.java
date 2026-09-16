@@ -25,6 +25,7 @@ import com.copenhagen.merchantmock.support.MerchantProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
@@ -51,14 +52,16 @@ public class OrderService {
     private final ObjectMapper objectMapper;
     private final MerchantProperties properties;
     private final Clock clock;
+    private final OrderEventListener events;
 
     public OrderService(OrderRepository repository, CatalogStore catalog, ObjectMapper objectMapper,
-            MerchantProperties properties, Clock clock) {
+            MerchantProperties properties, Clock clock, OrderEventListener events) {
         this.repository = repository;
         this.catalog = catalog;
         this.objectMapper = objectMapper;
         this.properties = properties;
         this.clock = clock;
+        this.events = events;
     }
 
     /**
@@ -67,8 +70,13 @@ public class OrderService {
      * <p>같은 체크아웃으로 두 번 불러도 주문은 하나다. INSERT 가 {@code checkout_session_id} UNIQUE 에
      * 걸리면 기존 주문을 찾아 돌려준다(DESIGN.md 불변 조건 3번).
      *
+     * <p>주문 INSERT 와 웹훅 대장 INSERT({@link OrderEventListener#orderCreated})는 한 트랜잭션이다
+     * (DESIGN.md 8.6절). 주문은 있는데 웹훅 행이 없는 상태를 만들지 않는다. 리포지토리의 {@code @Transactional}
+     * 은 여기에 합류한다. 기존 주문을 돌려주는 두 경로에서는 사건을 다시 내지 않는다.
+     *
      * @throws IllegalStateException 결제가 성공이 아닌데 불렀을 때. 부르는 쪽의 버그다
      */
+    @Transactional
     public Created create(CheckoutSession session, PaymentStatus paymentStatus) {
         if (paymentStatus != PaymentStatus.SUCCESS) {
             throw new IllegalStateException(
@@ -94,6 +102,7 @@ public class OrderService {
             return created(winner.id());
         }
         LOG.info("주문 생성. orderId={} checkoutId={} items={}", orderId, session.id(), items.size());
+        events.orderCreated(order);
         return created(orderId);
     }
 
