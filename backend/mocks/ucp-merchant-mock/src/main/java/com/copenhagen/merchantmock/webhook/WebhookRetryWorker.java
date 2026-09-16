@@ -6,6 +6,8 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 import com.copenhagen.merchantmock.support.MerchantProperties;
+import com.copenhagen.merchantmock.support.Audit;
+import com.copenhagen.merchantmock.support.LogContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -73,6 +75,10 @@ public class WebhookRetryWorker {
         int failed = repository.failExhausted(maxAttempts, batchSize);
         if (failed > 0) {
             LOG.warn("웹훅 {}건이 {}회를 넘겨 FAILED 로 닫혔다. 사람이 확인해야 한다", failed, maxAttempts);
+            try (LogContext.Scope scope = LogContext.openWorker("webhook-retry")) {
+                Audit.event("webhook.failed").before(WebhookStatus.PENDING).after(WebhookStatus.FAILED)
+                        .reason("max_attempts").with("count", failed).with("maxAttempts", maxAttempts).log();
+            }
         }
 
         OffsetDateTime now = OffsetDateTime.now(clock);
@@ -91,7 +97,7 @@ public class WebhookRetryWorker {
      * 깨져도 배치 전체가 멈추면 안 된다. 집을 때 밀어 둔 리스 덕분에 이 행은 다음 주기에 다시 집힌다.
      */
     private void send(String webhookId) {
-        try {
+        try (LogContext.Scope scope = LogContext.openWorker("webhook-retry")) {
             dispatcher.dispatch(webhookId);
         } catch (RuntimeException exception) {
             LOG.error("웹훅 재전송이 예외로 끝났다. 다음 주기에 다시 집는다. webhookId={} cause={}",

@@ -17,6 +17,8 @@ import com.copenhagen.merchantmock.support.MerchantPropertiesFixture;
 import com.copenhagen.merchantmock.support.TestSigningKeys;
 import com.copenhagen.merchantmock.webhook.WebhookDispatcher.Result;
 import com.nimbusds.jose.jwk.ECKey;
+import com.copenhagen.merchantmock.support.LogContext;
+import org.slf4j.MDC;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,6 +30,7 @@ import org.springframework.mock.http.client.MockClientHttpRequest;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -216,6 +219,29 @@ class HttpWebhookDispatcherTest {
         // when & then
         assertEquals("core-service:8080", HttpWebhookDispatcher.authorityOf(TARGET));
         assertEquals("core.example", HttpWebhookDispatcher.authorityOf(URI.create("https://core.example/x")));
+    }
+
+    @Test
+    @DisplayName("요청 컨텍스트의 requestId 를 X-Request-Id 로 같이 보낸다. 서명 대상은 아니고 추적용이다")
+    void dispatch_withRequestContext_sendsRequestIdHeaderAndClosesScope() {
+        // given
+        MDC.put(LogContext.REQUEST_ID, "core-req-42");
+        server.expect(requestTo(TARGET.toString()))
+                .andExpect(header(HttpWebhookDispatcher.HEADER_REQUEST_ID, "core-req-42"))
+                .andRespond(withNoContent());
+
+        try {
+            // when
+            Result result = dispatcher.dispatch(WEBHOOK_ID);
+
+            // then
+            assertEquals(Result.DELIVERED, result);
+            assertNull(MDC.get(LogContext.WEBHOOK_ID), "발송이 끝나면 webhookId 범위는 닫힌다");
+            assertEquals("core-req-42", MDC.get(LogContext.REQUEST_ID), "요청의 requestId 는 건드리지 않는다");
+            server.verify();
+        } finally {
+            MDC.clear();
+        }
     }
 
     @Test

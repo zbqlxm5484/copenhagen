@@ -6,6 +6,8 @@ import com.copenhagen.merchantmock.checkout.CheckoutMessages.CancelResult;
 import com.copenhagen.merchantmock.checkout.CheckoutMessages.Checkout;
 import com.copenhagen.merchantmock.checkout.CheckoutMessages.CheckoutRequest;
 import com.copenhagen.merchantmock.support.ApiException;
+import com.copenhagen.merchantmock.support.Audit;
+import com.copenhagen.merchantmock.support.LogContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,7 @@ public class CheckoutService {
 
     public Checkout create(CheckoutRequest request, String idempotencyKey) {
         String id = CheckoutIds.fromIdempotencyKey(idempotencyKey);
+        LogContext.put(LogContext.CHECKOUT_ID, id);
         Optional<CheckoutSession> existing = repository.findById(id);
         if (existing.isPresent()) {
             LOG.info("체크아웃 생성 재시도. 기존 행 반환. id={}", id);
@@ -48,16 +51,19 @@ public class CheckoutService {
                     .orElseThrow(() -> ApiException.checkoutNotFound(id));
         }
         LOG.info("체크아웃 생성. id={} status={}", id, evaluation.status());
+        Audit.event("checkout.created").after(evaluation.status().apiValue()).log();
         return evaluation.checkout();
     }
 
     public Checkout get(String checkoutId) {
+        LogContext.put(LogContext.CHECKOUT_ID, checkoutId);
         return repository.findById(checkoutId)
                 .map(this::snapshotOf)
                 .orElseThrow(() -> ApiException.checkoutNotFound(checkoutId));
     }
 
     public Checkout update(String checkoutId, CheckoutRequest request) {
+        LogContext.put(LogContext.CHECKOUT_ID, checkoutId);
         CheckoutSession current = repository.findById(checkoutId)
                 .orElseThrow(() -> ApiException.checkoutNotFound(checkoutId));
         if (!current.status().modifiable()) {
@@ -71,6 +77,8 @@ public class CheckoutService {
             throw ApiException.checkoutNotModifiable(checkoutId, current.status());
         }
         LOG.info("체크아웃 수정. id={} {} -> {}", checkoutId, current.status(), evaluation.status());
+        Audit.event("checkout.updated").before(current.status().apiValue()).after(evaluation.status().apiValue())
+                .log();
         return evaluation.checkout();
     }
 
@@ -81,6 +89,7 @@ public class CheckoutService {
      * 그것을 409 로 막으면 Core 가 재시도할 방법이 없어진다.
      */
     public CancelResult cancel(String checkoutId) {
+        LogContext.put(LogContext.CHECKOUT_ID, checkoutId);
         CheckoutSession current = repository.findById(checkoutId)
                 .orElseThrow(() -> ApiException.checkoutNotFound(checkoutId));
         if (current.status() == CheckoutStatus.CANCELED) {
@@ -94,6 +103,8 @@ public class CheckoutService {
             return resolveCancelRace(checkoutId);
         }
         LOG.info("체크아웃 취소. id={} {} -> CANCELED", checkoutId, current.status());
+        Audit.event("checkout.canceled").before(current.status().apiValue()).after(CheckoutStatus.CANCELED.apiValue())
+                .reason("core_request").log();
         return canceled(checkoutId);
     }
 

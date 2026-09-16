@@ -2,9 +2,9 @@ package com.copenhagen.merchantmock.paymenthandler;
 
 import java.net.http.HttpClient;
 import java.util.Map;
-import java.util.UUID;
 
 import com.copenhagen.contract.internalapi.PaymentStatus;
+import com.copenhagen.merchantmock.support.LogContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -77,7 +77,7 @@ public class HttpPayClient implements PayClient {
 
     @Override
     public PaymentResult charge(PaymentRequest request) {
-        String requestId = UUID.randomUUID().toString();
+        String requestId = LogContext.requestIdOrNew();
         try {
             PaymentResult result = restClient.post()
                     .uri(PAYMENTS_PATH)
@@ -102,7 +102,7 @@ public class HttpPayClient implements PayClient {
 
     @Override
     public PaymentResult lookup(String paymentId) {
-        String requestId = UUID.randomUUID().toString();
+        String requestId = LogContext.requestIdOrNew();
         try {
             PaymentResult result = restClient.get()
                     .uri(PAYMENTS_PATH + "/{paymentId}", paymentId)

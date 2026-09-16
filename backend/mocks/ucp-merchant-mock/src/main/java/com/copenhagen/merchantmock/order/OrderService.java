@@ -22,6 +22,9 @@ import com.copenhagen.merchantmock.order.OrderMessages.Created;
 import com.copenhagen.merchantmock.order.OrderMessages.OrderView;
 import com.copenhagen.merchantmock.support.ApiException;
 import com.copenhagen.merchantmock.support.MerchantProperties;
+import com.copenhagen.merchantmock.support.Audit;
+import com.copenhagen.merchantmock.support.LogContext;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -78,6 +81,7 @@ public class OrderService {
      */
     @Transactional
     public Created create(CheckoutSession session, PaymentStatus paymentStatus) {
+        LogContext.put(LogContext.CHECKOUT_ID, session.id());
         if (paymentStatus != PaymentStatus.SUCCESS) {
             throw new IllegalStateException(
                     "결제가 성공이 아닌데 주문을 만들려 했다: " + session.id() + " (" + paymentStatus + ")");
@@ -102,6 +106,9 @@ public class OrderService {
             return created(winner.id());
         }
         LOG.info("주문 생성. orderId={} checkoutId={} items={}", orderId, session.id(), items.size());
+        LogContext.put(LogContext.ORDER_ID, orderId);
+        Audit.event("order.created").after("CREATED").reason("payment_" + paymentStatus.name().toLowerCase(Locale.ROOT))
+                .with("items", items.size()).log();
         events.orderCreated(order);
         return created(orderId);
     }

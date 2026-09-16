@@ -1,6 +1,7 @@
 package com.copenhagen.merchantmock.scenario;
 
 import com.copenhagen.merchantmock.support.ApiException;
+import com.copenhagen.merchantmock.support.Audit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -40,6 +41,7 @@ public class ScenarioController {
         Scenario previous = state.current();
         state.set(next);
         LOG.info("시나리오 변경. {} → {}", previous, next);
+        Audit.event("scenario.changed").before(previous).after(next).log();
         return new ScenarioView(next);
     }
 

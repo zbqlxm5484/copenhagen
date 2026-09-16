@@ -41,9 +41,12 @@ public final class EmbeddedPostgresSupport implements AutoCloseable {
     }
 
     public DataSource dataSourceFor(String schema) {
-        return new DriverManagerDataSource(
-                "jdbc:postgresql://127.0.0.1:" + postgres.getPort() + "/postgres?currentSchema=" + schema,
-                "postgres", "postgres");
+        return new DriverManagerDataSource(jdbcUrl(schema), "postgres", "postgres");
+    }
+
+    /** {@code @SpringBootTest} 가 {@code spring.datasource.url} 로 넘길 주소. 앱 전체를 이 인스턴스 위에 띄울 때 쓴다. */
+    public String jdbcUrl(String schema) {
+        return "jdbc:postgresql://127.0.0.1:" + postgres.getPort() + "/postgres?currentSchema=" + schema;
     }
 
     public JdbcTemplate jdbcFor(DataSource dataSource) {

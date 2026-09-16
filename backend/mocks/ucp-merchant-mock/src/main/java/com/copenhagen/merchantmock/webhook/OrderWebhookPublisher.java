@@ -9,6 +9,8 @@ import java.util.concurrent.Executor;
 import com.copenhagen.merchantmock.order.Order;
 import com.copenhagen.merchantmock.order.OrderEventListener;
 import com.copenhagen.merchantmock.support.MerchantProperties;
+import com.copenhagen.merchantmock.support.Audit;
+import com.copenhagen.merchantmock.support.LogContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -69,7 +71,10 @@ public class OrderWebhookPublisher implements OrderEventListener {
         repository.insert(delivery);
         LOG.info("웹훅을 대장에 적었다. webhookId={} orderId={} event={}", delivery.webhookId(), order.id(),
                 eventType.value());
-        afterCommit(() -> dispatcher.dispatch(delivery.webhookId()));
+        Audit.event("webhook.enqueued").after(WebhookStatus.PENDING).with(LogContext.WEBHOOK_ID, delivery.webhookId())
+                .with(LogContext.ORDER_ID, order.id()).with("eventType", eventType.value()).log();
+        // 커밋 뒤 스레드는 요청 컨텍스트가 없다. 지금 스레드의 requestId 를 복사해 넘긴다(DESIGN.md 12.1절).
+        afterCommit(LogContext.propagate(() -> dispatcher.dispatch(delivery.webhookId())));
     }
 
     private String payloadOf(Order order) {

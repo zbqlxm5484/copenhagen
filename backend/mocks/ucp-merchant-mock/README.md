@@ -18,6 +18,22 @@ Core가 UCP REST로 이 모듈을 호출하고, 결제가 필요하면 이 모�
 ./gradlew :mocks:ucp-merchant-mock:build
 ```
 
+## 로그로 구매 하나 추적하기
+
+로그 한 줄마다 `req= co= pay= ord= wh=` 다섯 칸이 붙습니다. `req` 는 `X-Request-Id` 입니다. Core 가 보낸 값이 있으면 그대로 쓰고 없으면 이 모듈이 만들어 응답 헤더로 돌려줍니다. 같은 값이 Pay 호출과 Order Webhook 의 `X-Request-Id` 헤더에 실리므로 세 서비스 로그를 한 값으로 이어 볼 수 있습니다. 워커가 집은 일은 `sweep-…`, `recheck-…`, `webhook-retry-…` 접두어의 requestId 를 새로 받습니다.
+
+상태 전이는 `AUDIT` 접두어의 한 줄 JSON 으로 따로 남습니다. `event` 는 `checkout.created|updated|canceled|expired`, `payment.started|finished|resolved|recheck_exhausted`, `order.created`, `webhook.enqueued|delivered|retry_scheduled|failed` 입니다. `before`·`after` 가 상태 전후, `reason` 이 사유입니다.
+
+```bash
+# 요청 하나 따라가기
+docker compose logs ucp-merchant-mock | grep 'req=core-req-42'
+
+# 상태 전이만 보기
+docker compose logs ucp-merchant-mock | grep ' AUDIT ' | grep '"checkoutId":"<checkoutId>"'
+```
+
+로그에 개인키, `credentialId`, 카드 정보, 상세 배송지는 남기지 않습니다. 감사 이벤트는 그런 이름의 키를 넣으려 하면 예외로 거절합니다.
+
 ## 시연용 시나리오 스위치
 
 Core·Pay 가 실패 상황을 잘 복구하는지 보이려면 이 모듈이 실패를 만들어 내야 합니다(설계서 12.5). 재기동 없이 켜고 끄는 내부 API 둘이 있습니다. Nginx 가 `/internal/` 을 막아 컨테이너 안에서만 닿습니다. 전역 하나이고 재기동하면 `NORMAL` 로 돌아옵니다.
