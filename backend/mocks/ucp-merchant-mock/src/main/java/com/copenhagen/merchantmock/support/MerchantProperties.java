@@ -24,7 +24,8 @@ public record MerchantProperties(
         Capabilities capabilities,
         PaymentHandler paymentHandler,
         List<TrustedPlatform> trustedPlatforms,
-        Scenario scenario) {
+        Scenario scenario,
+        Webhook webhook) {
 
     /** UCP REST base endpoint. Core 는 이 값을 Profile 에서 읽어 간다. */
     public String restEndpoint() {
@@ -62,5 +63,17 @@ public record MerchantProperties(
     }
 
     public record Scenario(String initial) {
+    }
+
+    /**
+     * 웹훅 재시도 정책(DESIGN.md 7.4절). 실패 n회 뒤 다음 시도까지 {@code retryInitialDelay × 2^(n-1)}.
+     * {@code retryMaxAttempts} 를 넘기면 184 워커가 FAILED 로 닫는다.
+     */
+    public record Webhook(Duration retryInitialDelay, int retryMaxAttempts) {
+
+        public Webhook {
+            retryInitialDelay = retryInitialDelay == null ? Duration.ofSeconds(10) : retryInitialDelay;
+            retryMaxAttempts = retryMaxAttempts <= 0 ? 8 : retryMaxAttempts;
+        }
     }
 }

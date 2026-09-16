@@ -34,7 +34,8 @@ final class OrderTestSupport {
     private OrderTestSupport() {
     }
 
-    record Harness(OrderService service, InMemoryOrderRepository repository, ObjectMapper objectMapper) {
+    record Harness(OrderService service, InMemoryOrderRepository repository, ObjectMapper objectMapper,
+            RecordingOrderEventListener events) {
     }
 
     static Harness harness() {
@@ -43,9 +44,10 @@ final class OrderTestSupport {
         InMemoryOrderRepository repository = new InMemoryOrderRepository();
         ObjectMapper objectMapper = JsonMapper.builder().build();
         Clock clock = Clock.fixed(NOW, ZoneId.of("Asia/Seoul"));
+        RecordingOrderEventListener events = new RecordingOrderEventListener();
         OrderService service = new OrderService(
-                repository, catalog, objectMapper, MerchantPropertiesFixture.defaults(), clock);
-        return new Harness(service, repository, objectMapper);
+                repository, catalog, objectMapper, MerchantPropertiesFixture.defaults(), clock, events);
+        return new Harness(service, repository, objectMapper, events);
     }
 
     /** 러닝화 270 한 개를 서울로. 92,000원(상품 89,000 + 배송 3,000). 옵션이 저장돼 있다. */
