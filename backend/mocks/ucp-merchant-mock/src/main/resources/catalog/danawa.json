@@ -1,0 +1,1908 @@
+{
+  "mall": "danawa",
+  "mallName": "다나와",
+  "source": "NomaDamas/k-skill · korean_products_clean.sqlite",
+  "count": 100,
+  "products": [
+    {
+      "id": "8826c149-f2cd-5c22-a3cd-33e147074916",
+      "externalId": "danawa:100189829",
+      "title": "샤오미 사운드 아웃도어",
+      "imageUrl": "https://img.danuri.io/catalog-image/829/189/100/d8053b8f5dfd4b20964355c7e492b12f.jpg?shrink=500:500&_v=20260914080624",
+      "basePrice": 58960,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:100189829-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "0d51e416-6bef-50c5-b0bb-fdc83ad9f137",
+      "externalId": "danawa:100190723",
+      "title": "삼성전자 갤럭시탭A11 플러스",
+      "imageUrl": "https://img.danuri.io/catalog-image/723/190/100/f814b0d602844fbc86aa4c69a219f846.jpeg?shrink=500:500&_v=20260914120143",
+      "basePrice": 368990,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:100190723-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "bddccf53-d913-585a-b07e-bc50578033a2",
+      "externalId": "danawa:100272488",
+      "title": "Bambu Lab P2S Combo",
+      "imageUrl": "https://img.danuri.io/catalog-image/488/272/100/b1f18b5f1a614abaa66834eca468a59f.jpg?shrink=500:500&_v=20260914080641",
+      "basePrice": 1039000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:100272488-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "ae807541-3aae-58e4-97ff-1cfa2ff53849",
+      "externalId": "danawa:10028172",
+      "title": "쌤소나이트 쌤소나이트레드 TOIIS L55 20인치 캐리어 HG171001",
+      "imageUrl": "https://img.danuri.io/catalog-image/172/028/010/aedaa1ec48d3485896c1bee70b144a45.jpg?shrink=500:500&_v=20260914130903",
+      "basePrice": 119310,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:10028172-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "76fab8e7-f680-5efb-a710-9b2508fc877e",
+      "externalId": "danawa:10028235",
+      "title": "쌤소나이트 쌤소나이트레드 TOIIS L68 25인치 캐리어 HG171002",
+      "imageUrl": "https://img.danuri.io/catalog-image/235/028/010/34b6a4c011804365bc819db26336cb95.jpg?shrink=500:500&_v=20260914130438",
+      "basePrice": 135740,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:10028235-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a5ad126c-7491-53a9-96fe-7e5dcb8f05b1",
+      "externalId": "danawa:100382837",
+      "title": "쿠쿠홈시스 제로100 슬림 CP-AHS100HEW",
+      "imageUrl": "https://img.danuri.io/catalog-image/837/382/100/a94ab442179d45918106e330f8409aae.jpg?shrink=500:500&_v=20260914130913",
+      "basePrice": 1437350,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:100382837-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "7003f39d-8ba3-513c-9b36-617d491f64a8",
+      "externalId": "danawa:100385468",
+      "title": "쿠쿠전자 글라스 CAF-L0410EW",
+      "imageUrl": "https://img.danuri.io/catalog-image/468/385/100/17fcb545146c4c24afbc4ae91e4da262.jpg?shrink=500:500&_v=20260914122008",
+      "basePrice": 82940,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:100385468-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "1b4682e1-2748-5cc1-8460-a81bf98fdf81",
+      "externalId": "danawa:100619186",
+      "title": "EFM ipTIME Ring-BE3600 plus 무선확장기",
+      "imageUrl": "https://img.danuri.io/catalog-image/186/619/100/105e33ac60c14d6580f88d966f1cce7d.jpg?shrink=500:500&_v=20260914080411",
+      "basePrice": 125410,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:100619186-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "d1768e3c-851e-505c-80f5-e6580571d493",
+      "externalId": "danawa:100693478",
+      "title": "ANKER 랩탑 파워뱅크 165W 보조 배터리 A1695 25000mAh",
+      "imageUrl": "https://img.danuri.io/catalog-image/478/693/100/733ef93f8dfa4fd392f174ae50488abe.jpg?shrink=500:500&_v=20260914080411",
+      "basePrice": 99750,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:100693478-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "c22e6341-0f16-59f4-8c17-c3db09f6039e",
+      "externalId": "danawa:100698251",
+      "title": "ASUS PRIME 라데온 RX 9070 EVO OC D6 16GB 대원씨티에스",
+      "imageUrl": "https://img.danuri.io/catalog-image/251/698/100/ce976e6b42414d38832e742ecff0a88c.jpg?shrink=500:500&_v=20260914080520",
+      "basePrice": 998990,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:100698251-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "4b0baa8b-a92f-54c9-a410-3d1d60d278ea",
+      "externalId": "danawa:100844945",
+      "title": "보랄 더 셰프 BR-X150AF",
+      "imageUrl": "https://img.danuri.io/catalog-image/945/844/100/43d3536131ea45bcaf35ad7b69a04377.jpeg?shrink=500:500&_v=20260914080501",
+      "basePrice": 111410,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:100844945-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "f4611941-5664-5da2-832b-032f3eac964e",
+      "externalId": "danawa:100845140",
+      "title": "쿠쿠홈시스 인스퓨어 미니100 CP-AMS100EPK",
+      "imageUrl": "https://img.danuri.io/catalog-image/140/845/100/4f928d7a168540fabffa864eac5d2576.jpg?shrink=500:500&_v=20260914160508",
+      "basePrice": 974320,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:100845140-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a7d6fdc9-23ef-5714-b70a-8965a54142fe",
+      "externalId": "danawa:10104054",
+      "title": "에이블루 커블체어 와이더 자세교정 의자",
+      "imageUrl": "https://img.danuri.io/catalog-image/054/104/010/8a1dcd4464a64fe495aaa0cbd01cdc02.jpg?shrink=500:500&_v=20260914101038",
+      "basePrice": 6560,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:10104054-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "6b30fbc9-f597-5f5c-b80b-34f39188c528",
+      "externalId": "danawa:101076134",
+      "title": "JMW 에어팜 SC1500A",
+      "imageUrl": "https://img.danuri.io/catalog-image/134/076/101/4941055b3c19465d8ff7be5ec87d86ff.jpg?shrink=500:500&_v=20260914150553",
+      "basePrice": 77620,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:101076134-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "616cdc1d-3bfc-50d2-b7d7-5ea5c11305f0",
+      "externalId": "danawa:101078582",
+      "title": "AGI DDR5-6000 CL30 TURBOJET UD858 RGB 블랙 패키지 서린",
+      "imageUrl": "https://img.danuri.io/catalog-image/582/078/101/4c76f186ed324ed7ad88be5f14191002.jpg?shrink=500:500&_v=20260914172728",
+      "basePrice": 769000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:101078582-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "5c2cea1b-0e55-5417-9b19-8be35bb9e8b2",
+      "externalId": "danawa:101079227",
+      "title": "에어메이드 AMH-4502",
+      "imageUrl": "https://img.danuri.io/catalog-image/227/079/101/6c8b2b48972a48849d7853321816879d.jpeg?shrink=500:500&_v=20260914080502",
+      "basePrice": 266110,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:101079227-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "c862486b-6f21-55e5-8ee5-47760293be26",
+      "externalId": "danawa:101079236",
+      "title": "BIWIN DDR5-4800 CL40",
+      "imageUrl": "https://img.danuri.io/catalog-image/236/079/101/a840f74adb584fd19d8b168c5698c1f1.jpg?shrink=500:500&_v=20260914092405",
+      "basePrice": 358210,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:101079236-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b3a76124-3373-5cf1-ae99-60b2705f8b5f",
+      "externalId": "danawa:101544434",
+      "title": "필립스 에브니아 32M2N5800 4K UHD 듀얼 모드 320 HDR 400 게이밍 무결점",
+      "imageUrl": "https://img.danuri.io/catalog-image/434/544/101/7577867aee6148b185cde51f3e23561e.jpg?shrink=500:500&_v=20260914131203",
+      "basePrice": 499000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:101544434-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9f7a8fa9-e357-52e3-bdd3-fb4e24d71255",
+      "externalId": "danawa:101631950",
+      "title": "삼성전자 갤럭시탭A11 플러스 5G",
+      "imageUrl": "https://img.danuri.io/catalog-image/950/631/101/5757532fe2924d3a986fab15868df16d.jpg?shrink=500:500&_v=20260914090246",
+      "basePrice": 466310,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:101631950-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "7cabc5f6-4a7c-5fce-99c2-37902e74c550",
+      "externalId": "danawa:102003542",
+      "title": "APPLE 아이폰17 프로 512GB, 자급제",
+      "imageUrl": "https://img.danuri.io/catalog-image/542/003/102/e9839db8dff14d26bcef0acd8c7eb174.jpg?shrink=500:500&_v=20260914080516",
+      "basePrice": 2005000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:102003542-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "26cec602-3470-58aa-82d9-aa23b3ce9e95",
+      "externalId": "danawa:102006239",
+      "title": "삼익가구 모네어 호텔 원목 침대 Q",
+      "imageUrl": "https://img.danuri.io/catalog-image/239/006/102/e95436864f5e4b279e3db58dac0c7cb0.jpg?shrink=500:500&_v=20260914080458",
+      "basePrice": 379000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:102006239-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9b1f9582-139d-5686-8257-5bfadfc348ec",
+      "externalId": "danawa:102356891",
+      "title": "쿠쿠전자 CCD-A0310AW",
+      "imageUrl": "https://img.danuri.io/catalog-image/891/356/102/c772ebb599f84346bbfbf47a4d5db749.jpg?shrink=500:500&_v=20260914140433",
+      "basePrice": 238910,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:102356891-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "3a9bcd21-4f35-5ade-9b59-a02a1b617333",
+      "externalId": "danawa:102489626",
+      "title": "ASUS ROG Rapture GT-BE19000AI 유무선 공유기 대원씨티에스",
+      "imageUrl": "https://img.danuri.io/catalog-image/626/489/102/3edf8e02ffc644cc8500791adb3af8f3.jpg?shrink=500:500&_v=20260914165039",
+      "basePrice": 1290000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:102489626-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "40b9ec6f-8a29-5bb3-b6d4-04333f8a1248",
+      "externalId": "danawa:102550046",
+      "title": "COX CEM30 서포트오피스 FREE 무선",
+      "imageUrl": "https://img.danuri.io/catalog-image/046/550/102/4a74502e0ffe495590db6b48da481873.jpg?shrink=500:500&_v=20260914080623",
+      "basePrice": 25900,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:102550046-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "111e561a-ab1a-5a3c-a570-fc2137199581",
+      "externalId": "danawa:10321614",
+      "title": "샤크닌자 닌자 프로페셔널 쵸퍼 NJ1001KR",
+      "imageUrl": "https://img.danuri.io/catalog-image/614/321/010/7c26fdc2220344abbf0aaf392224446a.jpg?shrink=500:500&_v=20260914170703",
+      "basePrice": 49060,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:10321614-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "7297c287-dc99-5f8e-ba8a-ba662fda2287",
+      "externalId": "danawa:103325483",
+      "title": "이지베이션 슬릭 엣지 AX8 (2025년형)",
+      "imageUrl": "https://img.danuri.io/catalog-image/483/325/103/614f1b7792a34d459305ab27980d106f.jpg?shrink=500:500&_v=20260914102630",
+      "basePrice": 1510000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:103325483-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "892502c5-3b15-5587-b1ef-54152bb154de",
+      "externalId": "danawa:103335941",
+      "title": "삼성전자 데스크탑 Slim DM500SHZ-AD5A Win11Home",
+      "imageUrl": "https://img.danuri.io/catalog-image/941/335/103/36f002bcf6dc4fbaa7dd0bf057516c24.jpg?shrink=500:500&_v=20260914165708",
+      "basePrice": 1318980,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:103335941-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "dbbb8884-32a5-578d-b213-a538ec854524",
+      "externalId": "danawa:103451192",
+      "title": "LG전자 2026 그램15 15Z95U-GU7WK",
+      "imageUrl": "https://img.danuri.io/catalog-image/192/451/103/6e3153d8d94a46afa9754aa909675d09.jpg?shrink=500:500&_v=20260914170204",
+      "basePrice": 2488430,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:103451192-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "aad3e034-5c8a-5d7f-927b-2f81be0278bc",
+      "externalId": "danawa:103480361",
+      "title": "EFM ipTIME Extender-BE3600Q 무선확장기",
+      "imageUrl": "https://img.danuri.io/catalog-image/361/480/103/512267c18bd4444dbd81a30a45839305.jpg?shrink=500:500&_v=20260914172608",
+      "basePrice": 89900,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:103480361-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "93e6571e-1564-5ecd-90f2-8c3113ae6f75",
+      "externalId": "danawa:103517336",
+      "title": "CORSAIR 세이버 v2 PRO MG 무선 게이밍",
+      "imageUrl": "https://img.danuri.io/catalog-image/336/517/103/af8a1e6343c647b59c010124a60c856a.jpg?shrink=500:500&_v=20260914092245",
+      "basePrice": 186140,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:103517336-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "3d4eb13e-0d77-5e06-badb-74dc0e4c4a69",
+      "externalId": "danawa:103517387",
+      "title": "CORSAIR 세이버 v2 PRO CF 무선 게이밍",
+      "imageUrl": "https://img.danuri.io/catalog-image/387/517/103/98f00c4e64d34f6fb3cb7ae471c0f81d.jpg?shrink=500:500&_v=20260914080502",
+      "basePrice": 246410,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:103517387-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "32f5ddd7-b7ea-5a8b-a715-6d99be04d5a6",
+      "externalId": "danawa:103750115",
+      "title": "삼성전자 PD PPS 60W C타입 충전기 어댑터 EP-T6010",
+      "imageUrl": "https://img.danuri.io/catalog-image/115/750/103/376ef71308af4259b357df99cba24cd4.jpg?shrink=500:500&_v=20260914171133",
+      "basePrice": 41210,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:103750115-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "c2a23fed-869a-56a9-954c-8878aaf45bd7",
+      "externalId": "danawa:104226752",
+      "title": "마이크로킥보드 마이크로바이크 16 2.0",
+      "imageUrl": "https://img.danuri.io/catalog-image/752/226/104/ff11f4147f8b4cc29528d7dafcff8056.jpg?shrink=500:500&_v=20260914170327",
+      "basePrice": 323340,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:104226752-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b9f7771b-99aa-5954-8edc-709ff8e08b9b",
+      "externalId": "danawa:104376674",
+      "title": "브람스생활건강 4D 더블 엔진 아우라 BRAMS-K8G008BA",
+      "imageUrl": "https://img.danuri.io/catalog-image/674/376/104/13c359f9040a477bbc3065d7ca4a2e7c.jpg?shrink=500:500&_v=20260914170159",
+      "basePrice": 1795500,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:104376674-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "00890191-3b14-5d4b-8d24-a6bdc74faf80",
+      "externalId": "danawa:104628470",
+      "title": "경동나비엔 나비엔매직 MWR-1512EF",
+      "imageUrl": "https://img.danuri.io/catalog-image/470/628/104/8770ba92fe794460947fe9bad0cfb97c.jpg?shrink=500:500&_v=20260914080516",
+      "basePrice": 89175,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:104628470-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a675e137-d94b-5c81-bd23-6702ef6401ff",
+      "externalId": "danawa:104633918",
+      "title": "바디프랜드 메디컬파라오 BFR-M8900",
+      "imageUrl": "https://img.danuri.io/catalog-image/918/633/104/071f52943a274a60848a429b6bb76004.jpg?shrink=500:500&_v=20260914080502",
+      "basePrice": 6750000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:104633918-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a3761594-dd00-50ff-87d1-be42a29f3253",
+      "externalId": "danawa:104939888",
+      "title": "다나와 게임용PC AMD R5-7400F RTX5060 S6101",
+      "imageUrl": "https://img.danuri.io/catalog-image/888/939/104/8453473e8f964b1b869e97bd7050d126.jpg?shrink=500:500&_v=20260914080516",
+      "basePrice": 2045000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:104939888-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "8ac67894-b6e8-527d-8f15-e08b0faf8d33",
+      "externalId": "danawa:104947211",
+      "title": "다나와 게임용PC 인텔 i5-14400F RTX5060 S6102",
+      "imageUrl": "https://img.danuri.io/catalog-image/211/947/104/3ed78808802142ecb0afd6686c92f8db.jpg?shrink=500:500&_v=20260914080641",
+      "basePrice": 2085000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:104947211-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "986b9dbf-9605-5743-b707-669506d06437",
+      "externalId": "danawa:104951030",
+      "title": "컬럼비아 남여공용 소자 30L 플러스 백팩 배낭 YU0364 2542078",
+      "imageUrl": "https://img.danuri.io/catalog-image/030/951/104/cac8bac5838b4354adf51c1fa4587b24.jpg?shrink=500:500&_v=20260914163448",
+      "basePrice": 20079,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:104951030-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "5bc4676d-9571-53fe-ace7-6379b90c7776",
+      "externalId": "danawa:104981399",
+      "title": "브라운 시리즈9 PRO+ 울트라 씬 9669cc",
+      "imageUrl": "https://img.danuri.io/catalog-image/399/981/104/0f81d81dad26453a80b6bb88e83cfdad.jpg?shrink=500:500&_v=20260914171308",
+      "basePrice": 349200,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:104981399-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "fa6647ca-47db-566d-9a14-26beb51641d0",
+      "externalId": "danawa:104982317",
+      "title": "후지필름 INSTAX 미니 리플레이 플러스",
+      "imageUrl": "https://img.danuri.io/catalog-image/317/982/104/99e3f968fba44976bce5a25f07aff7cb.jpg?shrink=500:500&_v=20260914080501",
+      "basePrice": 295600,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:104982317-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "69680518-cd05-5515-b56e-3fe88941890e",
+      "externalId": "danawa:105964859",
+      "title": "캐리어 EARP-0121GAWSD",
+      "imageUrl": "https://img.danuri.io/catalog-image/859/964/105/48c33ff3e8e547c8a51af2ab33b1abaa.jpg?shrink=500:500&_v=20260914105715",
+      "basePrice": 888990,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:105964859-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "232d96cc-d249-59d9-b819-dd9ba41cc985",
+      "externalId": "danawa:106045433",
+      "title": "르젠 플러스 IH 5세대 LPL-IH600S",
+      "imageUrl": "https://img.danuri.io/catalog-image/433/045/106/023c1d1e972b4627a4bdf416b9a15611.jpg?shrink=500:500&_v=20260914080458",
+      "basePrice": 247990,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:106045433-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "2e50ff2b-33b4-50f2-9dac-3592a1f59e34",
+      "externalId": "danawa:106689203",
+      "title": "보이스캐디 T13 프로",
+      "imageUrl": "https://img.danuri.io/catalog-image/203/689/106/9c41c3797b8241cab12d4be5540ac033.jpeg?shrink=500:500&_v=20260914140329",
+      "basePrice": 430590,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:106689203-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "3ee571f9-2ad4-5761-a6ce-399f70554d2b",
+      "externalId": "danawa:106721627",
+      "title": "아우스 GE05 올인원 모션 스탠딩 책상",
+      "imageUrl": "https://img.danuri.io/catalog-image/627/721/106/b5df8358efa847099e07a7127531bfab.jpg?shrink=500:500&_v=20260914080520",
+      "basePrice": 119800,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:106721627-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "453aa379-fc5a-5c08-adcf-72cc8370210d",
+      "externalId": "danawa:106726907",
+      "title": "삼천리 자전거 팬텀 S3 (2026년형)",
+      "imageUrl": "https://img.danuri.io/catalog-image/907/726/106/be8908ae47cb4bf09fa6aa52848fc7e3.jpg?shrink=500:500&_v=20260914080520",
+      "basePrice": 799000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:106726907-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "f6ba83bd-71a9-56fe-97ab-f74e3b18194c",
+      "externalId": "danawa:106735127",
+      "title": "아디다스 아디제로 아디오스 프로 4 JP6624 남성 러닝화",
+      "imageUrl": "https://img.danuri.io/catalog-image/127/735/106/4ed115f16721494388ec7868e79068bc.jpg?shrink=500:500&_v=20260914080502",
+      "basePrice": 189440,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:106735127-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "d1f6c4b8-51fa-54ca-b2b9-27779053591e",
+      "externalId": "danawa:106747361",
+      "title": "LG전자 트롬 오브제컬렉션 FX23GNGR + RD20EN",
+      "imageUrl": "https://img.danuri.io/catalog-image/361/747/106/c334400055b5479983fa96f69184f467.jpg?shrink=500:500&_v=20260914163449",
+      "basePrice": 2374000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:106747361-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "e4b6f180-ba7a-5948-bef1-50c4af928bbf",
+      "externalId": "danawa:106763531",
+      "title": "알파스캔 3425Q120 울트라와이드 WQHD 딥 블랙 IPS 120 USB-C HDR 높낮이 무결점",
+      "imageUrl": "https://img.danuri.io/catalog-image/531/763/106/f54a0f4556784911a70ac3aa8fd15c24.jpg?shrink=500:500&_v=20260914160609",
+      "basePrice": 388990,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:106763531-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "7ea3fdb9-1841-5fa7-8e61-ba2ed738342c",
+      "externalId": "danawa:106765886",
+      "title": "LG 전자 오브제컬렉션 MWJ23PI",
+      "imageUrl": "https://img.danuri.io/catalog-image/886/765/106/ac1c97c6fb6349b99075f2476649f0db.jpg?shrink=500:500&_v=20260914173253",
+      "basePrice": 180170,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:106765886-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "5b126cd8-6d3a-5dcb-8439-08275fd0bb40",
+      "externalId": "danawa:106767539",
+      "title": "오쿠 겉바속촉 스팀 에어 프라이어 OCC-SF6000",
+      "imageUrl": "https://img.danuri.io/catalog-image/539/767/106/e25027aae5104240a4513fb2f798cad7.jpg?shrink=500:500&_v=20260914080458",
+      "basePrice": 98000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:106767539-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "5ee88a0d-8cb5-550d-8703-4acaa7bc9c08",
+      "externalId": "danawa:10767234",
+      "title": "209애비뉴 제로데스크 컴퓨터 책상",
+      "imageUrl": "https://img.danuri.io/catalog-image/234/767/010/4b99907d2f7a40618b91c51e09fe037a.jpg?shrink=500:500&_v=20260914140725",
+      "basePrice": 195000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:10767234-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "fdf06339-cbc3-5a15-8614-fd2e680e8c87",
+      "externalId": "danawa:107769662",
+      "title": "LG전자 휘센 오브제컬렉션 AI 사계절 듀얼쿨 SW09FS1EES",
+      "imageUrl": "https://img.danuri.io/catalog-image/662/769/107/ccf270414b5343f199b9328dc13f35c0.jpg?shrink=500:500&_v=20260914080502",
+      "basePrice": 1189460,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:107769662-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "dcfc57d4-163f-534a-b6b2-255dc2f9ae22",
+      "externalId": "danawa:108227207",
+      "title": "나이키 윈플로 12 HV9272-002 남성 러닝화",
+      "imageUrl": "https://img.danuri.io/catalog-image/207/227/108/99837695266b4e829411be3e281f1162.jpg?shrink=500:500&_v=20260914130323",
+      "basePrice": 69356,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:108227207-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "0d2b319e-189a-53f6-92e6-2059f24ef1a2",
+      "externalId": "danawa:10825431",
+      "title": "Brother PT-P710BTWH",
+      "imageUrl": "https://img.danuri.io/catalog-image/431/825/010/43941597fc784119b26f60c078c00f93.jpg?shrink=500:500&_v=20260914130059",
+      "basePrice": 152000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:10825431-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "85de957b-de82-56c2-aff1-11958a1d4e26",
+      "externalId": "danawa:108401885",
+      "title": "LG전자 올레드 evo AI OLED48C6KNA",
+      "imageUrl": "https://img.danuri.io/catalog-image/885/401/108/5bbb9a9ca03f499eb5b5f5c95da6b5da.jpg?shrink=500:500&_v=20260914172653",
+      "basePrice": 1728570,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:108401885-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "4824bb53-17ad-5756-be55-ec3b40d30346",
+      "externalId": "danawa:108402083",
+      "title": "K2바이크 프로마스터 에어리스 R2.1D (2026년형)",
+      "imageUrl": "https://img.danuri.io/catalog-image/083/402/108/7143908db3ca40029509b3b0d90f3fe2.jpg?shrink=500:500&_v=20260914092308",
+      "basePrice": 254870,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:108402083-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "150b866b-47ba-5951-bd2b-4d46cc0c9647",
+      "externalId": "danawa:108407255",
+      "title": "LG전자 올레드 evo AI OLED77G6KNA",
+      "imageUrl": "https://img.danuri.io/catalog-image/255/407/108/a2056c8bd6524c399fd26f60907bc94c.jpg?shrink=500:500&_v=20260914172613",
+      "basePrice": 7330100,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:108407255-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "3d5c6a7a-e694-56bc-a413-c9f4ddce7562",
+      "externalId": "danawa:108407948",
+      "title": "캘러웨이 선 셰이드 버킷햇",
+      "imageUrl": "https://img.danuri.io/catalog-image/948/407/108/0a194ba1616c47ef90963a1655268971.jpg?shrink=500:500&_v=20260914090254",
+      "basePrice": 26796,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:108407948-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "673f2165-8d83-5169-a82d-06050bfd487f",
+      "externalId": "danawa:10898364",
+      "title": "코닥 미니샷 콤보 3 레트로 C300R",
+      "imageUrl": "https://img.danuri.io/catalog-image/364/898/010/ff568d583d354d3084c826a8a4a6b452.jpg?shrink=500:500&_v=20260914080623",
+      "basePrice": 183820,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:10898364-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "24981055-463f-5181-82ae-ee48688a5825",
+      "externalId": "danawa:109596176",
+      "title": "프린홈 아르카 4세대 모션 슬라이드 무빙 패브릭 소파 4인용",
+      "imageUrl": "https://img.danuri.io/catalog-image/176/596/109/5fa0e488d3ef4a348472561b09b08b49.jpg?shrink=500:500&_v=20260914080502",
+      "basePrice": 1099000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:109596176-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "0fa68f1f-e97a-5b51-8637-3947a94d12a7",
+      "externalId": "danawa:109680062",
+      "title": "후지필름 INSTAX 미니13",
+      "imageUrl": "https://img.danuri.io/catalog-image/062/680/109/fbefe4269ce447e5afceb105b357e18a.jpg?shrink=500:500&_v=20260914080458",
+      "basePrice": 130660,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:109680062-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "87e6dba4-4aac-55f0-abe6-08b73180ce98",
+      "externalId": "danawa:111583416",
+      "title": "브람스생활건강 올인S BRAMS-K8G777SCR",
+      "imageUrl": "https://img.danuri.io/catalog-image/416/583/111/db43b871b536454589e1fde10aa8e6ac.jpg?shrink=500:500&_v=20260914140433",
+      "basePrice": 1026000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:111583416-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b1d70e65-ded6-5017-8d14-6bd8999faf9a",
+      "externalId": "danawa:11881345",
+      "title": "니콘 Z5 바디",
+      "imageUrl": "https://img.danuri.io/catalog-image/345/881/011/a3ed79e50dae40ec9223e4a40a8f7bc4.jpg?shrink=500:500&_v=20260914080516",
+      "basePrice": 991340,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:11881345-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "d2ab2835-df0f-599b-b120-f927e36487f0",
+      "externalId": "danawa:11900371",
+      "title": "LG전자 휘센 PW0833R2SF",
+      "imageUrl": "https://img.danuri.io/catalog-image/371/900/011/e03d242282384e7985013b6b8869e518.jpg?shrink=500:500&_v=20260914150533",
+      "basePrice": 1266990,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:11900371-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "471e9547-549b-5118-a5d4-bd7d8ecad35b",
+      "externalId": "danawa:11973608",
+      "title": "에이픽스게이밍 스토리지 게이밍 컴퓨터 책상",
+      "imageUrl": "https://img.danuri.io/catalog-image/608/973/011/a5b9fc0fc60a43829bcb2b7705403825.jpg?shrink=500:500&_v=20260914080520",
+      "basePrice": 142030,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:11973608-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "14cf8b30-c5ec-5779-8823-b12051c45860",
+      "externalId": "danawa:122616533",
+      "title": "삼성전자 Mini LED KU65MH75AFXKR",
+      "imageUrl": "https://img.danuri.io/catalog-image/533/616/122/e60eeea150064fadb74f8cf0f4681cd7.jpeg?shrink=500:500&_v=20260914170048",
+      "basePrice": 1206430,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:122616533-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "7b732f39-8e16-5f63-973c-431a3f394e8c",
+      "externalId": "danawa:122619238",
+      "title": "에디파이어 M90",
+      "imageUrl": "https://img.danuri.io/catalog-image/238/619/122/cffbd5ee802d4a84ae307480797d08cd.jpeg?shrink=500:500&_v=20260914080623",
+      "basePrice": 249000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:122619238-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "0656655c-8929-5ae9-9084-f0ebf4e7d4f7",
+      "externalId": "danawa:122622642",
+      "title": "LG전자 퓨리케어 AI 오브제컬렉션 월핏 AS186LSAA",
+      "imageUrl": "https://img.danuri.io/catalog-image/642/622/122/4cfe4d387d0b46fd8b441a013f57f04f.jpeg?shrink=500:500&_v=20260914163609",
+      "basePrice": 560188,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:122622642-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "64bb1414-09fc-5a4e-a522-f281f230b747",
+      "externalId": "danawa:122636647",
+      "title": "LG전자 올레드 evo AI OLED77C6FNA",
+      "imageUrl": "https://img.danuri.io/catalog-image/647/636/122/61037e7376774fea98af2857b591447e.jpg?shrink=500:500&_v=20260914170207",
+      "basePrice": 3824000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:122636647-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "1c92dd28-3559-5dd2-9553-a9ab2d65407b",
+      "externalId": "danawa:122637056",
+      "title": "Seagate One Touch Desktop USB BUS Power 데이터복구",
+      "imageUrl": "https://img.danuri.io/catalog-image/056/637/122/88637a50ff464fa989519ef3be5e8888.jpeg?shrink=500:500&_v=20260914080520",
+      "basePrice": 454090,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:122637056-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "2e198286-1a49-5b23-aa4f-252fa5f6e838",
+      "externalId": "danawa:122662447",
+      "title": "클립쉬 레퍼런스 R-60M",
+      "imageUrl": "https://img.danuri.io/catalog-image/447/662/122/3966f8b7aa124379aec9df7cf046495f.jpg?shrink=500:500&_v=20260914080458",
+      "basePrice": 570000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:122662447-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a4e96904-0ddb-57d5-ad42-4bc024c6bc29",
+      "externalId": "danawa:122701226",
+      "title": "테일러메이드 스파이더 투어 X 더블밴드 퍼터",
+      "imageUrl": "https://img.danuri.io/catalog-image/226/701/122/ee6246de8eaa4c2e82ad969070bd0576.jpeg?shrink=500:500&_v=20260914095805",
+      "basePrice": 320000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:122701226-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "891d6b3f-9107-565f-9a2c-708e9dd422bb",
+      "externalId": "danawa:122703555",
+      "title": "브람스생활건강 올인케어 4D BRAMS-K8H805GAD",
+      "imageUrl": "https://img.danuri.io/catalog-image/555/703/122/752aa7caff8947bea6f39739d6693e68.jpg?shrink=500:500&_v=20260914170409",
+      "basePrice": 966290,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:122703555-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "d896f022-6f46-5f32-b859-45806f7624f5",
+      "externalId": "danawa:122725442",
+      "title": "Bambu Lab X2D Combo",
+      "imageUrl": "https://img.danuri.io/catalog-image/442/725/122/57c5c5a3203b4ccf99fc8032ce2aaa90.jpeg?shrink=500:500&_v=20260914080502",
+      "basePrice": 1349000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:122725442-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "1bec61bc-7788-5a5c-8bb9-b775e7fc37f5",
+      "externalId": "danawa:12296429",
+      "title": "SONY 알파 A7C 바디",
+      "imageUrl": "https://img.danuri.io/catalog-image/429/296/012/211db1fdac804236a4842fa446e69d6e.jpg?shrink=500:500&_v=20260914080520",
+      "basePrice": 1081020,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:12296429-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "73e9fda7-11bc-5e92-a21d-c78261967e29",
+      "externalId": "danawa:123681695",
+      "title": "Canon SELPHY CP1500",
+      "imageUrl": "https://img.danuri.io/catalog-image/695/681/123/be965db308894880a04c361f50d4d2e5.jpg?shrink=500:500&_v=20260914080520",
+      "basePrice": 227000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:123681695-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "41448383-6a92-5277-83a4-42843035da1c",
+      "externalId": "danawa:123962940",
+      "title": "제스파 누엘로 ZPC2290",
+      "imageUrl": "https://img.danuri.io/catalog-image/940/962/123/0671220b356c4069a939aefcce3774a0.jpg?shrink=500:500&_v=20260914080623",
+      "basePrice": 800000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:123962940-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "883ee8a1-b30f-54ec-955e-b087a307e522",
+      "externalId": "danawa:124012067",
+      "title": "Canon MF664cdw",
+      "imageUrl": "https://img.danuri.io/catalog-image/067/012/124/f3508afeb5b54e7b94ccbf1e7bb14541.jpeg?shrink=500:500&_v=20260914080520",
+      "basePrice": 509000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:124012067-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "63fb6938-ffb8-5bcd-b2bb-dfde3cfe54d1",
+      "externalId": "danawa:13307771",
+      "title": "만다리나덕 AIR 백팩 69T01001",
+      "imageUrl": "https://img.danuri.io/catalog-image/771/307/013/2d22bcf1a30a42b88c2c5a967061c535.jpg?shrink=500:500&_v=20260914140840",
+      "basePrice": 227580,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:13307771-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "3f2183da-aeda-50c6-ad60-861a8fd30013",
+      "externalId": "danawa:13427051",
+      "title": "쌤소나이트레드 POCHARAA 2WAY 멀티 백팩 DT809001",
+      "imageUrl": "https://img.danuri.io/catalog-image/051/427/013/6b6bb5b246d44dc8aa47b4f48a389cc3.jpg?shrink=500:500&_v=20260914092548",
+      "basePrice": 120000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:13427051-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "7162cbc0-298a-5de6-8265-f351a0d64b6c",
+      "externalId": "danawa:13722008",
+      "title": "만다리나덕 DISTRICT 백팩 KPT0216Z",
+      "imageUrl": "https://img.danuri.io/catalog-image/008/722/013/bdad7800773846eb81dbb930519e5c68.jpg?shrink=500:500&_v=20260914080516",
+      "basePrice": 109660,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:13722008-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "06797394-be26-5d7f-878f-52d0a7195edf",
+      "externalId": "danawa:13929230",
+      "title": "종근당건강 프로메가 오메가3 트리플 654mg 60캡슐",
+      "imageUrl": "https://img.danuri.io/catalog-image/230/929/013/f1b1fbd8ab824092a2bdd964ae5d1c29.jpg?shrink=500:500&_v=20260914170618",
+      "basePrice": 9590,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:13929230-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "3500b948-e386-53a8-bbd4-235ce56206e5",
+      "externalId": "danawa:14808707",
+      "title": "오주코 백팩 OZK154A",
+      "imageUrl": "https://img.danuri.io/catalog-image/707/808/014/61808adf222b49348043babb5d8abb21.jpg?shrink=500:500&_v=20260914080514",
+      "basePrice": 64654,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:14808707-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "4786a8db-0cc0-5cb5-a334-4cb1b26f6aa0",
+      "externalId": "danawa:17317565",
+      "title": "TP-LINK Deco X50 유무선 공유기",
+      "imageUrl": "https://img.danuri.io/catalog-image/565/317/017/d235ae1d44304da7bcded3d74ab18247.jpg?shrink=500:500&_v=20260914130758",
+      "basePrice": 179000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:17317565-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "caf4346f-edef-584f-895a-bc86cd0b94dd",
+      "externalId": "danawa:17709491",
+      "title": "나우푸드 글루타치온 500mg 120캡슐",
+      "imageUrl": "https://img.danuri.io/catalog-image/491/709/017/af67b7c76303444092a773447016ec09.jpg?shrink=500:500&_v=20260914165031",
+      "basePrice": 38000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:17709491-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9b8775ff-7e2e-570a-9b60-921646da276d",
+      "externalId": "danawa:18158348",
+      "title": "핑 G430 하이브리드",
+      "imageUrl": "https://img.danuri.io/catalog-image/348/158/018/56f3a5ee7d2341faa18d78041d1fb1fd.jpg?shrink=500:500&_v=20260914080624",
+      "basePrice": 219000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:18158348-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a25c3412-0053-5ccb-8120-0d3ede7ce84a",
+      "externalId": "danawa:20274074",
+      "title": "도시바 CANVIO BASICS 5",
+      "imageUrl": "https://img.danuri.io/catalog-image/074/274/020/caeda04db78d4c4ca52d3387d09b3e0c.jpg?shrink=500:500&_v=20260914080502",
+      "basePrice": 179000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:20274074-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "d8d41349-0c97-54d2-ab14-2d6033cc9cea",
+      "externalId": "danawa:27761495",
+      "title": "EFM ipTIME AX6000M 유무선 공유기",
+      "imageUrl": "https://img.danuri.io/catalog-image/495/761/027/3bfd7680dc524d1189a6bf9cc3845c0d.jpg?shrink=500:500&_v=20260914170648",
+      "basePrice": 125760,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:27761495-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "14550945-9d79-539f-96d0-b9a9b142cc2f",
+      "externalId": "danawa:28241231",
+      "title": "코웨이 비렉스 페블체어 MC-C01",
+      "imageUrl": "https://img.danuri.io/catalog-image/231/241/028/1b7b8bb0fbbb4bf4bfab612ddfba02f8.jpg?shrink=500:500&_v=20260914080641",
+      "basePrice": 1929200,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:28241231-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "58d18dcb-00f3-5a6d-85f3-c5c1a4bca801",
+      "externalId": "danawa:28621400",
+      "title": "삼성전자 포터블 SSD T9",
+      "imageUrl": "https://img.danuri.io/catalog-image/400/621/028/614aef8775cd4529a05de96490f2bfc0.jpg?shrink=500:500&_v=20260914162558",
+      "basePrice": 288820,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:28621400-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9ac82aef-cade-5c02-a9e5-b5e0c02873c1",
+      "externalId": "danawa:4087011",
+      "title": "덴프스 덴마크 유산균 이야기 170mg 60캡슐",
+      "imageUrl": "https://img.danuri.io/catalog-image/011/087/004/46003bd5ccf74a39be07ff83cc92b62a.webp?shrink=500:500&_v=20260914165032",
+      "basePrice": 17790,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:4087011-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "81cb4f3d-ebce-565c-99d2-787bbbfaf652",
+      "externalId": "danawa:4225239",
+      "title": "유니시티 바이오스 라이프 이 에너지 멀티비타민 9g 30포",
+      "imageUrl": "https://img.danuri.io/catalog-image/239/225/004/844e8a39c6f34c50a8f8119f1914f8b1.jpg?shrink=500:500&_v=20260914145049",
+      "basePrice": 94100,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:4225239-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "070f670d-7446-5f1b-9287-1fdf8d3058e7",
+      "externalId": "danawa:47922833",
+      "title": "디어랩스 울애기쌩쌩 종합 영양제 120g (2g x 60p)",
+      "imageUrl": "https://img.danuri.io/catalog-image/833/922/047/8825b4a0a5b54abb9155ce768cae3d4e.jpg?shrink=500:500&_v=20260914090832",
+      "basePrice": 22420,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:47922833-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "ef4ab7cc-10bb-5965-9c44-a46f89a6140a",
+      "externalId": "danawa:49997174",
+      "title": "나이키 골프 인피니티 G NN 골프화 FN0565-100",
+      "imageUrl": "https://img.danuri.io/catalog-image/174/997/049/363c20dde6624201aca74506e033b72f.jpg?shrink=500:500&_v=20260914130108",
+      "basePrice": 54094,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:49997174-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "fa7e246c-191f-50b4-93b1-db4d747db8c3",
+      "externalId": "danawa:5812362",
+      "title": "오르토몰 오쏘몰 이뮨(Immun) 드링크+정제 30일분",
+      "imageUrl": "https://img.danuri.io/catalog-image/362/812/005/ba8ba6d2efb24cc18e8edde22ace58f1.jpg?shrink=500:500&_v=20260914171239",
+      "basePrice": 79410,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:5812362-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9ccbac64-1eb9-56ab-9c77-445d35c99895",
+      "externalId": "danawa:7233262",
+      "title": "베토퀴놀 아조딜 90p",
+      "imageUrl": "https://img.danuri.io/catalog-image/262/233/007/c1714c0ed9c34b7e84cb9019e518cbe7.jpg?shrink=500:500&_v=20260914160808",
+      "basePrice": 71590,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:7233262-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "f2727b76-11a2-5cc5-afee-e93c4c638c40",
+      "externalId": "danawa:9799152",
+      "title": "Western Digital WD NEW My Passport Gen3",
+      "imageUrl": "https://img.danuri.io/catalog-image/152/799/009/6f9f6d7c8991451db299d32d3c4b0014.jpg?shrink=500:500&_v=20260914142038",
+      "basePrice": 309000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:9799152-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "e608694d-e127-5146-a028-7bdaccf6cbf5",
+      "externalId": "danawa:98188652",
+      "title": "컨버스 스트레이트 엣지 BTS 백팩 블랙 UA5751-023",
+      "imageUrl": "https://img.danuri.io/catalog-image/652/188/098/30f310087c6c47bea26cd4229a218a88.jpg?shrink=500:500&_v=20260914080502",
+      "basePrice": 41530,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:98188652-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "2328b9f4-7bdd-54e6-a4f6-481da54de688",
+      "externalId": "danawa:98489813",
+      "title": "뉴발란스 410 실버 트레일 운동화 MT410AG5",
+      "imageUrl": "https://img.danuri.io/catalog-image/813/489/098/56b6bdcd55e24983995455a7676df7a0.jpg?shrink=500:500&_v=20260914163233",
+      "basePrice": 63959,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "danawa:98489813-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    }
+  ]
+}

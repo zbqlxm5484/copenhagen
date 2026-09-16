@@ -110,6 +110,11 @@ services:
       MERCHANT_DB_USER: ${MERCHANT_DB_USER:-merchant}
       MERCHANT_DB_PASSWORD: ${MERCHANT_DB_PASSWORD:-merchant-dev-password}
       PAY_SERVICE_URL: http://pay-service:8080
+      # 이 컨테이너가 흉내 내는 외부 사업자. 상호와 상품이 같이 간다.
+      # 몰을 바꾸려면 둘을 같이 바꾼다. catalog/danawa.json, catalog/daiso.json 이 있다.
+      MERCHANT_SELLER_NAME: ${MERCHANT_SELLER_NAME:-컬리}
+      # 시연 카탈로그 100건. 비우면 V3 시드 5건만 뜬다.
+      MERCHANT_CATALOG_SEED_FILE: ${MERCHANT_CATALOG_SEED_FILE:-classpath:catalog/kurly.json}
     depends_on:
       merchant-db:
         condition: service_healthy

@@ -1,0 +1,1908 @@
+{
+  "mall": "daiso",
+  "mallName": "다이소",
+  "source": "NomaDamas/k-skill · korean_products_clean.sqlite",
+  "count": 100,
+  "products": [
+    {
+      "id": "10ce8939-aa3a-541e-a5f6-b2387295b782",
+      "externalId": "daiso:1001712",
+      "title": "메탈 로보카 썬더",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231127/XT58urTbonf3s5HuIVgr1001712_00_00XT58urTbonf3s5HuIVgr.jpg",
+      "basePrice": 5000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1001712-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "28e4c0d3-c16d-5258-b99c-f88cccbf39f4",
+      "externalId": "daiso:1001715",
+      "title": "메탈 로보카 플레임",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231127/Izj76wzz836nRXRwZEfq1001715_00_00Izj76wzz836nRXRwZEfq.jpg",
+      "basePrice": 5000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1001715-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "0b76ef44-b203-538a-b279-b2ecd1d85a11",
+      "externalId": "daiso:1004144",
+      "title": "참나무 수저＆받침 세트",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231127/nwIoJNPOKb4tYKJUaMep1004144_00_00nwIoJNPOKb4tYKJUaMep.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1004144-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a202c8d9-46ac-5ded-badc-b288a90b0771",
+      "externalId": "daiso:1004151",
+      "title": "에센셜 마스크시트 석류",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20260527/15BbPrMAdTXpChsjYhty1004151_00_0015BbPrMAdTXpChsjYhty.jpg",
+      "basePrice": 500,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1004151-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b2486ab1-bdf5-5cb2-984f-128c04fa956e",
+      "externalId": "daiso:1004834",
+      "title": "브릭 캔디 이어폰 (BVC-30M)",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231127/bMJmsgdb1vz6pGp1cUK71004834_00_00bMJmsgdb1vz6pGp1cUK7.jpg",
+      "basePrice": 5000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1004834-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "139032bf-0d7f-50f0-ba80-400b1eb59ac8",
+      "externalId": "daiso:1004963",
+      "title": "카카오프렌즈 크리넥스 미니 티슈 230매입",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20260112/sSdTkEHwkTv7FCik6Z6a1004963_00_00sSdTkEHwkTv7FCik6Z6a.jpg",
+      "basePrice": 1500,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1004963-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "0a731011-082b-553a-8613-d59a2a6565c4",
+      "externalId": "daiso:1005024",
+      "title": "레드포인트 장식 소품",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231127/9NEFInyk2Lp9nNckOLRc1005024_00_009NEFInyk2Lp9nNckOLRc.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1005024-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "ddd2359a-21be-545e-897a-d3636cc50770",
+      "externalId": "daiso:1005030",
+      "title": "폴리 군용자동차 장식 (소)",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231127/Ihs98vwXGAvHtg44N3XM1005030_00_00Ihs98vwXGAvHtg44N3XM.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1005030-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a7ba03ee-8f12-54dd-8af5-5e8aa7d693dd",
+      "externalId": "daiso:100596042",
+      "title": "폰타나 뉴질랜드 스위트콘 즉석컵 수프 20g",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231127/SVvgci1IwHWKfi9FMVwT100596042_00_00SVvgci1IwHWKfi9FMVwT.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:100596042-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b7f43899-b7f7-59ee-8897-aef6aa77a884",
+      "externalId": "daiso:1007553",
+      "title": "오버액션토끼 여성용 덧신",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231127/j1e6WWZe4VhaYCjSj2Vz1007553_00_00j1e6WWZe4VhaYCjSj2Vz.jpg",
+      "basePrice": 1500,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1007553-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "542fc8ac-f357-5ccf-8da3-4b8afad6ef61",
+      "externalId": "daiso:1010178",
+      "title": "남성용 정장 장목 양말 3켤레",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231127/QxR5Wwj58aJBft7oTtfF1010178_00_00QxR5Wwj58aJBft7oTtfF.jpg",
+      "basePrice": 5000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1010178-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9ec9b99e-f5b1-5b88-97ae-6f593dba790e",
+      "externalId": "daiso:1011175",
+      "title": "3M 세이프 그립 기능성 안전 장갑 M",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231208/2bpChY23MrUwm51i2uA81011175_00_002bpChY23MrUwm51i2uA8.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1011175-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "18a06d76-1995-513b-a01d-c75a36f7c906",
+      "externalId": "daiso:1011176",
+      "title": "3M 세이프 그립 기능성 안전 장갑 L",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231208/aVueOlD3YOAb2HVtaDaX1011176_00_00aVueOlD3YOAb2HVtaDaX.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1011176-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "e9500bd1-b952-5422-8ac9-d0e0e9412142",
+      "externalId": "daiso:1011178",
+      "title": "3M 세이프그립 다목적 안전장갑 L",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231213/sXFJLRWaj98cQ1Zg7ToC1011178_00_00sXFJLRWaj98cQ1Zg7ToC.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1011178-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b9ba24cd-4603-5e97-a6ed-e32df6a50770",
+      "externalId": "daiso:1011293",
+      "title": "동물모양 코팩 3P",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240419/pjqzwcB8doU7b5rAwlvD1011293_00_00pjqzwcB8doU7b5rAwlvD.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1011293-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "59d83c96-895d-5b0f-9a52-d2e1a11f3078",
+      "externalId": "daiso:1011705",
+      "title": "야외용 등받이 접이식 의자 소형",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231128/b22bCeitBGvDHf5QbrRZ1011705_00_00b22bCeitBGvDHf5QbrRZ.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1011705-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "813b2174-aa0f-5c7a-8997-c4daefa4c1b6",
+      "externalId": "daiso:1012331",
+      "title": "디즈니 미키와친구들 사각 테두리 볼 12cm 블루",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231128/8sm0YmVduvQ4uEGw8IZp1012331_00_008sm0YmVduvQ4uEGw8IZp.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1012331-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b007ec1a-1225-5cbd-befa-cf7d2c0ae6ba",
+      "externalId": "daiso:1016793",
+      "title": "프린세스 목걸이 세트",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231205/Zcq1Ct18tBrvlYggMYnw1016793_00_00Zcq1Ct18tBrvlYggMYnw.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1016793-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "86aa91f7-288f-5686-8c20-92325d5b92c8",
+      "externalId": "daiso:1019072",
+      "title": "에버레스트 남성 스포츠 중목양말",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231230/ntrMdckhjLmkIt9yNiph1019072_00_00ntrMdckhjLmkIt9yNiph.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1019072-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "63b10735-371a-5958-b505-1aa082db0f45",
+      "externalId": "daiso:1019694",
+      "title": "캘리그라피북 (대) 40매입",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231130/Gsv7HZAxLoNGntOds7pg1019694_00_00Gsv7HZAxLoNGntOds7pg.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1019694-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "d36e2685-46f1-566c-8417-373c8dee6ca0",
+      "externalId": "daiso:1021041",
+      "title": "동물캐릭터버블놀이",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240603/q0Rk4ObHV9Qct9aAf3iW1021041_00_00q0Rk4ObHV9Qct9aAf3iW.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1021041-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "28783382-801f-52b0-84fa-09ad451f342e",
+      "externalId": "daiso:1022220",
+      "title": "다용도 바인더끈 230m",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231213/qH0OmaD5qCvmnMO0nU1A1022220_00_00qH0OmaD5qCvmnMO0nU1A.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1022220-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a5bf94b0-3aa9-5a02-a483-14d2341e5fac",
+      "externalId": "daiso:1023040",
+      "title": "모던 사각 바구니 4호",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231201/S5dVwricPz4ArfCGU76U1023040_00_00S5dVwricPz4ArfCGU76U.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1023040-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "26bbaf7c-2267-5e54-9c6b-09c0ace40228",
+      "externalId": "daiso:1023752",
+      "title": "세서미 스트리트 카툰 파우치 중형",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20260708/5xRyLSHzGrdpjQRdSAPx1023752_00_005xRyLSHzGrdpjQRdSAPx.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1023752-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "34f915df-3855-53d1-89db-8a07de0dc9db",
+      "externalId": "daiso:1024382",
+      "title": "가로 스트라이프 커튼 120 X 230 cm",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231215/0suJG6DSVjQYF4D6ZVvW1024382_00_000suJG6DSVjQYF4D6ZVvW.jpg",
+      "basePrice": 5000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1024382-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "e1c4a072-2c8c-54a8-bc2f-adc49b0ca5d6",
+      "externalId": "daiso:1024948",
+      "title": "앰플 용기 20 ml",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231215/iVDvCJS4EnYCq3ep73RO1024948_00_00iVDvCJS4EnYCq3ep73RO.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1024948-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b51410ee-02b3-5eb3-bb7a-a7758433d725",
+      "externalId": "daiso:1025233",
+      "title": "에버라스트 남성 스포츠 중목 양말 3켤레",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240620/3tqgjIIq56m11ZndLvxi1025233_00_003tqgjIIq56m11ZndLvxi.jpg",
+      "basePrice": 5000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1025233-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "03733b13-033b-516c-90e1-1f476a270253",
+      "externalId": "daiso:1026497",
+      "title": "파스텔 꽃잎무늬 화병 중",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20260421/t3VWvV0xhVRhB6d3rLME1026497_00_00t3VWvV0xhVRhB6d3rLME.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1026497-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "d56975a1-936c-5195-9e88-6c9b932c3db4",
+      "externalId": "daiso:1027230",
+      "title": "남성용 논슬립 스포츠양말",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231207/qsvJRIZre4Ed4Yse4ULp1027230_00_02qsvJRIZre4Ed4Yse4ULp.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1027230-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "998a7d2e-c6b1-5742-a370-10da456217d1",
+      "externalId": "daiso:1027247",
+      "title": "구체 관절 데이지 인형 파티 타임",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231207/MHXwspvovyzH3s1UAAia1027247_00_00MHXwspvovyzH3s1UAAia.jpg",
+      "basePrice": 5000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1027247-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "bb4ac1b7-5698-56dd-84b5-f1ef27c1382a",
+      "externalId": "daiso:1027773",
+      "title": "디즈니 욕실 목욕 바구니",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240710/4KXb4hkc26RyKmNlsAFY1027773_00_004KXb4hkc26RyKmNlsAFY.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1027773-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "2df4b1d6-704a-5387-ab39-01f14ab38af4",
+      "externalId": "daiso:1028001",
+      "title": "잔꽃 레이스 면덧신",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231201/Jr07cenRldJVh27kiQte1028001_00_00Jr07cenRldJVh27kiQte.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1028001-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "c3523128-d527-5fdb-9655-5b8002f06a8e",
+      "externalId": "daiso:1028003",
+      "title": "라텍스 마이크로폼 코팅장갑 M",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231205/DW7eDkCuyVvyNo2MS0Vp1028003_00_00DW7eDkCuyVvyNo2MS0Vp.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1028003-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "e43591ed-15a4-5972-b419-6eff93ee505c",
+      "externalId": "daiso:1028005",
+      "title": "터치 가능 NBR 코팅 장갑 M",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240620/sN9g0oFAY4E42QpAuK881028005_00_00sN9g0oFAY4E42QpAuK88.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1028005-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9882ced0-095f-5597-bb63-8feb8cd49b41",
+      "externalId": "daiso:1028006",
+      "title": "터치 가능 NBR 코팅 장갑 L",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240620/8cAyP83hraoqMPvudCha1028006_00_008cAyP83hraoqMPvudCha.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1028006-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "55cf665a-7279-5c97-8217-d485b3a30558",
+      "externalId": "daiso:1028241",
+      "title": "디즈니 욕실 메쉬세탁바구니(약35X35X60 cm)",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231220/vbNsivcxB6MyHmK1igFJ1028241_00_00vbNsivcxB6MyHmK1igFJ.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1028241-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "247f474f-0616-5983-b53e-f0c162af2e0d",
+      "externalId": "daiso:1028247",
+      "title": "여성 골지 장목양말 4개입",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231201/7A8hBBz77AZ3sVGl1JeG1028247_00_007A8hBBz77AZ3sVGl1JeG.jpg",
+      "basePrice": 5000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1028247-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "190b31fa-1230-559e-88d3-c224090baec3",
+      "externalId": "daiso:1028396",
+      "title": "뉴본 튤립형 금장 컬러 티스푼통",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231201/J5K7aVYfL27vohHjBg4P1028396_00_00J5K7aVYfL27vohHjBg4P.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1028396-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "cd466829-af43-511a-92c9-cf8f994cb016",
+      "externalId": "daiso:1028397",
+      "title": "뉴본 복주머니형 금장 컬러 티스푼통",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231201/HljMiIVHIFZfuUoZmGLX1028397_00_00HljMiIVHIFZfuUoZmGLX.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1028397-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "11292e7a-3a83-50a3-a7ac-5cbd3ab32717",
+      "externalId": "daiso:1029671",
+      "title": "버블 망사 샤워 타월",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231213/30AgrwNFKce7hT2Dg13V1029671_00_0030AgrwNFKce7hT2Dg13V.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1029671-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b1e02476-08bf-56c4-8971-6c8342099db8",
+      "externalId": "daiso:1029672",
+      "title": "보들보들 저자극 샤워 타월 23 X 95 cm",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240514/1rJFUsFOjaqCn7hrsjt81029672_00_001rJFUsFOjaqCn7hrsjt8.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1029672-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "fea4fd86-f432-5726-9eea-607979aa9af0",
+      "externalId": "daiso:1029974",
+      "title": "포인트 누빔 발매트 47 X 67 cm",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231205/SAh6pROz98u7Bexy7kGa1029974_00_00SAh6pROz98u7Bexy7kGa.jpg",
+      "basePrice": 5000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1029974-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "5d1fae4b-2530-5a5c-85e9-5e653d625896",
+      "externalId": "daiso:1031185",
+      "title": "끈끈이 놀이 지네",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240802/ZSml2zvDgzJUjBZvvZZe1031185_00_00ZSml2zvDgzJUjBZvvZZe.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1031185-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "397d0eee-6e8c-5d1e-9c8a-240feec4b8a9",
+      "externalId": "daiso:1031196",
+      "title": "구체 관절 릴리 인형 데이트 룩",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240708/DEWTxkriQr8plhEgfAe01031196_00_00DEWTxkriQr8plhEgfAe0.jpg",
+      "basePrice": 5000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1031196-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "6840a626-5767-5427-b9d6-8eac12a4d1ca",
+      "externalId": "daiso:1032246",
+      "title": "프린세스 매직 요술봉",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231128/siIXZG9rED9EUv7usAy21032246_00_00siIXZG9rED9EUv7usAy2.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1032246-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "248775b4-007a-59de-97ed-220b4fc93638",
+      "externalId": "daiso:1032383",
+      "title": "아이스 유리컵 370 ml",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231130/rR1vmuaoqmU7Dg1oXDuB1032383_00_00rR1vmuaoqmU7Dg1oXDuB.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1032383-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "6d26fee3-59bb-58ca-9aa3-ba119324e120",
+      "externalId": "daiso:1032673",
+      "title": "누빔 극세사 다용도 매트 50 X 160 cm",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231128/67WXZ9qt9TYGKZ6rWnLJ1032673_00_0067WXZ9qt9TYGKZ6rWnLJ.jpg",
+      "basePrice": 5000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1032673-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "2c1884dd-d324-5bb3-a979-5e6a942ca112",
+      "externalId": "daiso:1033155",
+      "title": "원예용 바람개비 장식",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231128/ugXFcE5M9sBj0CcWoeiu1033155_00_00ugXFcE5M9sBj0CcWoeiu.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1033155-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "649fd1c9-5fca-51e4-85dc-7cb98a42a6d4",
+      "externalId": "daiso:1033376",
+      "title": "크리넥스 실크 소프트 200매입 (코튼향)",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240318/xpeSLjFTZjlwC545gguY1033376_00_00xpeSLjFTZjlwC545gguY.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1033376-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "d1535200-2d2a-506e-b9e0-d530249ac6d1",
+      "externalId": "daiso:1034523",
+      "title": "애교살 라이너 (베이지)",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231204/qcur5YktSePwATs0qFfm1034523_00_00qcur5YktSePwATs0qFfm.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1034523-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "949312d7-be8f-5fbe-b696-d7764ceb9c42",
+      "externalId": "daiso:1034731",
+      "title": "코끼리 폴리레진 장식",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231128/FRINlnQ1LVXcX0td11Gt1034731_00_00FRINlnQ1LVXcX0td11Gt.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1034731-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "ed1f84b2-cfba-5e19-b332-4cb2c5148b7f",
+      "externalId": "daiso:1034889",
+      "title": "금박 디자인 생일 가랜드",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231130/BzkMMddlQF3aukpuN87Z1034889_00_00BzkMMddlQF3aukpuN87Z.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1034889-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "e50462ee-caa0-503b-ae61-592169d0ba7d",
+      "externalId": "daiso:1035413",
+      "title": "지끈 수납 바구니",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231215/NmJ2JZRtHiMDhF8VWWnv1035413_00_01NmJ2JZRtHiMDhF8VWWnv.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1035413-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "abb5b193-8e4f-5d27-a4ac-681c4dfbcb9a",
+      "externalId": "daiso:1035709",
+      "title": "스텐 조리 다용도 집게 19.5cm",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231129/UOP2A21yQCrEKLy724721035709_00_00UOP2A21yQCrEKLy72472.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1035709-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "f535da5d-c1f8-5088-880c-6d016d2cd553",
+      "externalId": "daiso:1036064",
+      "title": "케어베어 아크릴 키링",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240812/14JpmMpDmciQKyW931TT1036064_00_0014JpmMpDmciQKyW931TT.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1036064-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "6f01e507-18ae-5909-a15f-71fc6f3dc620",
+      "externalId": "daiso:1036172",
+      "title": "캠핑) 캠핑 공구 수납 파우치",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231204/8VMcbL5lbKC2yw3fZL7G1036172_00_038VMcbL5lbKC2yw3fZL7G.jpg",
+      "basePrice": 5000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1036172-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "eb76c2f2-5bba-5b2a-85bf-d5bbed8c49ca",
+      "externalId": "daiso:1036380",
+      "title": "젤네일 파일 2개입",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231129/T7N5ivrU5odxiOjA21je1036380_00_00T7N5ivrU5odxiOjA21je.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1036380-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "8e6903c4-5bdd-5665-b7d2-6bed82acfc5a",
+      "externalId": "daiso:1036747",
+      "title": "세계국기 커피잔 세트 220ml (프랑스,영국,독일,캐나다)",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231204/3CwhfyZY1LrNy7cmxBLb1036747_00_013CwhfyZY1LrNy7cmxBLb.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1036747-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "4397275c-74a8-5596-befb-7ae77195cfb0",
+      "externalId": "daiso:1036760",
+      "title": "세계국기 머그 360ml (프랑스,이태리,스웨덴,독일)",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231204/FVCP7eLUofnoYPfKLWdZ1036760_00_00FVCP7eLUofnoYPfKLWdZ.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1036760-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "f9c4e9ef-9de8-5481-bc5b-6c8ea57661d4",
+      "externalId": "daiso:1036779",
+      "title": "나무판 풍경",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20260420/ysJGLtcb2aesL748vTy11036779_00_00ysJGLtcb2aesL748vTy1.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1036779-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "ed6ef86d-f09c-514e-b81b-1ef6b43ed899",
+      "externalId": "daiso:1036794",
+      "title": "케어베어 자 15 cm 2개입",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240617/dyQ4MdM5Z22wEHXsLgAs1036794_00_00dyQ4MdM5Z22wEHXsLgAs.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1036794-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "6dfb0e8c-0a05-533d-883a-b4fbd40d05bc",
+      "externalId": "daiso:1037413",
+      "title": "바닥면이 넓은 접착식 OPP 봉투 20 X 25 cm 15매입",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240618/oONVBwFvQiCybZ0Qm8r31037413_00_00oONVBwFvQiCybZ0Qm8r3.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1037413-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9dcf488b-5b00-5f52-b0ce-f276dcc51315",
+      "externalId": "daiso:1037915",
+      "title": "미니어쳐시리즈 (과일,꽃)",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231204/gGr03CjHt6n23UI81GBM1037915_00_00gGr03CjHt6n23UI81GBM.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1037915-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a3a36759-c06e-57e2-845b-f9e242e8c6c1",
+      "externalId": "daiso:1037998",
+      "title": "전통 꽃 봉투 2매입",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240226/4iuuqbLQDrylDOacqPKZ1037998_00_004iuuqbLQDrylDOacqPKZ.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1037998-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "85ff0e95-52b6-58a5-bb58-feeb4a2348e6",
+      "externalId": "daiso:1038266",
+      "title": "캠핑) 오거나이저 6포켓 (종이컵홀더)",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231204/cTYUGyHPt1z0Z4IdzR091038266_00_00cTYUGyHPt1z0Z4IdzR09.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1038266-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9ca380e4-713b-5b06-b163-d6ce3293190c",
+      "externalId": "daiso:1038755",
+      "title": "전통 봉투 2매입",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240227/3mZf9U1SQ3WPCxFu71wo1038755_00_003mZf9U1SQ3WPCxFu71wo.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1038755-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "7a44bf2a-eb95-5cd0-8524-61ae439c1349",
+      "externalId": "daiso:1038806",
+      "title": "감사 꽃 카드 2매입",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231129/qiw20JTTDvYNFoKNZwcZ1038806_00_00qiw20JTTDvYNFoKNZwcZ.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1038806-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "77633154-c890-58d9-a248-c3cf48bcac9a",
+      "externalId": "daiso:1039541",
+      "title": "심플 레저 반장갑 M ~ L",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231201/PwToWrQbXSYp19BI5TqM1039541_00_00PwToWrQbXSYp19BI5TqM.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1039541-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "394dc0e8-e163-54ac-b9f1-b8f77cc52599",
+      "externalId": "daiso:1039911",
+      "title": "[펫] 솜뭉치 방울 고양이 낚싯대",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231201/aT7GqBG1qHZ587luRD8Y1039911_00_00aT7GqBG1qHZ587luRD8Y.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1039911-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "556865ee-d446-514f-9e4a-3e09144eb7c7",
+      "externalId": "daiso:1039912",
+      "title": "[펫] 깃털 고양이 낚싯대",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231205/LSFPXCLdKNP8TWkHpc971039912_00_00LSFPXCLdKNP8TWkHpc97.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1039912-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "c83335d0-8f06-5953-abb5-88981f4638f0",
+      "externalId": "daiso:1039985",
+      "title": "폴꾸 케어베어 네컷사진 포토앨범 20매 40포켓",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240709/6cUEvh5TCoEZiclFyUhZ1039985_00_006cUEvh5TCoEZiclFyUhZ.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1039985-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "031148cb-bea5-5740-b81d-aee23a77e83f",
+      "externalId": "daiso:1040485",
+      "title": "슬림 원터치 휴지통 1.5L",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20241220/cSOkzM7OEbqL43iYR4aA1040485_00_00cSOkzM7OEbqL43iYR4aA.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1040485-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "23ad1a5b-c888-573d-80a6-62e04832ee59",
+      "externalId": "daiso:1040673",
+      "title": "디즈니 다용도 수납함",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231205/JnA51mmtQuZqPw34Mtev1040673_00_02JnA51mmtQuZqPw34Mtev.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1040673-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "fbacbffa-7cb7-5d45-ae8a-d53e51af773c",
+      "externalId": "daiso:1041508",
+      "title": "샤워봉 거치 선반 소형",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240220/gRIkAph2W8GjfffoVTFw1041508_00_00gRIkAph2W8GjfffoVTFw.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1041508-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "5d396373-c179-54a4-aeac-75b13a68caaa",
+      "externalId": "daiso:1042358",
+      "title": "스포츠 롤 테이핑",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231204/Z5RHghXbO3qxD8Y1uceD1042358_00_00Z5RHghXbO3qxD8Y1uceD.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1042358-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "5fb07e34-d6d7-5757-be48-5ac6f1befca4",
+      "externalId": "daiso:1043371",
+      "title": "캠핑 플라스틱 시에라 컵 360ml",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231213/9smveU2LaVAJdji44skw1043371_00_009smveU2LaVAJdji44skw.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1043371-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "efd81076-7c8e-5ae5-b0b3-edf496252d99",
+      "externalId": "daiso:1043372",
+      "title": "캠핑 플라스틱 시에라 컵 300ml",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231213/upUpgypggStARTLt3hRY1043372_00_00upUpgypggStARTLt3hRY.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1043372-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "7af88c6d-6d2e-58a6-b765-192c878dc942",
+      "externalId": "daiso:1044460",
+      "title": "5단 길이 조절 파리채",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231204/Owutld2FiTVakuFoMids1044460_00_00Owutld2FiTVakuFoMids.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1044460-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "e3bb8c40-bf96-5e12-a983-4eadfa4f8b4a",
+      "externalId": "daiso:1045419",
+      "title": "태그 벨벳 커버 쿠션 15 g 누드 라이트",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231220/qs9wr8Zj7pW4EFJBMfjo1045419_00_01qs9wr8Zj7pW4EFJBMfjo.jpg",
+      "basePrice": 5000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1045419-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "6235cda2-ef6f-5ba9-a04f-2bd0e3aad987",
+      "externalId": "daiso:1045471",
+      "title": "[펫] 후드 티셔츠 M",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240321/ogCPHQ25YfTy5jErbMwS1045471_00_00ogCPHQ25YfTy5jErbMwS.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1045471-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "2e895d01-a517-5730-89ef-5cdd26124d12",
+      "externalId": "daiso:1045696",
+      "title": "테니스 라켓 쿠션 랩 7 cm X 12 m",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20250108/8qCrTzbyCnFIOZk5zrOi1045696_00_008qCrTzbyCnFIOZk5zrOi.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1045696-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "2fa4b09c-5f77-5914-86a8-0014c8942966",
+      "externalId": "daiso:1046376",
+      "title": "[펫] 배낭 하네스 세트 L",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240607/TZzne5W3I3C83vGtoGlv1046376_00_00TZzne5W3I3C83vGtoGlv.jpg",
+      "basePrice": 5000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1046376-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "d22d8ff4-b29e-5b00-8725-8efb3ce8b6b6",
+      "externalId": "daiso:1050024",
+      "title": "[펫] 하트 시스루 크롭 티 M",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240322/ECOvGkt6S2Zc25yZQt6C1050024_00_00ECOvGkt6S2Zc25yZQt6C.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1050024-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "2ae5bf09-34d7-5232-8c8e-d275e97d631b",
+      "externalId": "daiso:1050032",
+      "title": "[펫] 캠핑 티셔츠 M",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240326/0ykZiqZfB0olJkR2DsbG1050032_00_000ykZiqZfB0olJkR2DsbG.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1050032-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9280abac-d18b-5d32-88f0-79a1dd206fb9",
+      "externalId": "daiso:1050035",
+      "title": "[펫] 캠핑 티셔츠 L",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240326/1d94beThDwYlWTVKEjAT1050035_00_001d94beThDwYlWTVKEjAT.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1050035-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b3e661a7-00d0-5615-ba20-450d8d444e44",
+      "externalId": "daiso:1050042",
+      "title": "[펫] 체크 버킷햇 M",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240326/Yf8tfpGsmgxAv0cjd5vB1050042_00_00Yf8tfpGsmgxAv0cjd5vB.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1050042-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "33652818-0241-5ced-bff5-bd55b7dd795c",
+      "externalId": "daiso:1050135",
+      "title": "치약걸이 3개입",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20240326/zV5icUamToiUJxWRTIZP1050135_00_00zV5icUamToiUJxWRTIZP.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1050135-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "13c97b3b-eca0-50c8-b798-6ab2d6768c9e",
+      "externalId": "daiso:105200963",
+      "title": "청정원 발효 미원 50 g",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20260402/3VtIin3JAetZqS3RJ5PS105200963_00_003VtIin3JAetZqS3RJ5PS.jpg",
+      "basePrice": 1500,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:105200963-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "7140d1f4-72ce-5b9b-8626-d12bf1a5c2cf",
+      "externalId": "daiso:105572317",
+      "title": "네슬러 테이스터스 초이스 오리지널 커피믹스 20개입",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231205/7efSfMUzOmylgjlfiabW105572317_00_007efSfMUzOmylgjlfiabW.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:105572317-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "47df8922-e91b-57d0-adb7-6a62c70be2e2",
+      "externalId": "daiso:105604187",
+      "title": "레쓰비 모카라떼 175 ml",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231130/Lrs0vemnWFUmwfkr8Ya4105604187_00_00Lrs0vemnWFUmwfkr8Ya4.jpg",
+      "basePrice": 500,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:105604187-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "0118f15a-1ae9-5212-9136-972f7a84aa06",
+      "externalId": "daiso:105608045",
+      "title": "칸타타 아메리카노 390 ml",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231130/qcbs4KbWWdNiKATHojUb105608045_00_00qcbs4KbWWdNiKATHojUb.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:105608045-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "f2dceef7-09c2-5e25-a95c-14019bea2d1e",
+      "externalId": "daiso:1056994",
+      "title": "직사각 네트망 바구니 블랙",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20251208/RZUYLBRijemRGd1apaRL1056994_00_00RZUYLBRijemRGd1apaRL.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1056994-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "0dc7f955-a56f-50de-ad4f-13e3f626f40e",
+      "externalId": "daiso:1056995",
+      "title": "직사각 네트망 바구니 화이트",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20251208/fY7sE0ZlXUbwqrHS596n1056995_00_00fY7sE0ZlXUbwqrHS596n.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1056995-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "4eb05227-4bca-55d4-ae59-10af45628cbf",
+      "externalId": "daiso:1057154",
+      "title": "반원 네트망 바구니 블랙",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20251208/8dltRushDjIpA71512Rk1057154_00_008dltRushDjIpA71512Rk.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1057154-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "6adb7c72-32c8-537b-a69d-e558be0c2d90",
+      "externalId": "daiso:1069666",
+      "title": "투톤 우븐 꼬임 바구니 소형/대형",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20260210/LYBxM28EUymHm2PwFv4d1069666_00_00LYBxM28EUymHm2PwFv4d.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:1069666-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "434d70d3-254d-51da-b9bf-f3bbd3e6d2f3",
+      "externalId": "daiso:110477043",
+      "title": "빙그레 뽀로로와 친구들 치즈맛 65g",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231130/YJZ5cQtSoBxO285ly5CQ110477043_00_00YJZ5cQtSoBxO285ly5CQ.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:110477043-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "1261790b-7754-5499-89d3-f256e33080a3",
+      "externalId": "daiso:111118620",
+      "title": "크라운 쵸코하임 47g",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231130/DjLqAxJkzbIA57UnKBsm111118620_00_00DjLqAxJkzbIA57UnKBsm.jpg",
+      "basePrice": 1000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:111118620-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "ae69f8a8-be21-5af5-b06c-b72d73f19e44",
+      "externalId": "daiso:111161456",
+      "title": "크라운 참 크래커 280g",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231130/4REcH7KOHDgX485WiJ99111161456_00_004REcH7KOHDgX485WiJ99.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:111161456-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "c71c0b2f-3178-5d0b-b41e-88ea46258ab8",
+      "externalId": "daiso:111190805",
+      "title": "크라운 쵸코파이 420 g",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231129/9Mgd2nbSnKEldTlZOe9Q111190805_00_009Mgd2nbSnKEldTlZOe9Q.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:111190805-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "ed28d4a4-dbf4-50bb-ab98-4ffdd0985320",
+      "externalId": "daiso:24355",
+      "title": "베스트 스윙 휴지통",
+      "imageUrl": "https://cdn.daisomall.co.kr/file/PD/20231208/dkayvhsKCYYe1nVqYItU24355_00_00dkayvhsKCYYe1nVqYItU.jpg",
+      "basePrice": 2000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "daiso:24355-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    }
+  ]
+}
