@@ -62,7 +62,8 @@ final class InMemoryCheckoutRepository implements CheckoutRepository {
     }
 
     @Override
-    public boolean beginPayment(String id, OffsetDateTime requestedAt) {
+    public boolean beginPayment(String id, OffsetDateTime requestedAt, String credentialId,
+            OffsetDateTime firstRecheckAt) {
         CheckoutSession current = rows.get(id);
         if (current == null || payments.containsKey(id)) {
             return false;
@@ -70,6 +71,22 @@ final class InMemoryCheckoutRepository implements CheckoutRepository {
         payments.put(id, new PaymentRow(PaymentStatus.PROCESSING, null, requestedAt));
         rows.put(id, current.withVersion(current.version() + 1));
         return true;
+    }
+
+    @Override
+    public List<PaymentRecheck> claimUnknownDue(OffsetDateTime now, OffsetDateTime leaseUntil,
+            int maxAttempts, int limit) {
+        return List.of();
+    }
+
+    @Override
+    public boolean resolvePayment(String id, PaymentStatus status, String payPaymentId) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean scheduleNextRecheck(String id, OffsetDateTime nextAttemptAt) {
+        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -51,7 +51,8 @@ class HttpPayClientTest {
     void setUp() {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new HttpPayClient(new PayProperties(BASE_URL, "test-token", null, null), objectMapper, builder);
+        client = new HttpPayClient(new PayProperties(BASE_URL, "test-token", null, null, null, 0),
+                objectMapper, builder);
     }
 
     @Test

@@ -24,6 +24,9 @@ import tools.jackson.databind.ObjectMapper;
  * <p>응답은 세 갈래로 접는다. 2xx 는 본문 status 그대로, 4xx 는 {@code FAILED}(Pay 가 처리하지 않은 것이
  * 확실하다), 그 밖의 모든 것은 {@code UNKNOWN} 이다. 어떤 경우에도 예외를 밖으로 내지 않는다.
  *
+ * <p>{@code GET /merchant/v1/payments/&#123;paymentId&#125;} 도 여기 있다(183). 조회는 4xx 에서 청구와 갈린다.
+ * 조회가 거절된 것은 결제 결과가 아니므로 {@code FAILED} 가 아니라 {@code UNKNOWN} 이다(DESIGN.md 8.8절).
+ *
  * <p>RestClient 는 직접 조립한다. Boot 4 가 자동설정을 기술별 모듈로 쪼개서 {@code RestClient.Builder}
  * 빈이 있는지 확신할 수 없기 때문이다(Flyway 건과 같다. DESIGN.md 15.2절). JSON 도 메시지 컨버터에 기대지
  * 않고 {@link ObjectMapper} 로 문자열을 직접 쓰고 읽는다.
@@ -41,6 +44,15 @@ public class HttpPayClient implements PayClient {
     static final String ERROR_MALFORMED_BODY = "PAY_MALFORMED_BODY";
     static final String ERROR_STATUS_UNRECOGNIZED = "PAY_STATUS_UNRECOGNIZED";
     static final String ERROR_HTTP_PREFIX = "PAY_HTTP_";
+
+    /**
+     * Pay 의 {@code PayErrorCode.IDEMPOTENCY_CONFLICT}. 같은 멱등 키에 다른 본문을 보냈을 때 돌아온다.
+     *
+     * <p>재POST(183)에서 이 코드를 받으면 결제가 실패한 것이 아니라 내가 되살린 본문이 처음 보낸 것과
+     * 다르다는 뜻이다. Pay 는 본문을 JCS 로 정규화한 뒤 해시하므로 키 순서나 공백 때문일 수는 없다.
+     * 값이 실제로 다르다 — 내 버그다(DESIGN.md 8.8절).
+     */
+    static final String ERROR_IDEMPOTENCY_CONFLICT = "IDEMPOTENCY_CONFLICT";
 
     private static final Logger LOG = LoggerFactory.getLogger(HttpPayClient.class);
     private static final TypeReference<Map<String, Object>> JSON_OBJECT = new TypeReference<>() {
@@ -86,6 +98,44 @@ public class HttpPayClient implements PayClient {
                     request.businessCheckoutId(), requestId, exception.toString());
             return PaymentResult.unknown(ERROR_UNREACHABLE);
         }
+    }
+
+    @Override
+    public PaymentResult lookup(String paymentId) {
+        String requestId = UUID.randomUUID().toString();
+        try {
+            PaymentResult result = restClient.get()
+                    .uri(PAYMENTS_PATH + "/{paymentId}", paymentId)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.bearerToken())
+                    .header(REQUEST_ID_HEADER, requestId)
+                    .exchange((httpRequest, response) ->
+                            mapLookup(response.getStatusCode(), response.bodyTo(String.class)));
+            LOG.info("Pay 결제 조회 응답. paymentId={} requestId={} status={} errorCode={}",
+                    paymentId, requestId, result.status(), result.errorCode());
+            return result;
+        } catch (RuntimeException exception) {
+            LOG.warn("Pay 결제 조회 응답을 받지 못했다. UNKNOWN 으로 남긴다. paymentId={} requestId={} cause={}",
+                    paymentId, requestId, exception.toString());
+            return PaymentResult.unknown(ERROR_UNREACHABLE);
+        }
+    }
+
+    /**
+     * 조회 응답을 접는다. 청구({@link #map})와 4xx 에서 갈린다.
+     *
+     * <p>청구의 4xx 는 "Pay 가 처리하지 않았다" 라서 {@code FAILED} 가 맞다. 조회의 4xx 는 결제 결과가 아니다.
+     * 404 는 그 결제가 없다는 뜻이고 401·403 은 내 설정 문제다. 어느 쪽도 "결제가 실패했다" 가 아니므로
+     * {@code UNKNOWN} 을 유지한다. 사실이 아닌 것을 기록하지 않는다(DESIGN.md 8.8절).
+     */
+    PaymentResult mapLookup(HttpStatusCode status, String body) {
+        if (status.is2xxSuccessful()) {
+            return fromPaymentBody(body);
+        }
+        String code = status.is4xxClientError()
+                ? errorCodeOf(body, ERROR_HTTP_PREFIX + status.value())
+                : ERROR_HTTP_PREFIX + status.value();
+        LOG.warn("Pay 결제 조회가 실패했다. UNKNOWN 을 유지한다. http={} code={}", status.value(), code);
+        return PaymentResult.unknown(code);
     }
 
     /** 상태 코드와 본문을 결과로 접는다. 여기서 던지는 예외는 없다. */

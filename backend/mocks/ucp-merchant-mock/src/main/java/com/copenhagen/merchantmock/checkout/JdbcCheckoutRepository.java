@@ -1,6 +1,7 @@
 package com.copenhagen.merchantmock.checkout;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import com.copenhagen.contract.internalapi.PaymentStatus;
@@ -54,9 +55,40 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
                AND status = 'READY_FOR_COMPLETE'
             """;
 
+    private static final String CLAIM_UNKNOWN_DUE = """
+            UPDATE checkout_sessions
+               SET payment_next_attempt_at = ?,
+                   payment_attempt_count   = payment_attempt_count + 1,
+                   updated_at              = now()
+             WHERE id IN (SELECT id
+                            FROM checkout_sessions
+                           WHERE payment_status = 'UNKNOWN'
+                             AND payment_next_attempt_at <= ?
+                             AND payment_attempt_count < ?
+                           ORDER BY payment_next_attempt_at
+                           LIMIT ?)
+               AND payment_status = 'UNKNOWN'
+            RETURNING id, pay_payment_id, payment_credential_id, merchant_authorization_jws,
+                      total_amount, currency, payment_attempt_count
+            """;
+
+    private static final String RESOLVE_PAYMENT = """
+            UPDATE checkout_sessions
+               SET payment_status = ?, pay_payment_id = COALESCE(?, pay_payment_id),
+                   payment_next_attempt_at = NULL, updated_at = now()
+             WHERE id = ? AND payment_status = 'UNKNOWN'
+            """;
+
+    private static final String SCHEDULE_NEXT_RECHECK = """
+            UPDATE checkout_sessions
+               SET payment_next_attempt_at = ?, updated_at = now()
+             WHERE id = ? AND payment_status = 'UNKNOWN'
+            """;
+
     private static final String BEGIN_PAYMENT = """
             UPDATE checkout_sessions
                SET payment_status = 'PROCESSING', payment_requested_at = ?,
+                   payment_credential_id = ?, payment_next_attempt_at = ?,
                    version = version + 1, updated_at = now()
              WHERE id = ? AND payment_status IS NULL
             """;
@@ -67,6 +99,15 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
                    version = version + 1, updated_at = now()
              WHERE id = ? AND payment_status = 'PROCESSING'
             """;
+
+    private static final RowMapper<PaymentRecheck> RECHECK_MAPPER = (rs, rowNum) -> new PaymentRecheck(
+            rs.getString("id"),
+            rs.getString("pay_payment_id"),
+            rs.getString("payment_credential_id"),
+            rs.getString("merchant_authorization_jws"),
+            rs.getObject("total_amount", Long.class),
+            rs.getString("currency"),
+            rs.getInt("payment_attempt_count"));
 
     private static final RowMapper<CheckoutSession> ROW_MAPPER = (rs, rowNum) -> new CheckoutSession(
             rs.getString("id"),
@@ -115,8 +156,25 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
     }
 
     @Override
-    public boolean beginPayment(String id, OffsetDateTime requestedAt) {
-        return jdbcTemplate.update(BEGIN_PAYMENT, requestedAt, id) == 1;
+    public boolean beginPayment(String id, OffsetDateTime requestedAt, String credentialId,
+            OffsetDateTime firstRecheckAt) {
+        return jdbcTemplate.update(BEGIN_PAYMENT, requestedAt, credentialId, firstRecheckAt, id) == 1;
+    }
+
+    @Override
+    public List<PaymentRecheck> claimUnknownDue(OffsetDateTime now, OffsetDateTime leaseUntil,
+            int maxAttempts, int limit) {
+        return jdbcTemplate.query(CLAIM_UNKNOWN_DUE, RECHECK_MAPPER, leaseUntil, now, maxAttempts, limit);
+    }
+
+    @Override
+    public boolean resolvePayment(String id, PaymentStatus status, String payPaymentId) {
+        return jdbcTemplate.update(RESOLVE_PAYMENT, status.name(), payPaymentId, id) == 1;
+    }
+
+    @Override
+    public boolean scheduleNextRecheck(String id, OffsetDateTime nextAttemptAt) {
+        return jdbcTemplate.update(SCHEDULE_NEXT_RECHECK, nextAttemptAt, id) == 1;
     }
 
     @Override

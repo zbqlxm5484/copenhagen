@@ -1,6 +1,7 @@
 package com.copenhagen.merchantmock.checkout;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import com.copenhagen.contract.internalapi.PaymentStatus;
@@ -44,7 +45,8 @@ public interface CheckoutRepository {
      * <p>false 면 이 체크아웃에 이미 결제가 있다. 부르는 쪽(PaymentService)은 그것을 재진입 버그로 본다.
      * {@code payment_attempt_count} 는 올리지 않는다. 그 컬럼은 재조회 횟수다(5.4절).
      */
-    boolean beginPayment(String id, OffsetDateTime requestedAt);
+    boolean beginPayment(String id, OffsetDateTime requestedAt, String credentialId,
+            OffsetDateTime firstRecheckAt);
 
     /**
      * 결제 결과 반영. {@code payment_status = 'PROCESSING'} 인 행만 바꾼다(DESIGN.md 7.2절).
@@ -52,4 +54,23 @@ public interface CheckoutRepository {
      * @param payPaymentId Pay 가 준 paymentId. null 이면 있던 값을 지우지 않는다. UNKNOWN 이어도 있으면 저장한다
      */
     boolean finishPayment(String id, PaymentStatus status, String payPaymentId);
+
+    /**
+     * 기한이 된 {@code UNKNOWN} 을 집는다(183, DESIGN.md 8.8절). 집으면서 {@code payment_next_attempt_at} 을
+     * {@code leaseUntil} 로 밀고 {@code payment_attempt_count} 를 올린다.
+     *
+     * <p>{@code payment_attempt_count >= maxAttempts} 는 집지 않는다. 한도를 넘긴 행은 상태를 바꾸지 않고
+     * 스캔에서만 뺀다 — {@code UNKNOWN} 자체가 이미 사람이 확인해야 하는 상태라 옮길 곳이 없다(8.3절).
+     */
+    List<PaymentRecheck> claimUnknownDue(OffsetDateTime now, OffsetDateTime leaseUntil, int maxAttempts, int limit);
+
+    /**
+     * 재조회로 결과가 확정됐다. {@code UNKNOWN} 인 행만 바꾸고 {@code payment_next_attempt_at} 을 비운다.
+     *
+     * @param payPaymentId 조회로 처음 알게 된 경우가 있다. null 이면 기존 값을 지우지 않는다
+     */
+    boolean resolvePayment(String id, PaymentStatus status, String payPaymentId);
+
+    /** 아직 {@code UNKNOWN} 이다. 다음에 볼 시각만 민다. */
+    boolean scheduleNextRecheck(String id, OffsetDateTime nextAttemptAt);
 }

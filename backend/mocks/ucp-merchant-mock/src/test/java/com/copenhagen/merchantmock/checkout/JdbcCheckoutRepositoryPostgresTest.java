@@ -297,8 +297,8 @@ class JdbcCheckoutRepositoryPostgresTest {
         repository.insert(ready("checkout-1", NOW.plusMinutes(5)));
 
         // when
-        boolean first = repository.beginPayment("checkout-1", NOW);
-        boolean second = repository.beginPayment("checkout-1", NOW.plusSeconds(1));
+        boolean first = repository.beginPayment("checkout-1", NOW, "cred-1", NOW.plusSeconds(30));
+        boolean second = repository.beginPayment("checkout-1", NOW.plusSeconds(1), "cred-1", NOW.plusSeconds(31));
 
         // then
         assertTrue(first);
@@ -318,7 +318,7 @@ class JdbcCheckoutRepositoryPostgresTest {
     void finishPayment_processingRow_appliesStatusAndPaymentIdOnce() {
         // given
         repository.insert(ready("checkout-1", NOW.plusMinutes(5)));
-        repository.beginPayment("checkout-1", NOW);
+        repository.beginPayment("checkout-1", NOW, "cred-1", NOW.plusSeconds(30));
 
         // when
         boolean finished = repository.finishPayment("checkout-1", PaymentStatus.SUCCESS, "pay-1");
@@ -337,7 +337,7 @@ class JdbcCheckoutRepositoryPostgresTest {
     void finishPayment_nullPaymentId_keepsExistingPaymentId() {
         // given
         repository.insert(ready("checkout-1", NOW.plusMinutes(5)));
-        repository.beginPayment("checkout-1", NOW);
+        repository.beginPayment("checkout-1", NOW, "cred-1", NOW.plusSeconds(30));
         jdbc.update("UPDATE checkout_sessions SET pay_payment_id = 'pay-before' WHERE id = ?", "checkout-1");
 
         // when
@@ -375,7 +375,7 @@ class JdbcCheckoutRepositoryPostgresTest {
         List<Callable<Boolean>> tasks = IntStream.range(0, threads)
                 .mapToObj(i -> (Callable<Boolean>) () -> {
                     barrier.await(5, TimeUnit.SECONDS);
-                    return repository.beginPayment("checkout-1", NOW);
+                    return repository.beginPayment("checkout-1", NOW, "cred-1", NOW.plusSeconds(30));
                 })
                 .toList();
 
@@ -433,5 +433,169 @@ class JdbcCheckoutRepositoryPostgresTest {
 
     private int count() {
         return jdbc.queryForObject("SELECT count(*) FROM checkout_sessions", Integer.class);
+    }
+    /** UNKNOWN 으로 남은 행 하나. 청구까지 갔다가 결과를 못 받은 상태를 만든다. */
+    private void unknownRow(String id, int attemptCount, OffsetDateTime nextAttemptAt, String payPaymentId) {
+        repository.insert(ready(id, NOW.plusMinutes(5)));
+        repository.beginPayment(id, NOW, "cred-" + id, NOW.plusSeconds(30));
+        repository.finishPayment(id, PaymentStatus.UNKNOWN, payPaymentId);
+        jdbc.update("""
+                UPDATE checkout_sessions
+                   SET payment_attempt_count = ?, payment_next_attempt_at = ?
+                 WHERE id = ?
+                """, attemptCount, nextAttemptAt, id);
+    }
+
+    @Test
+    @DisplayName("청구 직전에 credentialId 와 첫 재조회 시각을 같이 적는다")
+    void beginPayment_freshRow_storesCredentialAndFirstRecheck() {
+        // given
+        repository.insert(ready("checkout-1", NOW.plusMinutes(5)));
+
+        // when
+        repository.beginPayment("checkout-1", NOW, "cred-1", NOW.plusSeconds(30));
+
+        // then
+        assertEquals("cred-1", jdbc.queryForObject(
+                "SELECT payment_credential_id FROM checkout_sessions WHERE id = ?", String.class, "checkout-1"));
+        assertEquals(NOW.plusSeconds(30).toInstant(), jdbc.queryForObject(
+                "SELECT payment_next_attempt_at FROM checkout_sessions WHERE id = ?",
+                OffsetDateTime.class, "checkout-1").toInstant());
+    }
+
+    @Test
+    @DisplayName("기한이 된 UNKNOWN 을 집으면서 리스를 걸고 시도 횟수를 올린다")
+    void claimUnknownDue_dueRow_returnsProjectionAndLeases() {
+        // given
+        unknownRow("checkout-1", 1, NOW, "pay-1");
+
+        // when
+        OffsetDateTime leaseUntil = NOW.plusMinutes(2);
+        List<PaymentRecheck> claimed = repository.claimUnknownDue(NOW, leaseUntil, 10, 100);
+
+        // then
+        assertEquals(1, claimed.size());
+        PaymentRecheck row = claimed.get(0);
+        assertEquals("checkout-1", row.checkoutId());
+        assertEquals("pay-1", row.payPaymentId());
+        assertEquals("cred-checkout-1", row.credentialId());
+        assertEquals(2, row.attemptCount(), "집으면서 올린 뒤의 값이다");
+        assertEquals(leaseUntil.toInstant(), jdbc.queryForObject(
+                "SELECT payment_next_attempt_at FROM checkout_sessions WHERE id = ?",
+                OffsetDateTime.class, "checkout-1").toInstant());
+    }
+
+    @Test
+    @DisplayName("리스 때문에 연속으로 두 번 부르면 둘째는 비어 나온다")
+    void claimUnknownDue_calledTwiceInARow_secondCallClaimsNothing() {
+        // given
+        unknownRow("checkout-1", 1, NOW, "pay-1");
+
+        // when
+        List<PaymentRecheck> first = repository.claimUnknownDue(NOW, NOW.plusMinutes(2), 10, 100);
+        List<PaymentRecheck> second = repository.claimUnknownDue(NOW.plusSeconds(1), NOW.plusMinutes(2), 10, 100);
+
+        // then
+        assertEquals(1, first.size());
+        assertTrue(second.isEmpty());
+    }
+
+    @Test
+    @DisplayName("기한 전, 한도 초과, UNKNOWN 이 아닌 행은 집지 않는다")
+    void claimUnknownDue_notDueOrExhaustedOrResolved_notClaimed() {
+        // given
+        unknownRow("checkout-later", 1, NOW.plusMinutes(5), "pay-1");
+        unknownRow("checkout-exhausted", 10, NOW, "pay-2");
+        repository.insert(ready("checkout-done", NOW.plusMinutes(5)));
+        repository.beginPayment("checkout-done", NOW, "cred-3", NOW.minusSeconds(1));
+        repository.finishPayment("checkout-done", PaymentStatus.SUCCESS, "pay-3");
+
+        // when
+        List<PaymentRecheck> claimed = repository.claimUnknownDue(NOW, NOW.plusMinutes(2), 10, 100);
+
+        // then
+        assertTrue(claimed.isEmpty(), claimed.toString());
+    }
+
+    @Test
+    @DisplayName("배치 크기를 지키고 기한이 이른 것부터 집는다")
+    void claimUnknownDue_moreDueRowsThanLimit_claimsOldestFirst() {
+        // given
+        unknownRow("checkout-late", 1, NOW.minusSeconds(1), "pay-1");
+        unknownRow("checkout-early", 1, NOW.minusMinutes(1), "pay-2");
+
+        // when
+        List<PaymentRecheck> claimed = repository.claimUnknownDue(NOW, NOW.plusMinutes(2), 10, 1);
+
+        // then
+        assertEquals(List.of("checkout-early"), claimed.stream().map(PaymentRecheck::checkoutId).toList());
+    }
+
+    @Test
+    @DisplayName("확정은 UNKNOWN 행에만 되고 다음 시각을 비운다")
+    void resolvePayment_unknownRow_closesOnceAndClearsNextAttempt() {
+        // given
+        unknownRow("checkout-1", 1, NOW, "pay-1");
+
+        // when
+        boolean resolved = repository.resolvePayment("checkout-1", PaymentStatus.SUCCESS, "pay-1");
+        boolean again = repository.resolvePayment("checkout-1", PaymentStatus.FAILED, "pay-1");
+
+        // then
+        assertTrue(resolved);
+        assertFalse(again, "이미 확정된 행은 다시 바꾸지 않는다");
+        assertEquals("SUCCESS", paymentStatus("checkout-1"));
+        assertNull(jdbc.queryForObject(
+                "SELECT payment_next_attempt_at FROM checkout_sessions WHERE id = ?",
+                OffsetDateTime.class, "checkout-1"));
+    }
+
+    @Test
+    @DisplayName("확정에 paymentId 가 없으면 있던 값을 지우지 않는다")
+    void resolvePayment_nullPaymentId_keepsExistingPaymentId() {
+        // given
+        unknownRow("checkout-1", 1, NOW, "pay-before");
+
+        // when
+        repository.resolvePayment("checkout-1", PaymentStatus.FAILED, null);
+
+        // then
+        assertEquals("pay-before", payPaymentId("checkout-1"));
+    }
+
+    @Test
+    @DisplayName("다음 확인 시각 밀기는 UNKNOWN 행에만 된다")
+    void scheduleNextRecheck_unknownRowOnly() {
+        // given
+        unknownRow("checkout-1", 1, NOW, "pay-1");
+        repository.insert(ready("checkout-2", NOW.plusMinutes(5)));
+
+        // when
+        boolean pushed = repository.scheduleNextRecheck("checkout-1", NOW.plusMinutes(1));
+        boolean noRow = repository.scheduleNextRecheck("checkout-2", NOW.plusMinutes(1));
+
+        // then
+        assertTrue(pushed);
+        assertFalse(noRow, "결제가 시작되지도 않은 행은 밀 것이 없다");
+        assertEquals(NOW.plusMinutes(1).toInstant(), jdbc.queryForObject(
+                "SELECT payment_next_attempt_at FROM checkout_sessions WHERE id = ?",
+                OffsetDateTime.class, "checkout-1").toInstant());
+    }
+
+    @Test
+    @DisplayName("재조회 워커가 쓰는 인덱스를 실행 계획이 탄다")
+    void unknownScan_query_usesPaymentIndex() {
+        // given
+        jdbc.execute("SET enable_seqscan = off");
+
+        // when
+        List<String> plan = jdbc.queryForList("""
+                EXPLAIN SELECT id FROM checkout_sessions
+                 WHERE payment_status = 'UNKNOWN' AND payment_next_attempt_at <= ?
+                 ORDER BY payment_next_attempt_at LIMIT 100
+                """, String.class, NOW);
+
+        // then
+        assertTrue(String.join(System.lineSeparator(), plan).contains("ix_checkout_payment"), plan.toString());
     }
 }

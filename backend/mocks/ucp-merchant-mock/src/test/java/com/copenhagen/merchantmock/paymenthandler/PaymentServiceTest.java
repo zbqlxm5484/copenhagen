@@ -10,6 +10,7 @@ import java.util.Optional;
 
 import com.copenhagen.contract.internalapi.PaymentStatus;
 import com.copenhagen.merchantmock.checkout.CheckoutRepository;
+import com.copenhagen.merchantmock.checkout.PaymentRecheck;
 import com.copenhagen.merchantmock.checkout.CheckoutSession;
 import com.copenhagen.merchantmock.support.MerchantPropertiesFixture;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +41,7 @@ class PaymentServiceTest {
         repository = new RecordingRepository();
         client = new StubPayClient();
         service = new PaymentService(repository, client, MerchantPropertiesFixture.defaults(),
+                new PayProperties("http://pay-service:8080", "test-token", null, null, null, 0),
                 Clock.fixed(NOW, ZoneId.of("Asia/Seoul")));
     }
 
@@ -146,9 +148,15 @@ class PaymentServiceTest {
         PaymentStatus status;
         String payPaymentId;
 
+        String credentialId;
+        OffsetDateTime firstRecheckAt;
+
         @Override
-        public boolean beginPayment(String id, OffsetDateTime requestedAt) {
+        public boolean beginPayment(String id, OffsetDateTime requestedAt, String newCredentialId,
+                OffsetDateTime newFirstRecheckAt) {
             calls.add("begin:" + id + "@" + requestedAt);
+            credentialId = newCredentialId;
+            firstRecheckAt = newFirstRecheckAt;
             if (beginResult) {
                 status = PaymentStatus.PROCESSING;
             }
@@ -189,6 +197,22 @@ class PaymentServiceTest {
         public int expireReady(OffsetDateTime now, int limit) {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public List<PaymentRecheck> claimUnknownDue(OffsetDateTime now, OffsetDateTime leaseUntil,
+                int maxAttempts, int limit) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean resolvePayment(String id, PaymentStatus newStatus, String newPayPaymentId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean scheduleNextRecheck(String id, OffsetDateTime nextAttemptAt) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static final class StubPayClient implements PayClient {
@@ -196,6 +220,11 @@ class PaymentServiceTest {
         final List<PaymentRequest> requests = new ArrayList<>();
         PaymentResult result;
         RuntimeException failure;
+
+        @Override
+        public PaymentResult lookup(String paymentId) {
+            throw new UnsupportedOperationException();
+        }
 
         @Override
         public PaymentResult charge(PaymentRequest request) {
