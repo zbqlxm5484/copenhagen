@@ -21,22 +21,33 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
             RETURNING id
             """;
 
-    private static final String FIND_BY_TOKEN_HASH_SQL = """
+    private static final String SELECT_COLUMNS = """
             SELECT id, user_id, token_hash, device_id, device_name, issued_at, expires_at,
                 revoked_at, last_used_at, created_at
             FROM refresh_tokens
             WHERE token_hash = ?
             """;
 
-    private static final String DELETE_BY_TOKEN_HASH_SQL = """
-            DELETE FROM refresh_tokens
-            WHERE token_hash = ?
+    private static final String FIND_BY_TOKEN_HASH_SQL = SELECT_COLUMNS;
+
+    private static final String FIND_BY_TOKEN_HASH_FOR_UPDATE_SQL = SELECT_COLUMNS + "FOR UPDATE\n";
+
+    private static final String REVOKE_BY_ID_SQL = """
+            UPDATE refresh_tokens
+            SET revoked_at = ?, last_used_at = ?
+            WHERE id = ? AND revoked_at IS NULL
             """;
 
     private static final String REVOKE_ACTIVE_BY_USER_ID_AND_DEVICE_ID_SQL = """
             UPDATE refresh_tokens
             SET revoked_at = ?
             WHERE user_id = ? AND device_id = ? AND revoked_at IS NULL
+            """;
+
+    private static final String REVOKE_ALL_ACTIVE_BY_USER_ID_SQL = """
+            UPDATE refresh_tokens
+            SET revoked_at = ?
+            WHERE user_id = ? AND revoked_at IS NULL
             """;
 
     private static final RowMapper<RefreshToken> ROW_MAPPER = JdbcRefreshTokenRepository::mapRefreshToken;
@@ -69,21 +80,35 @@ public class JdbcRefreshTokenRepository implements RefreshTokenRepository {
 
     @Override
     public Optional<RefreshToken> findByTokenHash(String tokenHash) {
-        try {
-            return Optional.ofNullable(jdbcTemplate.queryForObject(FIND_BY_TOKEN_HASH_SQL, ROW_MAPPER, tokenHash));
-        } catch (EmptyResultDataAccessException exception) {
-            return Optional.empty();
-        }
+        return queryOne(FIND_BY_TOKEN_HASH_SQL, tokenHash);
     }
 
     @Override
-    public int deleteByTokenHash(String tokenHash) {
-        return jdbcTemplate.update(DELETE_BY_TOKEN_HASH_SQL, tokenHash);
+    public Optional<RefreshToken> findByTokenHashForUpdate(String tokenHash) {
+        return queryOne(FIND_BY_TOKEN_HASH_FOR_UPDATE_SQL, tokenHash);
+    }
+
+    @Override
+    public void revokeById(long id, Instant now) {
+        jdbcTemplate.update(REVOKE_BY_ID_SQL, Timestamp.from(now), Timestamp.from(now), id);
     }
 
     @Override
     public void revokeActiveByUserIdAndDeviceId(long userId, String deviceId, Instant now) {
         jdbcTemplate.update(REVOKE_ACTIVE_BY_USER_ID_AND_DEVICE_ID_SQL, Timestamp.from(now), userId, deviceId);
+    }
+
+    @Override
+    public int revokeAllActiveByUserId(long userId, Instant now) {
+        return jdbcTemplate.update(REVOKE_ALL_ACTIVE_BY_USER_ID_SQL, Timestamp.from(now), userId);
+    }
+
+    private Optional<RefreshToken> queryOne(String sql, String tokenHash) {
+        try {
+            return Optional.ofNullable(jdbcTemplate.queryForObject(sql, ROW_MAPPER, tokenHash));
+        } catch (EmptyResultDataAccessException exception) {
+            return Optional.empty();
+        }
     }
 
     private static RefreshToken mapRefreshToken(ResultSet resultSet, int rowNumber) throws SQLException {

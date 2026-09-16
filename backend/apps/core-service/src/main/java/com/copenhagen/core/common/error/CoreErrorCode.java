@@ -44,6 +44,16 @@ public enum CoreErrorCode {
             "AUTH_TOKEN_INVALID",
             "유효하지 않은 인증 토큰입니다.",
             "LOGIN_REQUIRED"),
+    AUTH_REFRESH_TOKEN_INVALID(
+            HttpStatus.UNAUTHORIZED,
+            "AUTH_REFRESH_TOKEN_INVALID",
+            "유효하지 않은 Refresh Token입니다.",
+            "LOGIN_REQUIRED"),
+    AUTH_REFRESH_TOKEN_REUSED(
+            HttpStatus.UNAUTHORIZED,
+            "AUTH_REFRESH_TOKEN_REUSED",
+            "이미 사용된 Refresh Token입니다. 보안을 위해 모든 기기에서 로그아웃되었습니다.",
+            "LOGIN_REQUIRED"),
     REQUEST_METHOD_NOT_ALLOWED(
             HttpStatus.METHOD_NOT_ALLOWED,
             "REQUEST_METHOD_NOT_ALLOWED",
