@@ -29,6 +29,11 @@ merchant:
   # Core 가 Profile 의 endpoint 값에서 읽어 가는 주소. 환경변수로 주입한다.
   public-base-url: ${MERCHANT_PUBLIC_BASE_URL:http://ucp-merchant-mock:8080}
   seller-name: ${MERCHANT_SELLER_NAME:Copenhagen Demo Store}
+  # 시연 카탈로그 시드(DESIGN.md 5.7절). 기본값은 비어 있고 그러면 로더가 아무 일도 하지 않는다.
+  # 테스트와 CI 는 V3 fixture 5건만 봐야 하므로 여기에 경로를 박지 않는다.
+  # 시연은 compose 에서 켠다. 예: classpath:catalog/mart.json
+  catalog:
+    seed-file: ${MERCHANT_CATALOG_SEED_FILE:}
   checkout:
     # 서명 시각 + 이 값이 expires_at 이다. 설계서 D-03.
     ttl: PT5M

@@ -1,0 +1,36 @@
+{
+  "mall": "test",
+  "mallName": "테스트 몰",
+  "source": "테스트 픽스처",
+  "count": 2,
+  "products": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "externalId": "kurly:1000000001",
+      "title": "시드 상품 하나",
+      "imageUrl": "https://cdn.example.test/seed-1.jpg",
+      "basePrice": 12000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {"sku": "kurly:1000000001-SKU1", "optionName": "option", "optionValue": "기본",
+         "priceDelta": 0, "stock": 100, "status": "ACTIVE"},
+        {"sku": "kurly:1000000001-SKU2", "optionName": "option", "optionValue": "대용량",
+         "priceDelta": 3000, "stock": 100, "status": "ACTIVE"}
+      ]
+    },
+    {
+      "id": "22222222-2222-4222-8222-222222222222",
+      "externalId": "daiso:2000000002",
+      "title": "시드 상품 둘",
+      "imageUrl": "https://cdn.example.test/seed-2.jpg",
+      "basePrice": 3000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {"sku": "daiso:2000000002-default", "optionName": "option", "optionValue": "기본",
+         "priceDelta": 0, "stock": 100, "status": "ACTIVE"}
+      ]
+    }
+  ]
+}

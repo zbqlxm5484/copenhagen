@@ -18,6 +18,7 @@ public record MerchantProperties(
         String currency,
         String publicBaseUrl,
         String sellerName,
+        Catalog catalog,
         Checkout checkout,
         Fulfillment fulfillment,
         Signing signing,
@@ -30,6 +31,24 @@ public record MerchantProperties(
     /** UCP REST base endpoint. Core 는 이 값을 Profile 에서 읽어 간다. */
     public String restEndpoint() {
         return publicBaseUrl + "/ucp/v1";
+    }
+
+    /**
+     * 시연 카탈로그 시드(DESIGN.md 5.7절). seedFile 이 비어 있으면 로더가 아무 일도 하지 않고
+     * V3 fixture 5건만 남는다. 기본값이 비어 있어야 테스트와 CI 가 fixture 구성을 그대로 본다.
+     *
+     * <p>경로를 설정으로 받는 이유는 몰 여러 개다(11절). 같은 이미지를 셋 띄울 때 몰마다 다른
+     * 시드 파일을 주면 서로 다른 상품을 파는 몰 셋이 코드 변경 없이 나온다.
+     */
+    public record Catalog(String seedFile) {
+
+        public Catalog {
+            seedFile = seedFile == null ? "" : seedFile.trim();
+        }
+
+        public boolean hasSeedFile() {
+            return !seedFile.isEmpty();
+        }
     }
 
     public record Checkout(Duration ttl) {

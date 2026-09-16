@@ -27,6 +27,7 @@ public final class MerchantPropertiesFixture {
                 "KRW",
                 "http://ucp-merchant-mock:8080",
                 "Copenhagen Demo Store",
+                new MerchantProperties.Catalog(""),
                 new MerchantProperties.Checkout(Duration.ofMinutes(5)),
                 new MerchantProperties.Fulfillment(3000L),
                 signing,
@@ -39,6 +40,26 @@ public final class MerchantPropertiesFixture {
                 new MerchantProperties.Webhook(Duration.ofSeconds(10), 8));
     }
 
+    /** 시연 카탈로그 시드 경로만 바꾼 설정. 로더 테스트가 쓴다(DESIGN.md 5.7절). */
+    public static MerchantProperties withCatalogSeedFile(String seedFile) {
+        MerchantProperties base = defaults();
+        return new MerchantProperties(
+                base.id(),
+                base.ucpVersion(),
+                base.currency(),
+                base.publicBaseUrl(),
+                base.sellerName(),
+                new MerchantProperties.Catalog(seedFile),
+                base.checkout(),
+                base.fulfillment(),
+                base.signing(),
+                base.capabilities(),
+                base.paymentHandler(),
+                base.trustedPlatforms(),
+                base.scenario(),
+                base.webhook());
+    }
+
     public static MerchantProperties withAp2LikeEnabled() {
         MerchantProperties base = defaults();
         return new MerchantProperties(
@@ -47,6 +68,7 @@ public final class MerchantPropertiesFixture {
                 base.currency(),
                 base.publicBaseUrl(),
                 base.sellerName(),
+                base.catalog(),
                 base.checkout(),
                 base.fulfillment(),
                 base.signing(),
