@@ -4,6 +4,8 @@ Payment MCP의 FDS 평가 모듈입니다. 구매 의도·주문·컨텍스트 �
 
 BE 인수인계용 평가·개인/집단 프로필 생성·갱신 호출은 [제공자 Mock 실행과 연동 명세](docs/provider-handoff.md)에서 확인합니다. 키/네트워크 없이 실제 제공자 경계로 27개 합성 사례를 실행하고 요청·응답·스키마를 내보내며 결과를 재현할 수 있습니다. 실제 HTTP·서비스 인증 배포·AI 저장소 연결은 별도 작업입니다.
 
+[시간순 FDS 평가](docs/temporal-benchmark.md)는 행동 이력과 명시적 합성 원문·주문서를 연결하고, 관측 데이터와 정답을 분리한 평가 입력을 고정합니다. 준비·검증 명령은 실제 모델이나 GMS를 호출하지 않습니다.
+
 의미 비교는 [주문 비교기 사용 문서](docs/intent-comparator.md), 두 단계의 연결과 공유 시간 예산은 [추출·비교 진입점 문서](docs/intent-analyzer.md)를 참고합니다.
 
 고정 합성 사례와 전체 경로 회귀는 [평가셋 문서](docs/evaluation-cases.md), 출처를 구분한 집계와 실행 명령은 [평가 보고서 문서](docs/evaluation-report.md)에 설명합니다.

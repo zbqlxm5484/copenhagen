@@ -12,6 +12,7 @@ from copenhagen_fds.contracts.engine_inputs import EngineEvaluationRequest, Engi
 from copenhagen_fds.contracts.engine_results import EngineStageExecution
 from copenhagen_fds.contracts.results import Timestamp
 from copenhagen_fds.contracts.values import Array, InputModel
+from copenhagen_fds.validation_memo import memoized_validation
 
 
 ExecutionStageName = Literal["BEHAVIOR", "EXTRACTION", "COMPARISON"]
@@ -86,6 +87,11 @@ class EngineExecutionResult(InputModel):
 
     @model_validator(mode="after")
     def validate_run(self) -> Self:
+        memoized_validation("engine-execution-result-run-v1", self, self._validate_run)
+        return self
+
+    def _validate_run(self) -> bool:
+        """Preserve all checks while reusing exact-input successful validation."""
         request = EngineEvaluationRequest.model_validate(self.request.model_dump())
         if self.reference != EngineRequestReference.from_request(request):
             raise ValueError("execution must preserve its exact engine request")
@@ -134,7 +140,7 @@ class EngineExecutionResult(InputModel):
             self.to_analysis_result()
         if self.status != self.expected_status():
             raise ValueError("execution status cannot hide interruption, failure or missing evidence")
-        return self
+        return True
 
     def to_analysis_result(self) -> EngineAnalysisResult:
         if self.extraction is None or self.comparison is None:

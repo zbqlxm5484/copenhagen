@@ -21,6 +21,7 @@ from copenhagen_fds.contracts.results import EvaluationTarget, Timestamp
 from copenhagen_fds.contracts.risk_policy import RiskPolicyConfig
 from copenhagen_fds.contracts.values import Identifier, InputModel, Sha256
 from copenhagen_fds.risk_settings import default_risk_policy
+from copenhagen_fds.validation_memo import memoized_validation
 
 
 PositiveSeconds = Annotated[float, Field(gt=0, allow_inf_nan=False)]
@@ -134,10 +135,14 @@ class EngineRequestReference(InputModel):
 
     @classmethod
     def from_request(cls, request: EngineEvaluationRequest) -> Self:
-        request = EngineEvaluationRequest.model_validate(request.model_dump())
-        return cls(target=request.analysis.target, trace_id=request.trace_id,
-            behavior_as_of=request.feature_input.evaluation.evaluated_at, request_sha256=personalization_hash(request),
-            analysis_sha256=personalization_hash(request.analysis), feature_input_sha256=personalization_hash(request.feature_input),
-            profiles_sha256=personalization_hash((request.personal, request.population, request.population_baseline_request)),
-            policies_sha256=personalization_hash((request.initial_policy, request.personalization, request.scoring, request.risk_policy)),
-            execution_sha256=personalization_hash(request.execution))
+        def calculate():
+            validated = EngineEvaluationRequest.model_validate(request.model_dump())
+            return cls(target=validated.analysis.target, trace_id=validated.trace_id,
+                behavior_as_of=validated.feature_input.evaluation.evaluated_at, request_sha256=personalization_hash(validated),
+                analysis_sha256=personalization_hash(validated.analysis), feature_input_sha256=personalization_hash(validated.feature_input),
+                profiles_sha256=personalization_hash((validated.personal, validated.population, validated.population_baseline_request)),
+                policies_sha256=personalization_hash((validated.initial_policy, validated.personalization, validated.scoring, validated.risk_policy)),
+                execution_sha256=personalization_hash(validated.execution))
+
+        return memoized_validation("engine-request-reference-v1:" + cls.__module__ + "." + cls.__qualname__,
+                                   request, calculate)

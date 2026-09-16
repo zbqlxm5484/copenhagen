@@ -19,6 +19,7 @@ from copenhagen_fds.evaluation.offline import deny_network
 from copenhagen_fds.native_evaluation import evaluate_fraud
 from copenhagen_fds.openai_settings import OpenAISettings
 from copenhagen_fds.personal_replay_export import code_fingerprint
+from copenhagen_fds.validation_memo import scoped_validation_memo
 
 
 class MockScript(InputModel):
@@ -118,6 +119,7 @@ def summarize(result):
             for name in ("extraction", "comparison")})
 
 
+@scoped_validation_memo
 async def run_request(request, *, script=None, settings=None):
     """Caller chooses exactly one mode. This is a sequential standalone harness."""
     request = EngineEvaluationRequest.model_validate(request.model_dump())
