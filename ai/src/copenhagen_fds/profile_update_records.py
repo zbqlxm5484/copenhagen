@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from copenhagen_fds.contracts.learning_replay import LearningSample
 from copenhagen_fds.personal_profiles import canonical_sample, content_hash
+from copenhagen_fds.validation_memo import memoized_validation
 
 
 def normalized_data(value):
@@ -19,10 +20,14 @@ def normalized_data(value):
 
 
 def sample_content_hash(sample: LearningSample) -> str:
-    data = canonical_sample(sample).model_dump(mode="json")
-    # Carrying already-known facts forward is not a new purchase revision.
-    data["eligibility"].pop("as_of")
-    return content_hash(data)
+    def calculate():
+        data = canonical_sample(sample).model_dump(mode="json")
+        # Carrying already-known facts forward is not a new purchase revision.
+        data["eligibility"].pop("as_of")
+        return content_hash(data)
+
+    # The memo key still includes as_of so invalid chronology is never hidden.
+    return memoized_validation("sample-content-hash-v1", sample, calculate)
 
 
 def sample_at_cutoff(sample: LearningSample, as_of: datetime) -> LearningSample:
