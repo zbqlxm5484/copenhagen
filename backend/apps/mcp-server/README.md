@@ -329,3 +329,9 @@ Core fixture가 받는 본문은 검증된 사용자·연결 참조뿐이며 사
 승인 화면 연결 단계의 참고 자료로 유지합니다. 이번에는 카탈로그 원본이나 공용 DB를 변경하지 않았습니다.
 
 Tool 형식 근거: [MCP 2025-11-25 Tools](https://modelcontextprotocol.io/specification/2025-11-25/server/tools).
+
+## 단계별 모바일 QA
+
+Story 362부터 ChatGPT 연결·최소 UI를 먼저 검증하고 검색·장바구니·앱 결제 인계를 단계적으로 추가합니다.
+[전체 계획](docs/roadmap.md)과 [QA 실행 및 휴대폰 확인 방법](docs/mobile-qa.md)을 참고하세요.
+UI는 `MCP_UI_ENABLED=true`일 때 등록되며 운영 기본 인증 차단은 유지됩니다.

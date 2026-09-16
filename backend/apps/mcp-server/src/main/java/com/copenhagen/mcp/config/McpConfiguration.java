@@ -11,6 +11,7 @@ import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;
 import io.modelcontextprotocol.server.McpServer;
+import io.modelcontextprotocol.server.McpServerFeatures.SyncResourceSpecification;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.transport.DefaultServerTransportSecurityValidator;
 import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider;
@@ -79,17 +80,20 @@ public class McpConfiguration {
             JsonSchemaValidator validator,
             McpProperties properties,
             McpAuthResponses authResponses,
-            List<McpToolDefinition> definitions) {
+            List<McpToolDefinition> definitions,
+            List<SyncResourceSpecification> resources) {
         McpToolExecutor executor = new McpToolExecutor(mapper, validator, authResponses);
         return McpServer.sync(transport)
                 .serverInfo("copenhagen-mcp", "0.1.0")
-                .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build())
+                .capabilities(McpSchema.ServerCapabilities.builder().tools(false)
+                        .resources(false, false).build())
                 .requestTimeout(properties.requestTimeout())
                 .jsonMapper(mapper)
                 .jsonSchemaValidator(validator)
                 // 공통 실행기가 입력을 검증하고 검증 상세값의 외부 노출을 방지한다.
                 .validateToolInputs(false)
                 .tools(definitions.stream().map(executor::specification).toList())
+                .resources(resources)
                 .build();
     }
 
