@@ -103,6 +103,11 @@ class LoginFailureServiceTest {
         }
 
         @Override
+        public Optional<LocalAccount> findByUserId(long userId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public long insert(long userId, String loginId, String passwordHash, Instant now) {
             throw new UnsupportedOperationException();
         }
