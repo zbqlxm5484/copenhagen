@@ -20,6 +20,10 @@ services:
     max-response-bytes: ${CORE_MAX_RESPONSE_BYTES:262144}
 
 mcp:
+  cart:
+    enabled: ${MCP_CART_ENABLED:false}
+    read-scopes: ${MCP_CART_READ_SCOPES:}
+    write-scopes: ${MCP_CART_WRITE_SCOPES:}
   catalog:
     enabled: ${MCP_CATALOG_ENABLED:false}
     detail-enabled: ${MCP_CATALOG_DETAIL_ENABLED:false}

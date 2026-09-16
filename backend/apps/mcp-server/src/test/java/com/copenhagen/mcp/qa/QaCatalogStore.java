@@ -31,6 +31,10 @@ final class QaCatalogStore {
         this.failed = Set.copyOf(failed);
     }
 
+    Set<String> failedMerchants() {
+        return failed;
+    }
+
     static QaCatalogStore load(Path file) throws IOException {
         if (Files.size(file) > 30_000_000) {
             throw new IllegalArgumentException("Local catalog exceeds QA size limit");
@@ -155,7 +159,7 @@ final class QaCatalogStore {
         product.put("optionsRequired", source.get("optionsRequired"));
         product.put("selectionStatus", selection);
         product.put("selectedOptionId", selected == null ? null : selected.get("optionId"));
-        product.put("stockQuantity", null);
+        product.put("stockQuantity", source.get("stockQuantity"));
         Map<String, Object> shipping = new LinkedHashMap<>();
         shipping.put("status", "UNKNOWN");
         shipping.put("fee", null);

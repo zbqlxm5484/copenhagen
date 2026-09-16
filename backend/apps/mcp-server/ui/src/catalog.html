@@ -24,21 +24,48 @@
     nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px}nav span{font-size:12px}nav button{min-width:64px}footer{font-size:10px;color:#6f6f6f;margin-top:20px;line-height:1.7}
     dialog{border:0;padding:0;width:calc(100% - 24px);max-width:560px;max-height:85vh;background:#fff;color:#161616}dialog::backdrop{background:#16161699}.dialog-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e0e0e0;gap:8px}.dialog-head h2{font-size:16px;margin:0}.dialog-head button{background:#e0e0e0;color:#161616;min-width:44px}.dialog-body{padding:16px;max-height:65vh;overflow:auto;overflow-wrap:anywhere}.offer{padding:14px 0;border-top:1px solid #e0e0e0}.offer .price{margin:6px 0}.offer button{margin:6px 8px 0 0}.empty{grid-column:1/-1;padding:30px 12px;text-align:center;color:#525252;background:#fff;font-size:13px}
     @media(max-width:340px){main{padding:12px}.card-body{padding:9px}.picture{height:110px}.price{font-size:14px}h1{font-size:20px}}
+    #cart-bar{margin-top:14px}#cart-status{font-size:12px;color:#525252;overflow-wrap:anywhere}
+    #cart-dialog[open]{display:flex;flex-direction:column;max-height:85vh}#cart-body{flex:1;min-height:0;overflow:auto}
+    .cart-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 16px;border-top:1px solid #e0e0e0;flex-shrink:0}
+    .cart-line{display:flex;gap:10px;border-top:1px solid #e0e0e0;padding:12px 0}.cart-line>div{min-width:0;flex:1}.cart-line img{width:64px;height:64px;object-fit:contain}.cart-line p{overflow-wrap:anywhere}
+    .line-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.line-actions button{font-size:12px}#cart-message{padding:0 16px;font-size:12px;overflow-wrap:anywhere}#cart-dialog-retry{margin:0 16px 8px;flex-shrink:0}
+    #cart-dialog[open]{max-height:min(600px,calc(100dvh - 16px))}#cart-dialog .dialog-head{padding:8px 12px;flex-shrink:0}
+    #cart-body{padding:0 12px;max-height:none}#cart-message:empty,#cart-status:empty{display:none}
+    #cart-message{margin:0;padding:4px 12px;flex-shrink:0}.cart-group-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0 4px}
+    .cart-group-heading h3{margin:0;font-size:13px}.cart-group-heading span{white-space:nowrap}.cart-line{gap:8px;padding:8px 0}
+    .cart-line img{width:48px;height:48px;margin-top:3px}.cart-line p{margin:0;line-height:1.4}
+    .cart-name,.cart-option{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}.cart-name{-webkit-line-clamp:2;font-size:13px}.cart-option{-webkit-line-clamp:1;margin-top:3px!important}
+    .line-actions{gap:4px;flex-wrap:nowrap;align-items:center;margin-top:4px}.line-actions .price{margin:0 auto 0 0;font-size:14px}.line-actions button{min-width:44px;padding:8px;font-size:12px}
+    #cart-summary{padding:8px 12px 0;flex-shrink:0;border-top:1px solid #e0e0e0}#cart-summary:empty{display:none}#cart-summary p{margin:2px 0;font-size:11px}
+    .cart-total{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13px}.cart-total strong{font-size:18px;white-space:nowrap}
+    .cart-actions{padding:8px 12px;border-top:0}#cart-dialog input,#cart-dialog select{margin-bottom:8px}
+    .search-options{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.search-options>details{flex:1;min-width:0}.search-options>button{font-size:12px}
+    #cart-summary .qa-pricing>summary{padding:4px 0;font-size:11px;color:#6f6f6f}
+    @media(max-width:600px){
+      main{padding:10px 12px}header{padding:0 0 8px;gap:8px}header img{width:128px}h1{font-size:18px;margin:10px 0 0}main>p.sub{display:none}
+      #cart-bar{margin:0}#cart-open{position:absolute;right:12px;top:49px;min-height:36px;padding:6px 10px;font-size:12px}
+      #cart-status{margin:6px 0 0}form{margin:10px 0 6px}.filters{gap:8px;margin:8px 0}.search-options>details>summary{padding:10px 0}
+      #status{min-height:0;margin:6px 0;font-size:12px}#cards{gap:8px}.picture{height:80px}.card-body{padding:8px;gap:4px}
+      .card-body>.muted{display:none}.name{font-size:12px;line-height:1.4}.card .price{font-size:14px}.card button{min-height:40px;padding:8px;font-size:11px}
+      nav{margin-top:8px}footer{margin-top:8px;font-size:10px}.dialog-body{padding:10px 12px}.offer{padding:8px 0}.offer .price{margin:2px 0}
+    }
   </style>
 </head>
-<body>
+<body data-cart-enabled="__CART_ENABLED__">
+  <script>/* BRIDGE */</script>
   <main>
     <header><img src="__LOGO__" alt="COPENHAGEN"><span class="badge" id="mode">상품 탐색</span></header>
     <h1>찾고, 비교하고.</h1><p class="sub">원하는 상품을 고르면 판매처별 가격을 비교할 수 있어요.</p>
+    <section id="cart-bar" hidden><button id="cart-open" class="secondary">장바구니</button><p id="cart-status" role="status" aria-live="polite"></p><button id="cart-retry" hidden>같은 요청으로 결과 확인</button></section>
     <form id="search-form">
       <label for="query">상품명</label><div class="row"><input id="query" maxlength="120" placeholder="어떤 상품을 찾으세요?" autocomplete="off"><button type="submit">검색</button></div>
-      <div class="filters"><label>상품군<select id="category"><option value="">상품군 선택</option></select></label><label>판매처<select id="merchantId"><option value="">전체 판매처</option></select></label></div>
-      <details><summary>가격 · 브랜드 · 정렬</summary><div class="filters">
+      <div class="search-options"><details id="search-filters"><summary id="filter-label">필터 · 상품군 · 판매처</summary><div class="filters">
+        <label>상품군<select id="category"><option value="">상품군 선택</option></select></label><label>판매처<select id="merchantId"><option value="">전체 판매처</option></select></label>
         <label>최소 가격<input id="minPrice" type="number" min="0" max="1000000000000" step="1" placeholder="제한 없음"></label>
         <label>최대 가격<input id="maxPrice" type="number" min="0" max="1000000000000" step="1" placeholder="제한 없음"></label>
         <label>브랜드<input id="brand" maxlength="120" placeholder="브랜드 정확히 입력"></label>
         <label>정렬<select id="sort"><option value="RELEVANCE">기본 순</option><option value="PRICE_ASC">낮은 가격 순</option><option value="PRICE_DESC">높은 가격 순</option></select></label>
-      </div></details><button class="secondary" type="button" id="reset">조건 초기화</button>
+      </div></details><button class="secondary" type="button" id="reset">초기화</button></div>
     </form>
     <div id="status" role="status" aria-live="polite">상품 정보를 연결하고 있습니다.</div>
     <button id="retry" class="secondary" hidden>다시 시도</button>
@@ -47,6 +74,7 @@
     <footer><span id="notice"></span><br><time id="checked-at"></time></footer>
   </main>
   <dialog id="comparison" aria-labelledby="comparison-title"><div class="dialog-head"><h2 id="comparison-title">판매처 비교</h2><button id="close-dialog" aria-label="비교 닫기">✕</button></div><div class="dialog-body" id="comparison-body"></div></dialog>
+  <dialog id="cart-dialog" aria-labelledby="cart-title"><div class="dialog-head"><h2 id="cart-title">내 장바구니</h2><button id="cart-close" aria-label="장바구니 닫기">✕</button></div><p id="cart-message" role="status" aria-live="polite"></p><button id="cart-dialog-retry" hidden>같은 요청으로 결과 확인</button><div class="dialog-body" id="cart-body"></div><div id="cart-summary"></div><div class="cart-actions"><button id="cart-confirm">장바구니 확인</button><button id="cart-continue" class="secondary">계속하기</button></div></dialog>
   <script>/* SCRIPT */</script>
 </body>
 </html>

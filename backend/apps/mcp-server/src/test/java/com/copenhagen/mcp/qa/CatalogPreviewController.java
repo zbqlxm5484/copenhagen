@@ -23,6 +23,16 @@ import org.springframework.web.server.ResponseStatusException;
 @TestComponent
 final class CatalogPreviewController {
 
+    private final boolean cart;
+
+    CatalogPreviewController() {
+        this(false);
+    }
+
+    CatalogPreviewController(boolean cart) {
+        this.cart = cart;
+    }
+
     @GetMapping(value = "/qa", produces = "text/html;charset=UTF-8")
     String preview() throws IOException {
         String html = new ClassPathResource("mcp-ui/catalog.html").getContentAsString(StandardCharsets.UTF_8);
@@ -38,7 +48,8 @@ final class CatalogPreviewController {
                 };
                 </script>
                 """;
-        return html.replace("<body>", "<body>" + bridge);
+        return html.replace("__CART_ENABLED__", Boolean.toString(cart))
+                .replace("<script>/* BRIDGE */</script>", bridge);
     }
 
     @GetMapping("/qa/check")
@@ -49,7 +60,8 @@ final class CatalogPreviewController {
     @PostMapping("/qa/tools")
     Object tool(HttpServletRequest request, @RequestBody Call call) {
         if (!Set.of("search_products", "display_products", "open_copenhagen", "get_product_detail")
-                .contains(call.name())) {
+                .contains(call.name()) && !(cart && Set.of("get_cart", "add_cart_item", "update_cart_item",
+                        "delete_cart_item").contains(call.name()))) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST);
         }
         return invoke(request, call.name(), call.arguments());
