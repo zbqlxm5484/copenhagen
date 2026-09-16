@@ -63,6 +63,14 @@ public class ApiException extends RuntimeException {
                 state, "CHECK_PURCHASE_STATUS");
     }
 
+    /**
+     * 요청 형식 문제. 팀 명세 공통 규칙의 400 이다(DESIGN.md 10절). 지금 쓰는 곳은 시나리오 API 하나이고
+     * 그것을 부르는 것은 Core 가 아니라 사람이라 안내할 다음 행동이 없다. {@code nextAction} 은 null 이다.
+     */
+    public static ApiException invalidRequest(String message) {
+        return new ApiException("INVALID_REQUEST", HttpStatus.BAD_REQUEST, message, null, null);
+    }
+
     public String errorCode() {
         return errorCode;
     }

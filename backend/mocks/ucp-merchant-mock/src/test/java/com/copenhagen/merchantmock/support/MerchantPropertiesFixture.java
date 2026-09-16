@@ -37,7 +37,7 @@ public final class MerchantPropertiesFixture {
                 List.of(new MerchantProperties.TrustedPlatform(
                         "core", "http://core-service:8080/.well-known/ucp")),
                 new MerchantProperties.Scenario("NORMAL"),
-                new MerchantProperties.Webhook(Duration.ofSeconds(10), 8));
+                new MerchantProperties.Webhook(Duration.ofSeconds(10), 8, Duration.ofSeconds(5)));
     }
 
     /** 시연 카탈로그 시드 경로만 바꾼 설정. 로더 테스트가 쓴다(DESIGN.md 5.7절). */

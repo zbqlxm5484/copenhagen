@@ -83,6 +83,8 @@ merchant:
     retry-batch-size: 100
     # 집을 때 next_attempt_at 을 이만큼 민다. 같은 행을 두 번 보내지 않기 위해서다.
     retry-lease: PT1M
+    # 시나리오 WEBHOOK_DELAYED 가 켜졌을 때 보내기 전에 기다리는 시간(185, DESIGN.md 9.3절). 꺼져 있으면 안 읽는다.
+    scenario-delay: PT5S
 
 core:
   # Platform Profile 을 가져오는 데만 쓴다. 웹훅 주소는 Profile 의 dev.ucp.shopping.order config.webhook_url 에서 읽는다.
