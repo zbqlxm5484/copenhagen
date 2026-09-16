@@ -3,6 +3,7 @@ package com.copenhagen.merchantmock.checkout;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 
+import com.copenhagen.contract.internalapi.PaymentStatus;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -53,6 +54,20 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
                AND status = 'READY_FOR_COMPLETE'
             """;
 
+    private static final String BEGIN_PAYMENT = """
+            UPDATE checkout_sessions
+               SET payment_status = 'PROCESSING', payment_requested_at = ?,
+                   version = version + 1, updated_at = now()
+             WHERE id = ? AND payment_status IS NULL
+            """;
+
+    private static final String FINISH_PAYMENT = """
+            UPDATE checkout_sessions
+               SET payment_status = ?, pay_payment_id = COALESCE(?, pay_payment_id),
+                   version = version + 1, updated_at = now()
+             WHERE id = ? AND payment_status = 'PROCESSING'
+            """;
+
     private static final RowMapper<CheckoutSession> ROW_MAPPER = (rs, rowNum) -> new CheckoutSession(
             rs.getString("id"),
             CheckoutStatus.valueOf(rs.getString("status")),
@@ -97,6 +112,16 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
     @Override
     public int expireReady(OffsetDateTime now, int limit) {
         return jdbcTemplate.update(EXPIRE, now, limit);
+    }
+
+    @Override
+    public boolean beginPayment(String id, OffsetDateTime requestedAt) {
+        return jdbcTemplate.update(BEGIN_PAYMENT, requestedAt, id) == 1;
+    }
+
+    @Override
+    public boolean finishPayment(String id, PaymentStatus status, String payPaymentId) {
+        return jdbcTemplate.update(FINISH_PAYMENT, status.name(), payPaymentId, id) == 1;
     }
 
     @Override

@@ -3,6 +3,8 @@ package com.copenhagen.merchantmock.checkout;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 
+import com.copenhagen.contract.internalapi.PaymentStatus;
+
 /**
  * 체크아웃 저장 경계. 구현은 {@link JdbcCheckoutRepository}. 테스트는 인메모리 구현으로 돌린다.
  */
@@ -35,4 +37,19 @@ public interface CheckoutRepository {
      * @param limit 한 번에 닫는 최대 건수
      */
     int expireReady(OffsetDateTime now, int limit);
+
+    /**
+     * 청구 직전 표시. {@code payment_status IS NULL} 인 행만 {@code PROCESSING} 으로 바꾼다(DESIGN.md 7.2절).
+     *
+     * <p>false 면 이 체크아웃에 이미 결제가 있다. 부르는 쪽(PaymentService)은 그것을 재진입 버그로 본다.
+     * {@code payment_attempt_count} 는 올리지 않는다. 그 컬럼은 재조회 횟수다(5.4절).
+     */
+    boolean beginPayment(String id, OffsetDateTime requestedAt);
+
+    /**
+     * 결제 결과 반영. {@code payment_status = 'PROCESSING'} 인 행만 바꾼다(DESIGN.md 7.2절).
+     *
+     * @param payPaymentId Pay 가 준 paymentId. null 이면 있던 값을 지우지 않는다. UNKNOWN 이어도 있으면 저장한다
+     */
+    boolean finishPayment(String id, PaymentStatus status, String payPaymentId);
 }

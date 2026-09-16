@@ -74,3 +74,9 @@ core:
 services:
   pay:
     base-url: ${PAY_SERVICE_URL:http://pay-service:8080}
+    # Pay 가 merchant-a 에 매핑해 둔 정적 Bearer 토큰(DESIGN.md 19.5절). Pay 쪽은 PAY_AUTH_MERCHANT_SERVICE_TOKENS_JSON.
+    # 비어 있어도 기동은 된다. 첫 청구에서 Pay 가 401 을 돌려주고 결제는 FAILED 로 남는다.
+    bearer-token: ${PAY_MERCHANT_TOKEN:}
+    # Pay 자신의 기본값과 같다. 넘으면 UNKNOWN 이고 재청구하지 않는다(DESIGN.md 8.3절).
+    connect-timeout: PT1S
+    request-timeout: PT3S

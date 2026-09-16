@@ -14,6 +14,7 @@ import java.util.stream.IntStream;
 
 import javax.sql.DataSource;
 
+import com.copenhagen.contract.internalapi.PaymentStatus;
 import com.copenhagen.merchantmock.support.EmbeddedPostgresSupport;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -26,6 +27,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -286,6 +288,118 @@ class JdbcCheckoutRepositoryPostgresTest {
         }
         assertEquals(1, winners, "조건부 UPDATE 라 한 요청만 1행을 바꿔야 한다");
         assertEquals(1L, repository.findById("checkout-1").orElseThrow().version());
+    }
+
+    @Test
+    @DisplayName("청구 직전 표시는 결제가 없는 행에만 되고 두 번째는 false 다")
+    void beginPayment_freshRow_marksProcessingOnce() {
+        // given
+        repository.insert(ready("checkout-1", NOW.plusMinutes(5)));
+
+        // when
+        boolean first = repository.beginPayment("checkout-1", NOW);
+        boolean second = repository.beginPayment("checkout-1", NOW.plusSeconds(1));
+
+        // then
+        assertTrue(first);
+        assertFalse(second, "이미 결제가 시작된 행은 다시 집지 않는다");
+        assertEquals("PROCESSING", paymentStatus("checkout-1"));
+        assertEquals(NOW.toInstant(), jdbc.queryForObject(
+                "SELECT payment_requested_at FROM checkout_sessions WHERE id = ?",
+                OffsetDateTime.class, "checkout-1").toInstant());
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT payment_attempt_count FROM checkout_sessions WHERE id = ?", Integer.class, "checkout-1"),
+                "attempt_count 는 재조회 횟수라 청구가 올리지 않는다");
+        assertEquals(1L, repository.findById("checkout-1").orElseThrow().version());
+    }
+
+    @Test
+    @DisplayName("결과 반영은 PROCESSING 행에만 되고 paymentId 를 저장한다")
+    void finishPayment_processingRow_appliesStatusAndPaymentIdOnce() {
+        // given
+        repository.insert(ready("checkout-1", NOW.plusMinutes(5)));
+        repository.beginPayment("checkout-1", NOW);
+
+        // when
+        boolean finished = repository.finishPayment("checkout-1", PaymentStatus.SUCCESS, "pay-1");
+        boolean again = repository.finishPayment("checkout-1", PaymentStatus.FAILED, "pay-2");
+
+        // then
+        assertTrue(finished);
+        assertFalse(again, "이미 끝난 결제는 다시 바꾸지 않는다");
+        assertEquals("SUCCESS", paymentStatus("checkout-1"));
+        assertEquals("pay-1", payPaymentId("checkout-1"));
+        assertEquals(2L, repository.findById("checkout-1").orElseThrow().version());
+    }
+
+    @Test
+    @DisplayName("결과 반영에 paymentId 가 없으면 있던 값을 지우지 않는다")
+    void finishPayment_nullPaymentId_keepsExistingPaymentId() {
+        // given
+        repository.insert(ready("checkout-1", NOW.plusMinutes(5)));
+        repository.beginPayment("checkout-1", NOW);
+        jdbc.update("UPDATE checkout_sessions SET pay_payment_id = 'pay-before' WHERE id = ?", "checkout-1");
+
+        // when
+        boolean finished = repository.finishPayment("checkout-1", PaymentStatus.UNKNOWN, null);
+
+        // then
+        assertTrue(finished);
+        assertEquals("UNKNOWN", paymentStatus("checkout-1"));
+        assertEquals("pay-before", payPaymentId("checkout-1"));
+    }
+
+    @Test
+    @DisplayName("결제가 시작되지 않은 행에 결과를 반영하면 false 다")
+    void finishPayment_noPaymentStarted_returnsFalse() {
+        // given
+        repository.insert(ready("checkout-1", NOW.plusMinutes(5)));
+
+        // when
+        boolean finished = repository.finishPayment("checkout-1", PaymentStatus.SUCCESS, "pay-1");
+
+        // then
+        assertFalse(finished);
+        assertNull(paymentStatus("checkout-1"));
+        assertNull(payPaymentId("checkout-1"));
+    }
+
+    @Test
+    @DisplayName("동시에 청구 표시를 하면 한 요청만 행을 바꾼다")
+    void beginPayment_concurrentRequests_onlyOneWins() throws Exception {
+        // given
+        repository.insert(ready("checkout-1", NOW.plusMinutes(5)));
+        int threads = 8;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        List<Callable<Boolean>> tasks = IntStream.range(0, threads)
+                .mapToObj(i -> (Callable<Boolean>) () -> {
+                    barrier.await(5, TimeUnit.SECONDS);
+                    return repository.beginPayment("checkout-1", NOW);
+                })
+                .toList();
+
+        // when
+        List<Future<Boolean>> results = pool.invokeAll(tasks);
+        pool.shutdown();
+
+        // then
+        int winners = 0;
+        for (Future<Boolean> result : results) {
+            if (result.get()) {
+                winners++;
+            }
+        }
+        assertEquals(1, winners, "조건부 UPDATE 라 한 요청만 PROCESSING 을 찍어야 한다");
+        assertEquals(1L, repository.findById("checkout-1").orElseThrow().version());
+    }
+
+    private String paymentStatus(String id) {
+        return jdbc.queryForObject("SELECT payment_status FROM checkout_sessions WHERE id = ?", String.class, id);
+    }
+
+    private String payPaymentId(String id) {
+        return jdbc.queryForObject("SELECT pay_payment_id FROM checkout_sessions WHERE id = ?", String.class, id);
     }
 
     private static CheckoutSession ready(String id, OffsetDateTime expiresAt) {
