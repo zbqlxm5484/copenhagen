@@ -40,6 +40,9 @@ class PaymentRecheckWorkerTest {
 
     private RecheckRepository repository;
     private RecheckPayClient client;
+    private final List<String> resolved = new ArrayList<>();
+    private final PaymentResolutionListener listener =
+            (checkoutId, status, paymentId) -> resolved.add(checkoutId + ":" + status + ":" + paymentId);
 
     @BeforeEach
     void setUp() {
@@ -48,7 +51,7 @@ class PaymentRecheckWorkerTest {
     }
 
     private PaymentRecheckWorker worker() {
-        return new PaymentRecheckWorker(repository, client, MerchantPropertiesFixture.defaults(),
+        return new PaymentRecheckWorker(repository, client, listener, MerchantPropertiesFixture.defaults(),
                 payProperties(), Clock.fixed(NOW, SEOUL), 100, Duration.ofMinutes(2));
     }
 
@@ -109,6 +112,42 @@ class PaymentRecheckWorkerTest {
 
         // then
         assertEquals(List.of("resolve:checkout-1:SUCCESS:pay-1"), repository.calls);
+        assertEquals(List.of("checkout-1:SUCCESS:pay-1"), resolved, "주문 생성과 completed 전이는 리스너 몫이다(176)");
+    }
+
+    @Test
+    @DisplayName("이미 누가 확정한 행이면 리스너를 부르지 않는다")
+    void recheck_alreadyResolved_doesNotNotifyListener() {
+        // given
+        repository.claimed = List.of(row("pay-1", 1));
+        repository.resolveResult = false;
+        client.result = new PaymentResult(PaymentStatus.SUCCESS, "pay-1", "pg-1", null, null);
+
+        // when
+        worker().recheck();
+
+        // then
+        assertTrue(resolved.isEmpty());
+    }
+
+    @Test
+    @DisplayName("리스너가 터져도 배치는 계속되고 결제 상태는 확정된 채 남는다")
+    void recheck_listenerThrows_continuesBatch() {
+        // given
+        repository.claimed = List.of(row("pay-1", 1), row("pay-2", 1));
+        client.result = new PaymentResult(PaymentStatus.SUCCESS, "pay-1", "pg-1", null, null);
+        PaymentRecheckWorker worker = new PaymentRecheckWorker(repository, client,
+                (checkoutId, status, paymentId) -> {
+                    throw new IllegalStateException("주문 생성 실패");
+                },
+                MerchantPropertiesFixture.defaults(), payProperties(), Clock.fixed(NOW, SEOUL), 100,
+                Duration.ofMinutes(2));
+
+        // when
+        worker.recheck();
+
+        // then
+        assertEquals(2, repository.calls.size(), "두 건 다 resolve 까지 갔다");
     }
 
     @Test
@@ -244,10 +283,10 @@ class PaymentRecheckWorkerTest {
     @DisplayName("배치 크기와 리스가 0 이하면 기동에서 막는다")
     void constructor_nonPositiveBatchSizeOrLease_rejected() {
         // when & then
-        assertThrows(IllegalArgumentException.class, () -> new PaymentRecheckWorker(repository, client,
+        assertThrows(IllegalArgumentException.class, () -> new PaymentRecheckWorker(repository, client, listener,
                 MerchantPropertiesFixture.defaults(), payProperties(), Clock.fixed(NOW, SEOUL),
                 0, Duration.ofMinutes(2)));
-        assertThrows(IllegalArgumentException.class, () -> new PaymentRecheckWorker(repository, client,
+        assertThrows(IllegalArgumentException.class, () -> new PaymentRecheckWorker(repository, client, listener,
                 MerchantPropertiesFixture.defaults(), payProperties(), Clock.fixed(NOW, SEOUL),
                 100, Duration.ZERO));
     }

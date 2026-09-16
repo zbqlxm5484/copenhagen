@@ -19,6 +19,7 @@ import com.copenhagen.merchantmock.scenario.ScenarioState;
 import com.copenhagen.merchantmock.support.MerchantProperties;
 import com.copenhagen.merchantmock.support.Audit;
 import com.copenhagen.merchantmock.support.LogContext;
+import com.copenhagen.merchantmock.support.Sleeper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,14 +47,6 @@ import org.springframework.web.client.RestClient;
  */
 @Component
 public class HttpWebhookDispatcher implements WebhookDispatcher {
-
-    /** 기다리는 방법. 테스트가 실제로 잠들지 않고 기다린 시간만 기록할 수 있게 뗐다. */
-    @FunctionalInterface
-    interface Sleeper {
-        Sleeper THREAD = Thread::sleep;
-
-        void sleep(Duration duration) throws InterruptedException;
-    }
 
     static final String HEADER_UCP_AGENT = "UCP-Agent";
     static final String HEADER_WEBHOOK_ID = "Webhook-Id";

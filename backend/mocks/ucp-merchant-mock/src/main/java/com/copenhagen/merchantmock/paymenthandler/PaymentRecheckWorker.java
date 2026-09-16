@@ -34,6 +34,9 @@ import org.springframework.stereotype.Component;
  * <p>{@link PaymentService#charge} 를 부르지 않고 {@link PayClient} 를 직접 부른다. 저쪽은 {@code beginPayment}
  * 로 재진입을 막게 돼 있어 두 번째 호출이 예외로 튕긴다. 재조회는 그 가드가 막으려던 재진입이 아니다.
  *
+ * <p>확정된 결과는 {@link PaymentResolutionListener} 에 넘긴다. SUCCESS 면 저쪽이 주문을 만들고 체크아웃을
+ * {@code completed} 로, FAILED 면 {@code ready_for_complete} 로 되돌린다(176).
+ *
  * <p>한도를 넘긴 행은 상태를 바꾸지 않는다. {@code payment_status} 다섯 값에 "포기" 가 없고 그게 맞다 —
  * {@code UNKNOWN} 자체가 이미 사람이 확인해야 하는 상태다(8.3절). 옮길 곳이 없으니 스캔에서만 뺀다.
  */
@@ -46,6 +49,7 @@ public class PaymentRecheckWorker {
 
     private final CheckoutRepository repository;
     private final PayClient client;
+    private final PaymentResolutionListener resolutions;
     private final MerchantProperties merchant;
     private final PayProperties properties;
     private final Clock clock;
@@ -55,6 +59,7 @@ public class PaymentRecheckWorker {
     public PaymentRecheckWorker(
             CheckoutRepository repository,
             PayClient client,
+            PaymentResolutionListener resolutions,
             MerchantProperties merchant,
             PayProperties properties,
             Clock clock,
@@ -68,6 +73,7 @@ public class PaymentRecheckWorker {
         }
         this.repository = repository;
         this.client = client;
+        this.resolutions = resolutions;
         this.merchant = merchant;
         this.properties = properties;
         this.clock = clock;
@@ -146,11 +152,10 @@ public class PaymentRecheckWorker {
         Audit.event("payment.resolved").before(PaymentStatus.UNKNOWN).after(result.status())
                 .reason("recheck").with(LogContext.PAYMENT_ID, result.paymentId())
                 .with("attempts", row.attemptCount()).log();
-        if (result.status() == PaymentStatus.SUCCESS) {
-            // 주문 생성과 completed 전이는 176 이 소유한다(DESIGN.md 8.8절). 아직 없다.
-            LOG.warn("늦게 확정된 SUCCESS 다. 주문 생성은 176 이 붙을 때 이어진다. checkoutId={}",
-                    row.checkoutId());
-        }
+        // 주문 생성과 completed 전이는 Complete 쪽이 소유한다(DESIGN.md 8.8절). 여기서 예외가 나면 한 건
+        // 처리 예외 경로로 잡힌다. 결제 상태는 이미 확정돼 다시 집히지 않으므로 그 로그가 유일한 단서다.
+        String paymentId = result.paymentId() != null ? result.paymentId() : row.payPaymentId();
+        resolutions.paymentResolved(row.checkoutId(), result.status(), paymentId);
     }
 
     private void backOff(PaymentRecheck row, OffsetDateTime now) {

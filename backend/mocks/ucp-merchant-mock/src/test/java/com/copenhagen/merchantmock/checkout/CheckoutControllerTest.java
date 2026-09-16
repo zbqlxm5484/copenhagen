@@ -1,6 +1,13 @@
 package com.copenhagen.merchantmock.checkout;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import com.copenhagen.merchantmock.checkout.CheckoutMessages.CompleteResult;
+import com.copenhagen.merchantmock.checkout.CheckoutMessages.OrderRef;
+import com.copenhagen.merchantmock.checkout.CheckoutMessages.PaymentRef;
 import com.copenhagen.merchantmock.checkout.CheckoutTestSupport.Harness;
+import com.copenhagen.merchantmock.support.ApiException;
 import com.copenhagen.merchantmock.support.ApiExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** 체크아웃 네 엔드포인트의 HTTP 계약. 필드 이름이 Core 확정본과 같은 snake_case 인지가 핵심이다. */
+/** 체크아웃 다섯 엔드포인트의 HTTP 계약. 필드 이름이 Core 확정본과 같은 snake_case 인지가 핵심이다. */
 class CheckoutControllerTest {
 
     private static final String CREATE_BODY = """
@@ -38,6 +45,11 @@ class CheckoutControllerTest {
             }
             """;
 
+    /** Core 확정본 4.8 그대로. credentialId 하나뿐이다. */
+    private static final String COMPLETE_BODY = """
+            { "payment": { "instrument": { "credential": { "credentialId": "credential-123" } } } }
+            """;
+
     private static final String NO_ADDRESS_BODY = """
             {
               "line_items": [
@@ -48,14 +60,137 @@ class CheckoutControllerTest {
 
     private MockMvc mockMvc;
     private Harness harness;
+    private final List<String> completeCalls = new ArrayList<>();
+    private CompleteResult completeResult;
+    private ApiException completeFailure;
 
     @BeforeEach
     void setUp() {
         this.harness = CheckoutTestSupport.harness();
+        // Complete 의 흐름은 CheckoutCompletionServiceTest 몫이다. 여기서는 HTTP 계약만 보므로 기록만 한다.
+        CheckoutCompletionService completion = new CheckoutCompletionService(null, null, null, null, null, null,
+                null, null, null) {
+            @Override
+            public CompleteResult complete(String checkoutId, String credentialId) {
+                completeCalls.add(checkoutId + ":" + credentialId);
+                if (completeFailure != null) {
+                    throw completeFailure;
+                }
+                return completeResult;
+            }
+        };
         this.mockMvc = MockMvcBuilders
-                .standaloneSetup(new CheckoutController(harness.service()))
+                .standaloneSetup(new CheckoutController(harness.service(), completion))
                 .setControllerAdvice(new ApiExceptionHandler())
                 .build();
+    }
+
+    @Test
+    @DisplayName("ready_for_complete 응답에 merchant_authorization 이 Compact JWS 로 실린다")
+    void create_ready_carriesMerchantAuthorization() throws Exception {
+        // when & then
+        mockMvc.perform(post("/ucp/v1/checkout-sessions")
+                        .header("Idempotency-Key", "checkout-create-signed")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(CREATE_BODY))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("ready_for_complete"))
+                .andExpect(jsonPath("$.merchant_authorization").isString())
+                .andExpect(jsonPath("$.merchant_authorization").value(
+                        org.hamcrest.Matchers.matchesRegex("^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$")))
+                .andExpect(jsonPath("$.order").doesNotExist())
+                .andExpect(jsonPath("$.payment").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("purchase_request_id 가 없으면 incomplete 이고 messages 가 그 필드를 가리킨다")
+    void create_withoutPurchaseRequestId_returnsIncomplete() throws Exception {
+        // given
+        String body = CREATE_BODY.replace("\"pr-0001\"", "null");
+
+        // when & then
+        mockMvc.perform(post("/ucp/v1/checkout-sessions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("incomplete"))
+                .andExpect(jsonPath("$.messages[0].code").value("CHECKOUT_INCOMPLETE"))
+                .andExpect(jsonPath("$.messages[0].target").value("purchase_request_id"))
+                .andExpect(jsonPath("$.merchant_authorization").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("완료는 200 이고 응답이 Core 확정본 4.8 모양이다")
+    void complete_success_returns200WithOrderAndPayment() throws Exception {
+        // given
+        completeResult = new CompleteResult("checkout-1", "completed",
+                new OrderRef("order-999", "http://ucp-merchant-mock:8080/orders/order-999"),
+                new PaymentRef("payment-777", "SUCCESS", null));
+
+        // when & then
+        mockMvc.perform(post("/ucp/v1/checkout-sessions/{id}/complete", "checkout-1")
+                        .header("Idempotency-Key", "checkout-complete-checkout-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(COMPLETE_BODY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("checkout-1"))
+                .andExpect(jsonPath("$.status").value("completed"))
+                .andExpect(jsonPath("$.order.id").value("order-999"))
+                .andExpect(jsonPath("$.order.permalink_url").value("http://ucp-merchant-mock:8080/orders/order-999"))
+                .andExpect(jsonPath("$.payment.paymentId").value("payment-777"))
+                .andExpect(jsonPath("$.payment.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.payment.errorCode").doesNotExist());
+        org.junit.jupiter.api.Assertions.assertEquals(List.of("checkout-1:credential-123"), completeCalls);
+    }
+
+    @Test
+    @DisplayName("결제 실패도 200 이고 status 가 ready_for_complete 다. order 키는 없다")
+    void complete_failed_returns200WithoutOrder() throws Exception {
+        // given
+        completeResult = new CompleteResult("checkout-1", "ready_for_complete", null,
+                new PaymentRef("payment-777", "FAILED", "PG_DECLINED"));
+
+        // when & then
+        mockMvc.perform(post("/ucp/v1/checkout-sessions/{id}/complete", "checkout-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(COMPLETE_BODY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ready_for_complete"))
+                .andExpect(jsonPath("$.order").doesNotExist())
+                .andExpect(jsonPath("$.payment.status").value("FAILED"))
+                .andExpect(jsonPath("$.payment.errorCode").value("PG_DECLINED"));
+    }
+
+    @Test
+    @DisplayName("credentialId 가 없는 본문은 서비스에 null 로 넘어간다. 검증은 서비스가 한다")
+    void complete_bodyWithoutCredential_passesNull() throws Exception {
+        // given
+        completeFailure = ApiException.invalidRequest("credentialId 가 필요하다");
+
+        // when & then
+        mockMvc.perform(post("/ucp/v1/checkout-sessions/{id}/complete", "checkout-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"payment\": {}}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.nextAction").value(org.hamcrest.Matchers.nullValue()));
+        org.junit.jupiter.api.Assertions.assertEquals(List.of("checkout-1:null"), completeCalls);
+    }
+
+    @Test
+    @DisplayName("상태 거절은 409 오류 Envelope 이다")
+    void complete_rejected_returns409Envelope() throws Exception {
+        // given
+        completeFailure = ApiException.checkoutExpired("checkout-1");
+
+        // when & then
+        mockMvc.perform(post("/ucp/v1/checkout-sessions/{id}/complete", "checkout-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(COMPLETE_BODY))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("CHECKOUT_EXPIRED"))
+                .andExpect(jsonPath("$.currentState").value("ready_for_complete"))
+                .andExpect(jsonPath("$.nextAction").value("RESTART_CHECKOUT"));
     }
 
     @Test
