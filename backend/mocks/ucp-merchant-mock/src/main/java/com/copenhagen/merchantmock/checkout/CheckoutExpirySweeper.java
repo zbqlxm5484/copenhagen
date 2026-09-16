@@ -7,7 +7,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -24,7 +23,6 @@ import org.springframework.stereotype.Component;
  * {@link com.copenhagen.merchantmock.support.MerchantProperties} 를 거치지 않는다(DESIGN.md 3.4절).
  */
 @Component
-@EnableScheduling
 @ConditionalOnProperty(prefix = "merchant.checkout", name = "sweep-enabled",
         havingValue = "true", matchIfMissing = true)
 public class CheckoutExpirySweeper {

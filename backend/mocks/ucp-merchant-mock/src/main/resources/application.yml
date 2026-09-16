@@ -69,8 +69,15 @@ merchant:
     initial: NORMAL
   webhook:
     # 발송 실패 n회 뒤 다음 시도까지 retry-initial-delay × 2^(n-1). 넘기면 184 워커가 FAILED 로 닫는다(DESIGN.md 7.4절).
+    # 새 행의 next_attempt_at 도 now + retry-initial-delay 다. 첫 시도는 커밋 직후 스레드 몫이고 워커는 그 뒤를 받는다(8.7절).
     retry-initial-delay: PT10S
     retry-max-attempts: 8
+    # 재전송 워커(184, DESIGN.md 8.7절).
+    retry-enabled: true
+    retry-interval: PT15S
+    retry-batch-size: 100
+    # 집을 때 next_attempt_at 을 이만큼 민다. 같은 행을 두 번 보내지 않기 위해서다.
+    retry-lease: PT1M
 
 core:
   # Platform Profile 을 가져오는 데만 쓴다. 웹훅 주소는 Profile 의 dev.ucp.shopping.order config.webhook_url 에서 읽는다.

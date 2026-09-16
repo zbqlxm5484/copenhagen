@@ -1,5 +1,6 @@
 package com.copenhagen.merchantmock.webhook;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -32,8 +33,11 @@ final class WebhookTestSupport {
                 "홍길동", null, "06236", "서울특별시 강남구 테헤란로 1", "101호", 0L, NOW_SEOUL);
     }
 
+    /** {@code merchant.webhook.retry-initial-delay} 기본값. 새 행의 next_attempt_at 이 이만큼 밀린다. */
+    static final Duration FIRST_DELAY = Duration.ofSeconds(10);
+
     static WebhookDelivery pendingCreated(String webhookId) {
         return WebhookDelivery.pending(webhookId, ORDER_ID, WebhookEventType.ORDER_CREATED,
-                "{\"order\":" + RAW_ORDER_JSON + "}", NOW_SEOUL);
+                "{\"order\":" + RAW_ORDER_JSON + "}", NOW_SEOUL, FIRST_DELAY);
     }
 }
