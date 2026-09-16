@@ -10,4 +10,10 @@ package com.copenhagen.merchantmock.paymenthandler;
 public interface PayClient {
 
     PaymentResult charge(PaymentRequest request);
+
+    /**
+     * {@code GET /merchant/v1/payments/{paymentId}}. 183 워커가 {@code paymentId} 를 아는 UNKNOWN 을 확인할 때
+     * 쓴다(DESIGN.md 8.8절). {@code charge} 와 같은 약속이다 — 전송 실패에 예외를 던지지 않고 UNKNOWN 을 준다.
+     */
+    PaymentResult lookup(String paymentId);
 }

@@ -3,6 +3,7 @@ package com.copenhagen.merchantmock.migration;
 import java.util.List;
 
 import javax.sql.DataSource;
+import java.time.OffsetDateTime;
 
 import com.copenhagen.contract.internalapi.PaymentStatus;
 import com.copenhagen.merchantmock.support.EmbeddedPostgresSupport;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -52,7 +54,7 @@ class MerchantMigrationPostgresTest {
     }
 
     @Test
-    @DisplayName("빈 DB 에 V1~V7 를 전부 적용한다")
+    @DisplayName("빈 DB 에 V1~V8 을 전부 적용한다")
     void migrate_emptyDatabase_appliesAllVersions() {
         // given
         String schema = postgres.newSchema();
@@ -63,13 +65,13 @@ class MerchantMigrationPostgresTest {
 
         // then
         JdbcTemplate jdbc = postgres.jdbcFor(dataSource);
-        assertEquals(7, applied);
-        assertEquals("7", currentVersion(jdbc, schema));
+        assertEquals(8, applied);
+        assertEquals("8", currentVersion(jdbc, schema));
         TABLES.forEach(table -> assertTrue(tableExists(jdbc, schema, table), table + " 가 없다"));
     }
 
     @Test
-    @DisplayName("V3 까지 적용된 DB 위에 V4·V5·V6·V7 가 올라간다")
+    @DisplayName("V3 까지 적용된 DB 위에 V4·V5·V6·V7·V8 이 올라간다")
     void migrate_databaseAtV3_appliesRemainingVersions() {
         // given
         String schema = postgres.newSchema();
@@ -83,8 +85,8 @@ class MerchantMigrationPostgresTest {
         int applied = postgres.flywayFor(dataSource, schema, null).migrate().migrationsExecuted;
 
         // then
-        assertEquals(4, applied);
-        assertEquals("7", currentVersion(jdbc, schema));
+        assertEquals(5, applied);
+        assertEquals("8", currentVersion(jdbc, schema));
         assertTrue(tableExists(jdbc, schema, "order_items"));
         assertEquals(5, seededProductCount(jdbc), "기존 시드 데이터가 살아 있어야 한다");
     }
@@ -148,7 +150,7 @@ class MerchantMigrationPostgresTest {
     }
 
     @Test
-    @DisplayName("V5 까지 적용된 DB 위에 V6·V7 이 올라가고 기존 체크아웃 행이 살아 있다")
+    @DisplayName("V5 까지 적용된 DB 위에 V6·V7·V8 이 올라가고 기존 체크아웃 행이 살아 있다")
     void migrate_databaseAtV5_addsLineSkusColumn() {
         // given
         String schema = postgres.newSchema();
@@ -162,8 +164,8 @@ class MerchantMigrationPostgresTest {
         int applied = postgres.flywayFor(dataSource, schema, null).migrate().migrationsExecuted;
 
         // then
-        assertEquals(2, applied);
-        assertEquals("7", currentVersion(jdbc, schema));
+        assertEquals(3, applied);
+        assertEquals("8", currentVersion(jdbc, schema));
         assertEquals(1, jdbc.queryForObject(
                 "SELECT count(*) FROM checkout_sessions WHERE id = 'before-v6'", Integer.class));
         assertNull(jdbc.queryForObject(
@@ -211,8 +213,8 @@ class MerchantMigrationPostgresTest {
         int applied = postgres.flywayFor(dataSource, schema, null).migrate().migrationsExecuted;
 
         // then
-        assertEquals(1, applied);
-        assertEquals("7", currentVersion(jdbc, schema));
+        assertEquals(2, applied);
+        assertEquals("8", currentVersion(jdbc, schema));
         assertEquals("PROCESSING", paymentStatus(jdbc, "requested"), "옛 값은 뜻이 같은 PROCESSING 으로 옮긴다");
         assertEquals("SUCCESS", paymentStatus(jdbc, "success"), "다른 값은 건드리지 않는다");
         assertNull(paymentStatus(jdbc, "none"));
@@ -277,5 +279,48 @@ class MerchantMigrationPostgresTest {
                 SELECT count(*) FROM information_schema.columns
                  WHERE table_schema = ? AND table_name = 'checkout_sessions' AND column_name = ?
                 """, Integer.class, migrated.schema(), column) == 1;
+    }
+    @Test
+    @DisplayName("V7 까지 적용된 DB 위에 V8 이 올라가고 기존 결제 행이 살아 있다")
+    void migrate_databaseAtV7_addsRecheckColumnsAndKeepsRows() {
+        // given
+        String schema = postgres.newSchema();
+        DataSource dataSource = postgres.dataSourceFor(schema);
+        postgres.flywayFor(dataSource, schema, "7").migrate();
+        JdbcTemplate jdbc = postgres.jdbcFor(dataSource);
+        jdbc.update("""
+                INSERT INTO checkout_sessions (id, status, payment_status, payment_requested_at)
+                VALUES (?, ?, ?, now())
+                """, "unknown-1", "COMPLETE_IN_PROGRESS", "UNKNOWN");
+
+        // when
+        int applied = postgres.flywayFor(dataSource, schema, null).migrate().migrationsExecuted;
+
+        // then
+        Migrated migrated = new Migrated(jdbc, schema);
+        assertEquals(1, applied);
+        assertEquals("8", currentVersion(jdbc, schema));
+        assertTrue(columnExists(migrated, "payment_credential_id"));
+        assertTrue(columnExists(migrated, "payment_next_attempt_at"));
+        assertEquals(1, (int) jdbc.queryForObject(
+                "SELECT count(*) FROM checkout_sessions WHERE id = 'unknown-1'", Integer.class));
+        assertNotNull(jdbc.queryForObject(
+                "SELECT payment_requested_at FROM checkout_sessions WHERE id = 'unknown-1'",
+                OffsetDateTime.class), "청구 시각은 V8 이 건드리지 않는다");
+    }
+
+    @Test
+    @DisplayName("V8 이 재조회 인덱스를 payment_next_attempt_at 기준으로 바꾼다")
+    void migrate_v8_repointsPaymentIndex() {
+        // given & when
+        Migrated migrated = migrated();
+
+        // then
+        String definition = migrated.jdbc().queryForObject("""
+                SELECT indexdef FROM pg_indexes
+                 WHERE schemaname = ? AND indexname = 'ix_checkout_payment'
+                """, String.class, migrated.schema());
+        assertTrue(definition.contains("payment_next_attempt_at"), definition);
+        assertFalse(definition.contains("payment_requested_at"), definition);
     }
 }

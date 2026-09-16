@@ -26,11 +26,13 @@ public class PaymentService {
 
     private final CheckoutRepository repository;
     private final PayClient client;
-    private final MerchantProperties properties;
+    private final MerchantProperties merchant;
+    private final PayProperties properties;
     private final Clock clock;
 
-    public PaymentService(CheckoutRepository repository, PayClient client, MerchantProperties properties,
-            Clock clock) {
+    public PaymentService(CheckoutRepository repository, PayClient client, MerchantProperties merchant,
+            PayProperties properties, Clock clock) {
+        this.merchant = merchant;
         this.repository = repository;
         this.client = client;
         this.properties = properties;
@@ -52,12 +54,16 @@ public class PaymentService {
      * @throws IllegalStateException 이미 결제가 시작된 체크아웃에 다시 청구했을 때. 부르는 쪽의 버그다
      */
     public PaymentResult charge(Charge charge) {
-        if (!repository.beginPayment(charge.checkoutId(), OffsetDateTime.now(clock))) {
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        // credentialId 와 첫 재조회 시각을 청구 직전에 같이 적는다. 응답이 유실되면 이 행만 보고
+        // 재POST 본문을 되살려야 한다(183, DESIGN.md 8.8절).
+        if (!repository.beginPayment(charge.checkoutId(), now, charge.credentialId(),
+                now.plus(properties.recheckInitialDelay()))) {
             throw new IllegalStateException(
                     "이미 결제가 시작된 체크아웃에 다시 청구하려 했다: " + charge.checkoutId());
         }
 
-        PaymentRequest request = new PaymentRequest(properties.id(), charge.checkoutId(), charge.checkoutHash(),
+        PaymentRequest request = new PaymentRequest(merchant.id(), charge.checkoutId(), charge.checkoutHash(),
                 charge.amountMinor(), charge.currency(), charge.credentialId());
         PaymentResult result;
         try {
