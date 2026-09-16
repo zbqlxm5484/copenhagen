@@ -29,4 +29,24 @@ public interface WebhookRepository {
      */
     boolean markRetry(String webhookId, Integer responseStatus, OffsetDateTime nextAttemptAt,
             WebhookDelivery.Signed signed);
+
+    /**
+     * 한도를 넘긴 {@code PENDING} 을 {@code FAILED} 로 닫는다. 184 워커가 주기마다 먼저 부른다(DESIGN.md 8.7절).
+     *
+     * <p>{@code FAILED} 는 끝이다. 다시 보내지 않고 사람이 보라고 남긴다.
+     *
+     * @param maxAttempts 이 횟수 이상 시도한 행을 닫는다
+     * @return 닫은 건수
+     */
+    int failExhausted(int maxAttempts, int limit);
+
+    /**
+     * 기한이 된 {@code PENDING} 을 집는다. 집으면서 {@code next_attempt_at} 을 {@code leaseUntil} 로 밀어
+     * 이어지는 스캔이 같은 행을 다시 집지 않게 한다(DESIGN.md 8.7절).
+     *
+     * <p>{@code attempt_count >= maxAttempts} 는 집지 않는다. 그쪽은 {@link #failExhausted} 가 닫는다.
+     *
+     * @return 집은 행의 webhookId. 받은 순서대로 보낸다
+     */
+    List<String> claimDue(OffsetDateTime now, OffsetDateTime leaseUntil, int maxAttempts, int limit);
 }

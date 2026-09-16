@@ -83,7 +83,7 @@ class JdbcWebhookRepositoryPostgresTest {
         assertEquals(0, first.attemptCount());
         assertNull(first.signed());
         assertNull(first.responseStatus());
-        assertEquals(NOW.toInstant(), first.nextAttemptAt().toInstant());
+        assertEquals(NOW.plus(WebhookTestSupport.FIRST_DELAY).toInstant(), first.nextAttemptAt().toInstant());
         assertTrue(first.payloadJson().contains("\"order\""));
         assertEquals(first.payloadJson(), second.payloadJson(), "재전송은 같은 바이트를 보낸다(불변 조건 8번)");
     }
@@ -163,7 +163,8 @@ class JdbcWebhookRepositoryPostgresTest {
     void insert_constraintViolations_rejected() {
         // when & then
         assertThrows(RuntimeException.class, () -> repository.insert(WebhookDelivery.pending(
-                "webhook-x", "no-such-order", WebhookEventType.ORDER_CREATED, "{}", NOW)));
+                "webhook-x", "no-such-order", WebhookEventType.ORDER_CREATED, "{}", NOW,
+                WebhookTestSupport.FIRST_DELAY)));
         assertThrows(RuntimeException.class, () -> jdbc.update("""
                 INSERT INTO webhook_deliveries (webhook_id, order_id, event_type, payload_json)
                 VALUES ('webhook-y', ?, 'order.deleted', '{}'::jsonb)
@@ -185,5 +186,117 @@ class JdbcWebhookRepositoryPostgresTest {
 
         // then
         assertTrue(String.join(System.lineSeparator(), plan).contains("ix_webhook_pending"), plan.toString());
+    }
+    /** {@code attemptCount} 번 실패해 다음 시도가 {@code dueAt} 으로 잡힌 행을 심는다. */
+    private void putPending(String webhookId, int attemptCount, OffsetDateTime dueAt) {
+        repository.insert(WebhookTestSupport.pendingCreated(webhookId));
+        jdbc.update("UPDATE webhook_deliveries SET attempt_count = ?, next_attempt_at = ? WHERE webhook_id = ?",
+                attemptCount, dueAt, webhookId);
+    }
+
+    private String statusOf(String webhookId) {
+        return repository.findById(webhookId).orElseThrow().status().name();
+    }
+
+    @Test
+    @DisplayName("claimDue 는 기한이 된 PENDING 만 집고 next_attempt_at 을 리스로 민다")
+    void claimDue_duePendingRow_returnsIdAndPushesNextAttempt() {
+        // given
+        putPending("webhook-due", 1, NOW);
+        putPending("webhook-later", 1, NOW.plusMinutes(5));
+
+        // when
+        OffsetDateTime leaseUntil = NOW.plusMinutes(1);
+        List<String> claimed = repository.claimDue(NOW, leaseUntil, 8, 100);
+
+        // then
+        assertEquals(List.of("webhook-due"), claimed);
+        assertEquals(leaseUntil.toInstant(),
+                repository.findById("webhook-due").orElseThrow().nextAttemptAt().toInstant());
+        assertEquals(NOW.plusMinutes(5).toInstant(),
+                repository.findById("webhook-later").orElseThrow().nextAttemptAt().toInstant());
+    }
+
+    @Test
+    @DisplayName("리스 때문에 연속으로 두 번 부르면 둘째는 비어 나온다")
+    void claimDue_calledTwiceInARow_secondCallClaimsNothing() {
+        // given
+        putPending("webhook-due", 1, NOW);
+
+        // when
+        List<String> first = repository.claimDue(NOW, NOW.plusMinutes(1), 8, 100);
+        List<String> second = repository.claimDue(NOW.plusSeconds(1), NOW.plusMinutes(1), 8, 100);
+
+        // then
+        assertEquals(List.of("webhook-due"), first);
+        assertTrue(second.isEmpty());
+    }
+
+    @Test
+    @DisplayName("claimDue 는 DELIVERED·FAILED 와 한도를 넘긴 행을 집지 않는다")
+    void claimDue_terminalOrExhaustedRows_notClaimed() {
+        // given
+        putPending("webhook-delivered", 1, NOW);
+        repository.markDelivered("webhook-delivered", 204, SIGNED);
+        putPending("webhook-failed", 1, NOW);
+        jdbc.update("UPDATE webhook_deliveries SET status = 'FAILED' WHERE webhook_id = 'webhook-failed'");
+        putPending("webhook-exhausted", 8, NOW);
+
+        // when
+        List<String> claimed = repository.claimDue(NOW, NOW.plusMinutes(1), 8, 100);
+
+        // then
+        assertTrue(claimed.isEmpty(), claimed.toString());
+    }
+
+    @Test
+    @DisplayName("claimDue 는 배치 크기를 지키고 기한이 이른 것부터 집는다")
+    void claimDue_moreDueRowsThanLimit_claimsOldestFirst() {
+        // given
+        putPending("webhook-late", 1, NOW.minusSeconds(1));
+        putPending("webhook-early", 1, NOW.minusMinutes(1));
+
+        // when
+        List<String> claimed = repository.claimDue(NOW, NOW.plusMinutes(1), 8, 1);
+
+        // then
+        assertEquals(List.of("webhook-early"), claimed);
+    }
+
+    @Test
+    @DisplayName("failExhausted 는 한도를 넘긴 PENDING 만 FAILED 로 닫는다")
+    void failExhausted_pendingRowsOverLimit_closedAsFailed() {
+        // given
+        putPending("webhook-exhausted", 8, NOW);
+        putPending("webhook-one-left", 7, NOW);
+        putPending("webhook-delivered", 9, NOW);
+        repository.markDelivered("webhook-delivered", 204, SIGNED);
+
+        // when
+        int closed = repository.failExhausted(8, 100);
+
+        // then
+        assertEquals(1, closed);
+        assertEquals("FAILED", statusOf("webhook-exhausted"));
+        assertEquals("PENDING", statusOf("webhook-one-left"));
+        assertEquals("DELIVERED", statusOf("webhook-delivered"));
+    }
+
+    @Test
+    @DisplayName("FAILED 로 닫힌 행은 서명 기록과 시도 횟수를 그대로 남긴다")
+    void failExhausted_closedRow_keepsAttemptHistory() {
+        // given
+        putPending("webhook-exhausted", 3, NOW);
+        repository.markRetry("webhook-exhausted", 500, NOW.plusMinutes(2), SIGNED);
+
+        // when
+        repository.failExhausted(4, 100);
+
+        // then
+        WebhookDelivery row = repository.findById("webhook-exhausted").orElseThrow();
+        assertEquals(WebhookStatus.FAILED, row.status());
+        assertEquals(4, row.attemptCount());
+        assertEquals(500, row.responseStatus());
+        assertEquals(SIGNED, row.signed());
     }
 }

@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.copenhagen.merchantmock.support.MerchantPropertiesFixture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +41,7 @@ class OrderWebhookPublisherTest {
             return WebhookDispatcher.Result.DELIVERED;
         };
         publisher = new OrderWebhookPublisher(repository, dispatcher, Runnable::run, objectMapper,
+                MerchantPropertiesFixture.defaults(),
                 Clock.fixed(WebhookTestSupport.NOW, WebhookTestSupport.SEOUL));
     }
 
@@ -63,7 +65,6 @@ class OrderWebhookPublisherTest {
         assertEquals(WebhookEventType.ORDER_CREATED, row.eventType());
         assertEquals(WebhookStatus.PENDING, row.status());
         assertEquals(0, row.attemptCount());
-        assertEquals(WebhookTestSupport.NOW_SEOUL.toInstant(), row.nextAttemptAt().toInstant());
         assertNull(row.signed(), "아직 보내지 않았으니 서명 기록이 없다");
 
         Map<String, Object> payload = objectMapper.readValue(row.payloadJson(), JSON_OBJECT);
@@ -134,5 +135,17 @@ class OrderWebhookPublisherTest {
         List<WebhookDelivery> rows = repository.findByOrderId(WebhookTestSupport.ORDER_ID);
         assertEquals(2, rows.size());
         assertTrue(!rows.get(0).webhookId().equals(rows.get(1).webhookId()));
+    }
+
+    @Test
+    @DisplayName("새 행의 next_attempt_at 은 지금이 아니라 now + retry-initial-delay 다. 워커가 첫 발송과 겹치지 않게 한다")
+    void orderCreated_newRow_nextAttemptIsPushedByFirstDelay() {
+        // when
+        publisher.orderCreated(WebhookTestSupport.order());
+
+        // then
+        WebhookDelivery row = repository.findByOrderId(WebhookTestSupport.ORDER_ID).get(0);
+        assertEquals(WebhookTestSupport.NOW_SEOUL.plus(WebhookTestSupport.FIRST_DELAY), row.nextAttemptAt());
+        assertEquals(WebhookTestSupport.NOW_SEOUL, row.createdAt());
     }
 }

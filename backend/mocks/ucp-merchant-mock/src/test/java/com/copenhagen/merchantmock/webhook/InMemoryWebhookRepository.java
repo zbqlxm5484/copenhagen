@@ -56,6 +56,35 @@ final class InMemoryWebhookRepository implements WebhookRepository {
         return true;
     }
 
+    @Override
+    public int failExhausted(int maxAttempts, int limit) {
+        List<WebhookDelivery> due = rows.values().stream()
+                .filter(row -> row.status() == WebhookStatus.PENDING)
+                .filter(row -> row.attemptCount() >= maxAttempts)
+                .sorted(Comparator.comparing(WebhookDelivery::nextAttemptAt))
+                .limit(limit)
+                .toList();
+        due.forEach(row -> rows.put(row.webhookId(), new WebhookDelivery(row.webhookId(), row.orderId(),
+                row.eventType(), row.payloadJson(), row.signed(), WebhookStatus.FAILED, row.attemptCount(),
+                row.nextAttemptAt(), row.responseStatus(), row.createdAt())));
+        return due.size();
+    }
+
+    @Override
+    public List<String> claimDue(OffsetDateTime now, OffsetDateTime leaseUntil, int maxAttempts, int limit) {
+        List<WebhookDelivery> due = rows.values().stream()
+                .filter(row -> row.status() == WebhookStatus.PENDING)
+                .filter(row -> !row.nextAttemptAt().isAfter(now))
+                .filter(row -> row.attemptCount() < maxAttempts)
+                .sorted(Comparator.comparing(WebhookDelivery::nextAttemptAt).thenComparing(WebhookDelivery::webhookId))
+                .limit(limit)
+                .toList();
+        due.forEach(row -> rows.put(row.webhookId(), new WebhookDelivery(row.webhookId(), row.orderId(),
+                row.eventType(), row.payloadJson(), row.signed(), row.status(), row.attemptCount(),
+                leaseUntil, row.responseStatus(), row.createdAt())));
+        return due.stream().map(WebhookDelivery::webhookId).toList();
+    }
+
     /** 테스트가 상태를 직접 심을 때 쓴다. */
     void put(WebhookDelivery delivery) {
         rows.put(delivery.webhookId(), delivery);

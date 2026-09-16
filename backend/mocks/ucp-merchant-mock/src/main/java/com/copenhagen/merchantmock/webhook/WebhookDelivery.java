@@ -1,5 +1,6 @@
 package com.copenhagen.merchantmock.webhook;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 
 /**
@@ -24,10 +25,19 @@ public record WebhookDelivery(
     public record Signed(String signatureInput, String signature, String contentDigest) {
     }
 
-    /** 주문 트랜잭션 안에서 만드는 새 행. 첫 시도는 커밋 직후이므로 {@code nextAttemptAt} 은 지금이다. */
+    /**
+     * 주문 트랜잭션 안에서 만드는 새 행.
+     *
+     * <p>{@code nextAttemptAt} 은 지금이 아니라 {@code now + firstDelay} 다. 첫 시도는 커밋 직후
+     * 별도 스레드 몫이고 184 워커는 그 뒤를 받는 장치다. 지금으로 두면 갓 INSERT 된 행이 워커 눈에
+     * 곧바로 기한 도래로 보여 같은 웹훅이 두 번 나간다(DESIGN.md 8.7절). 앱이 커밋과 발송 사이에
+     * 죽으면 이 지연만큼 늦게 집힌다.
+     *
+     * @param firstDelay {@code merchant.webhook.retry-initial-delay}
+     */
     public static WebhookDelivery pending(String webhookId, String orderId, WebhookEventType eventType,
-            String payloadJson, OffsetDateTime now) {
+            String payloadJson, OffsetDateTime now, Duration firstDelay) {
         return new WebhookDelivery(webhookId, orderId, eventType, payloadJson, null, WebhookStatus.PENDING,
-                0, now, null, now);
+                0, now.plus(firstDelay), null, now);
     }
 }

@@ -48,6 +48,32 @@ public class JdbcWebhookRepository implements WebhookRepository {
              WHERE webhook_id = ? AND status = 'PENDING'
             """;
 
+    private static final String FAIL_EXHAUSTED = """
+            UPDATE webhook_deliveries
+               SET status = 'FAILED'
+             WHERE webhook_id IN (SELECT webhook_id
+                                    FROM webhook_deliveries
+                                   WHERE status = 'PENDING'
+                                     AND attempt_count >= ?
+                                   ORDER BY next_attempt_at
+                                   LIMIT ?)
+               AND status = 'PENDING'
+            """;
+
+    private static final String CLAIM_DUE = """
+            UPDATE webhook_deliveries
+               SET next_attempt_at = ?
+             WHERE webhook_id IN (SELECT webhook_id
+                                    FROM webhook_deliveries
+                                   WHERE status = 'PENDING'
+                                     AND next_attempt_at <= ?
+                                     AND attempt_count < ?
+                                   ORDER BY next_attempt_at
+                                   LIMIT ?)
+               AND status = 'PENDING'
+            RETURNING webhook_id
+            """;
+
     private static final RowMapper<WebhookDelivery> ROW_MAPPER = (rs, rowNum) -> new WebhookDelivery(
             rs.getString("webhook_id"),
             rs.getString("order_id"),
@@ -97,5 +123,15 @@ public class JdbcWebhookRepository implements WebhookRepository {
         return jdbcTemplate.update(MARK_RETRY,
                 responseStatus, nextAttemptAt, signed.signatureInput(), signed.signature(),
                 signed.contentDigest(), webhookId) == 1;
+    }
+
+    @Override
+    public int failExhausted(int maxAttempts, int limit) {
+        return jdbcTemplate.update(FAIL_EXHAUSTED, maxAttempts, limit);
+    }
+
+    @Override
+    public List<String> claimDue(OffsetDateTime now, OffsetDateTime leaseUntil, int maxAttempts, int limit) {
+        return jdbcTemplate.queryForList(CLAIM_DUE, String.class, leaseUntil, now, maxAttempts, limit);
     }
 }

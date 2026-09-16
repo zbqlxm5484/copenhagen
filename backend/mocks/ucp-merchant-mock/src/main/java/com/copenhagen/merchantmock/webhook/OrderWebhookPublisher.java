@@ -8,6 +8,7 @@ import java.util.concurrent.Executor;
 
 import com.copenhagen.merchantmock.order.Order;
 import com.copenhagen.merchantmock.order.OrderEventListener;
+import com.copenhagen.merchantmock.support.MerchantProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -36,14 +37,17 @@ public class OrderWebhookPublisher implements OrderEventListener {
     private final WebhookDispatcher dispatcher;
     private final Executor executor;
     private final ObjectMapper objectMapper;
+    private final MerchantProperties merchant;
     private final Clock clock;
 
     public OrderWebhookPublisher(WebhookRepository repository, WebhookDispatcher dispatcher,
-            @Qualifier(WebhookConfig.EXECUTOR) Executor executor, ObjectMapper objectMapper, Clock clock) {
+            @Qualifier(WebhookConfig.EXECUTOR) Executor executor, ObjectMapper objectMapper,
+            MerchantProperties merchant, Clock clock) {
         this.repository = repository;
         this.dispatcher = dispatcher;
         this.executor = executor;
         this.objectMapper = objectMapper;
+        this.merchant = merchant;
         this.clock = clock;
     }
 
@@ -60,7 +64,8 @@ public class OrderWebhookPublisher implements OrderEventListener {
     private void enqueue(Order order, WebhookEventType eventType) {
         OffsetDateTime now = OffsetDateTime.now(clock).truncatedTo(ChronoUnit.SECONDS);
         WebhookDelivery delivery = WebhookDelivery.pending(
-                UUID.randomUUID().toString(), order.id(), eventType, payloadOf(order), now);
+                UUID.randomUUID().toString(), order.id(), eventType, payloadOf(order), now,
+                merchant.webhook().retryInitialDelay());
         repository.insert(delivery);
         LOG.info("웹훅을 대장에 적었다. webhookId={} orderId={} event={}", delivery.webhookId(), order.id(),
                 eventType.value());
