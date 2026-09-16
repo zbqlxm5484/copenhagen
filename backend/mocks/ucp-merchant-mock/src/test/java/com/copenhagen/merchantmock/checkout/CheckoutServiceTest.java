@@ -8,7 +8,10 @@ import com.copenhagen.merchantmock.checkout.CheckoutMessages.Message;
 import com.copenhagen.merchantmock.checkout.CheckoutMessages.Total;
 import com.copenhagen.merchantmock.checkout.CheckoutTestSupport.Harness;
 import com.copenhagen.merchantmock.scenario.Scenario;
+import com.copenhagen.merchantmock.security.MerchantAuthorizationSigner;
 import com.copenhagen.merchantmock.support.ApiException;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -17,6 +20,7 @@ import static com.copenhagen.merchantmock.checkout.CheckoutTestSupport.SEOUL;
 import static com.copenhagen.merchantmock.checkout.CheckoutTestSupport.harness;
 import static com.copenhagen.merchantmock.checkout.CheckoutTestSupport.line;
 import static com.copenhagen.merchantmock.checkout.CheckoutTestSupport.request;
+import static com.copenhagen.merchantmock.checkout.CheckoutTestSupport.requestFor;
 import static com.copenhagen.merchantmock.checkout.CheckoutTestSupport.runningShoesToSeoul;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -64,6 +68,108 @@ class CheckoutServiceTest {
         assertEquals(92000L, total(checkout, "total"));
         assertNull(checkout.messages(), "문제가 없으면 messages 키를 생략한다");
         assertEquals(EXPECTED_EXPIRES_AT, checkout.expiresAt());
+    }
+
+    @Test
+    @DisplayName("ready_for_complete 면 Merchant Authorization 이 응답과 컬럼에 같은 값으로 실리고 내 공개키로 풀린다")
+    void create_ready_signsAndStoresMerchantAuthorization() throws Exception {
+        // given & when
+        Harness h = harness();
+        Checkout checkout = h.service().create(runningShoesToSeoul(), "checkout-create-sign-1");
+
+        // then
+        String jws = checkout.merchantAuthorization();
+        assertNotNull(jws);
+        CheckoutSession row = h.repository().findById(checkout.id()).orElseThrow();
+        assertEquals(jws, row.merchantAuthorizationJws(), "컬럼은 발급값 그대로다(불변 조건 6번)");
+        assertTrue(row.canonicalCheckout().contains("\"merchant_authorization\":\"" + jws + "\""),
+                "스냅샷에도 같은 문자열이 있어 조회가 재생한다");
+        assertTrue(MerchantAuthorizationSigner.verify(jws, h.key().toPublicJWK()));
+
+        JWTClaimsSet claims = SignedJWT.parse(jws).getJWTClaimsSet();
+        assertEquals("merchant-a", claims.getStringClaim("merchantId"));
+        assertEquals(checkout.id(), claims.getStringClaim("checkoutId"));
+        assertEquals(CheckoutTestSupport.PURCHASE_REQUEST_ID, claims.getStringClaim("purchaseRequestId"));
+        assertEquals(92000L, claims.getLongClaim("amountMinor"), "totals 의 total 이다");
+        assertEquals("KRW", claims.getStringClaim("currency"));
+        assertEquals(row.expiresAt().toInstant(), claims.getExpirationTime().toInstant(), "exp 는 expires_at 이다");
+    }
+
+    @Test
+    @DisplayName("purchase_request_id 가 없으면 서명할 수 없으니 incomplete 다(6.4절)")
+    void create_withoutPurchaseRequestId_isIncompleteAndUnsigned() {
+        // given & when
+        Harness h = harness();
+        Checkout checkout = h.service().create(
+                requestFor(SEOUL, null, line("product-101", "product-101-270", 1)), "checkout-create-sign-2");
+
+        // then
+        assertEquals("incomplete", checkout.status());
+        assertEquals(List.of("CHECKOUT_INCOMPLETE"), codes(checkout));
+        assertEquals("purchase_request_id", checkout.messages().get(0).target());
+        assertNull(checkout.merchantAuthorization());
+        assertNull(checkout.expiresAt());
+        assertNull(h.repository().findById(checkout.id()).orElseThrow().merchantAuthorizationJws());
+    }
+
+    @Test
+    @DisplayName("incomplete 체크아웃에는 서명이 없다")
+    void create_incomplete_hasNoMerchantAuthorization() {
+        // given & when
+        Checkout checkout = harness().service().create(
+                request(null, line("product-101", "product-101-270", 1)), "checkout-create-sign-3");
+
+        // then
+        assertEquals("incomplete", checkout.status());
+        assertNull(checkout.merchantAuthorization());
+    }
+
+    @Test
+    @DisplayName("PUT 으로 금액이 바뀌면 새로 서명하고 claim 의 금액도 따라간다")
+    void update_amountChanged_resignsWithNewAmount() throws Exception {
+        // given
+        Harness h = harness();
+        Checkout created = h.service().create(runningShoesToSeoul(), "checkout-create-sign-4");
+
+        // when
+        Checkout updated = h.service().update(created.id(), request(SEOUL, line("product-101", "product-101-270", 2)));
+
+        // then
+        assertNotEquals(created.merchantAuthorization(), updated.merchantAuthorization());
+        assertEquals(181000L, SignedJWT.parse(updated.merchantAuthorization()).getJWTClaimsSet()
+                .getLongClaim("amountMinor"));
+        assertEquals(updated.merchantAuthorization(),
+                h.repository().findById(created.id()).orElseThrow().merchantAuthorizationJws());
+    }
+
+    @Test
+    @DisplayName("PUT 으로 조건이 깨져 incomplete 로 내려가면 서명을 폐기한다(Jira 175)")
+    void update_becomesIncomplete_dropsSignature() {
+        // given
+        Harness h = harness();
+        Checkout created = h.service().create(runningShoesToSeoul(), "checkout-create-sign-5");
+        assertNotNull(created.merchantAuthorization());
+
+        // when
+        Checkout updated = h.service().update(created.id(), request(null, line("product-101", "product-101-270", 1)));
+
+        // then
+        assertEquals("incomplete", updated.status());
+        assertNull(updated.merchantAuthorization());
+        assertNull(h.repository().findById(created.id()).orElseThrow().merchantAuthorizationJws());
+    }
+
+    @Test
+    @DisplayName("시나리오 INVALID_MERCHANT_SIGNATURE 는 검증에 실패하는 서명을 싣는다")
+    void create_invalidSignatureScenario_carriesUnverifiableJws() {
+        // given & when
+        Harness h = harness(Scenario.INVALID_MERCHANT_SIGNATURE);
+        Checkout checkout = h.service().create(runningShoesToSeoul(), "checkout-create-sign-6");
+
+        // then
+        assertEquals("ready_for_complete", checkout.status());
+        assertNotNull(checkout.merchantAuthorization());
+        assertTrue(!MerchantAuthorizationSigner.verify(checkout.merchantAuthorization(), h.key().toPublicJWK()));
     }
 
     @Test

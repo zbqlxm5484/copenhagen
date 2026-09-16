@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -30,20 +31,26 @@ class SigningKeyProviderTest {
     private static final String KID = "merchant-a-es256-1";
 
     @Test
-    @DisplayName("공개키만 있으면 기동하고 서명은 못 한다")
-    void load_publicKeyOnly_startsButCannotSign() {
+    @DisplayName("개인키가 없으면 임시 키 쌍을 만들고 설정된 공개키는 쓰지 않는다")
+    void load_noPrivateKey_generatesEphemeralPairAndIgnoresConfiguredPublicKey() {
         // given & when
         SigningKeyProvider provider = new SigningKeyProvider(MerchantPropertiesFixture.defaults());
 
         // then
-        assertFalse(provider.canSign());
-        assertTrue(provider.publicJwk().isPresent());
-        assertThrows(IllegalStateException.class, provider::requireSigningKey);
+        assertTrue(provider.isEphemeral());
+        assertTrue(provider.canSign());
+        Map<String, Object> jwk = provider.publicJwk().orElseThrow();
+        assertEquals(KID, jwk.get("kid"), "kid 는 설정값 그대로다");
+        assertEquals("sig", jwk.get("use"));
+        assertEquals("ES256", jwk.get("alg"));
+        assertNotEquals("Kv4fWw_TEzEQ2EOMOgsbIyH9314FhRdQknrvaPY5Q3Q", jwk.get("x"),
+                "서명할 수 없는 설정 공개키를 Profile 에 실으면 거짓말이다");
+        assertEquals(KID, provider.requireSigningKey().getKeyID());
     }
 
     @Test
-    @DisplayName("공개키가 비어 있으면 keys 는 빈 값이다")
-    void load_blankPublicKey_returnsEmptyJwk() {
+    @DisplayName("공개키까지 비어 있어도 임시 키가 있어 keys 는 비지 않는다")
+    void load_blankPublicKey_stillHasEphemeralJwk() {
         // given
         MerchantProperties properties = MerchantPropertiesFixture.withSigning(
                 new MerchantProperties.Signing(KID, "ES256", "", "", ""));
@@ -52,8 +59,19 @@ class SigningKeyProviderTest {
         SigningKeyProvider provider = new SigningKeyProvider(properties);
 
         // then
-        assertTrue(provider.publicJwk().isEmpty());
-        assertFalse(provider.canSign());
+        assertTrue(provider.publicJwk().isPresent());
+        assertTrue(provider.isEphemeral());
+    }
+
+    @Test
+    @DisplayName("임시 키는 기동마다 다르다")
+    void load_noPrivateKeyTwice_generatesDifferentKeys() {
+        // given & when
+        SigningKeyProvider first = new SigningKeyProvider(MerchantPropertiesFixture.defaults());
+        SigningKeyProvider second = new SigningKeyProvider(MerchantPropertiesFixture.defaults());
+
+        // then
+        assertNotEquals(first.publicJwk().orElseThrow().get("x"), second.publicJwk().orElseThrow().get("x"));
     }
 
     @Test
@@ -85,6 +103,7 @@ class SigningKeyProviderTest {
 
         // then
         assertTrue(provider.canSign());
+        assertFalse(provider.isEphemeral());
         assertEquals(KID, provider.requireSigningKey().getKeyID());
     }
 

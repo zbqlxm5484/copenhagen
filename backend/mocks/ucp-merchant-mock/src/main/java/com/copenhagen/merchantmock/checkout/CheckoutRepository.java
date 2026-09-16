@@ -40,10 +40,31 @@ public interface CheckoutRepository {
     int expireReady(OffsetDateTime now, int limit);
 
     /**
-     * 청구 직전 표시. {@code payment_status IS NULL} 인 행만 {@code PROCESSING} 으로 바꾼다(DESIGN.md 7.2절).
+     * Complete 시작. {@code ready_for_complete} 이면서 {@code expires_at > now} 인 행만
+     * {@code complete_in_progress} 로 바꾼다(DESIGN.md 7.1절). 만료 검사의 1차 방어선이 이 WHERE 다.
      *
-     * <p>false 면 이 체크아웃에 이미 결제가 있다. 부르는 쪽(PaymentService)은 그것을 재진입 버그로 본다.
-     * {@code payment_attempt_count} 는 올리지 않는다. 그 컬럼은 재조회 횟수다(5.4절).
+     * <p>false 면 사이에 다른 요청이 집었거나 만료·취소됐다. 부르는 쪽이 다시 읽어 판단한다.
+     */
+    boolean beginComplete(String id, OffsetDateTime now);
+
+    /**
+     * Complete 성공. {@code complete_in_progress} 인 행만 {@code completed} 로 바꾸고 응답을 저장한다.
+     * 이 응답이 같은 키 재요청에 그대로 재생된다(8.1절). 주문 INSERT 와 한 트랜잭션이어야 한다.
+     */
+    boolean finishComplete(String id, String completionResponseJson);
+
+    /**
+     * 결제 FAILED. {@code complete_in_progress} 인 행만 {@code ready_for_complete} 로 되돌린다(7.1절).
+     * 재승인 뒤 새 Credential 로 다시 Complete 할 수 있게 하는 전이다(D-17).
+     */
+    boolean revertComplete(String id);
+
+    /**
+     * 청구 직전 표시. {@code payment_status} 가 없거나 {@code FAILED} 인 행만 {@code PROCESSING} 으로
+     * 바꾼다(DESIGN.md 7.2절). FAILED 를 받는 것은 재승인 재청구 경로다(8.1절).
+     *
+     * <p>false 면 이 체크아웃에 진행 중이거나 끝난 결제가 있다. 부르는 쪽(PaymentService)은 그것을 재진입
+     * 버그로 본다. {@code payment_attempt_count} 는 올리지 않는다. 그 컬럼은 재조회 횟수다(5.4절).
      */
     boolean beginPayment(String id, OffsetDateTime requestedAt, String credentialId,
             OffsetDateTime firstRecheckAt);

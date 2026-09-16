@@ -9,15 +9,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.copenhagen.contract.internalapi.PaymentStatus;
 
-/** DB 없이 돌리는 저장소. 조건부 UPDATE 의 version 규칙을 JDBC 구현과 같게 흉내 낸다. */
+/** DB 없이 돌리는 저장소. 조건부 UPDATE 의 version·status 규칙을 JDBC 구현과 같게 흉내 낸다. */
 final class InMemoryCheckoutRepository implements CheckoutRepository {
 
     private final Map<String, CheckoutSession> rows = new ConcurrentHashMap<>();
-    private final Map<String, PaymentRow> payments = new ConcurrentHashMap<>();
-
-    /** checkout_sessions 의 결제 컬럼 셋. CheckoutSession 에는 아직 없어 옆에 둔다(179). */
-    record PaymentRow(PaymentStatus status, String payPaymentId, OffsetDateTime requestedAt) {
-    }
 
     @Override
     public boolean insert(CheckoutSession session) {
@@ -35,7 +30,10 @@ final class InMemoryCheckoutRepository implements CheckoutRepository {
         if (current == null || current.version() != expectedVersion) {
             return false;
         }
-        rows.put(session.id(), session.withVersion(expectedVersion + 1));
+        // 결제·완료 컬럼은 UPDATE 문이 건드리지 않는다. 현재 값을 그대로 둔다.
+        rows.put(session.id(), session.withVersion(expectedVersion + 1)
+                .withPayment(current.paymentStatus(), current.payPaymentId())
+                .withCompletionResponse(current.completionResponseJson()));
         return true;
     }
 
@@ -62,14 +60,46 @@ final class InMemoryCheckoutRepository implements CheckoutRepository {
     }
 
     @Override
-    public boolean beginPayment(String id, OffsetDateTime requestedAt, String credentialId,
-            OffsetDateTime firstRecheckAt) {
+    public synchronized boolean beginComplete(String id, OffsetDateTime now) {
         CheckoutSession current = rows.get(id);
-        if (current == null || payments.containsKey(id)) {
+        if (current == null || current.status() != CheckoutStatus.READY_FOR_COMPLETE
+                || current.expiresAt() == null || !current.expiresAt().isAfter(now)) {
             return false;
         }
-        payments.put(id, new PaymentRow(PaymentStatus.PROCESSING, null, requestedAt));
-        rows.put(id, current.withVersion(current.version() + 1));
+        rows.put(id, current.withStatus(CheckoutStatus.COMPLETE_IN_PROGRESS));
+        return true;
+    }
+
+    @Override
+    public synchronized boolean finishComplete(String id, String completionResponseJson) {
+        CheckoutSession current = rows.get(id);
+        if (current == null || current.status() != CheckoutStatus.COMPLETE_IN_PROGRESS) {
+            return false;
+        }
+        rows.put(id, current.withStatus(CheckoutStatus.COMPLETED).withCompletionResponse(completionResponseJson));
+        return true;
+    }
+
+    @Override
+    public synchronized boolean revertComplete(String id) {
+        CheckoutSession current = rows.get(id);
+        if (current == null || current.status() != CheckoutStatus.COMPLETE_IN_PROGRESS) {
+            return false;
+        }
+        rows.put(id, current.withStatus(CheckoutStatus.READY_FOR_COMPLETE));
+        return true;
+    }
+
+    @Override
+    public synchronized boolean beginPayment(String id, OffsetDateTime requestedAt, String credentialId,
+            OffsetDateTime firstRecheckAt) {
+        CheckoutSession current = rows.get(id);
+        if (current == null
+                || (current.paymentStatus() != null && current.paymentStatus() != PaymentStatus.FAILED)) {
+            return false;
+        }
+        rows.put(id, current.withPayment(PaymentStatus.PROCESSING, current.payPaymentId())
+                .withVersion(current.version() + 1));
         return true;
     }
 
@@ -80,8 +110,13 @@ final class InMemoryCheckoutRepository implements CheckoutRepository {
     }
 
     @Override
-    public boolean resolvePayment(String id, PaymentStatus status, String payPaymentId) {
-        throw new UnsupportedOperationException();
+    public synchronized boolean resolvePayment(String id, PaymentStatus status, String payPaymentId) {
+        CheckoutSession current = rows.get(id);
+        if (current == null || current.paymentStatus() != PaymentStatus.UNKNOWN) {
+            return false;
+        }
+        rows.put(id, current.withPayment(status, payPaymentId == null ? current.payPaymentId() : payPaymentId));
+        return true;
     }
 
     @Override
@@ -90,21 +125,14 @@ final class InMemoryCheckoutRepository implements CheckoutRepository {
     }
 
     @Override
-    public boolean finishPayment(String id, PaymentStatus status, String payPaymentId) {
-        PaymentRow payment = payments.get(id);
+    public synchronized boolean finishPayment(String id, PaymentStatus status, String payPaymentId) {
         CheckoutSession current = rows.get(id);
-        if (current == null || payment == null || payment.status() != PaymentStatus.PROCESSING) {
+        if (current == null || current.paymentStatus() != PaymentStatus.PROCESSING) {
             return false;
         }
-        payments.put(id, new PaymentRow(status,
-                payPaymentId == null ? payment.payPaymentId() : payPaymentId, payment.requestedAt()));
-        rows.put(id, current.withVersion(current.version() + 1));
+        rows.put(id, current.withPayment(status, payPaymentId == null ? current.payPaymentId() : payPaymentId)
+                .withVersion(current.version() + 1));
         return true;
-    }
-
-    /** 테스트가 결제 컬럼을 읽을 때 쓴다. 결제가 없으면 null. */
-    PaymentRow paymentRow(String id) {
-        return payments.get(id);
     }
 
     int size() {

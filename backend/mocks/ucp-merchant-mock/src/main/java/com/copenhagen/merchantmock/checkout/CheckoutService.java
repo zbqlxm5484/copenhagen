@@ -2,22 +2,32 @@ package com.copenhagen.merchantmock.checkout;
 
 import java.util.Optional;
 
+import com.copenhagen.contract.internalapi.PaymentStatus;
 import com.copenhagen.merchantmock.checkout.CheckoutMessages.CancelResult;
 import com.copenhagen.merchantmock.checkout.CheckoutMessages.Checkout;
 import com.copenhagen.merchantmock.checkout.CheckoutMessages.CheckoutRequest;
+import com.copenhagen.merchantmock.checkout.CheckoutMessages.CompleteResult;
+import com.copenhagen.merchantmock.checkout.CheckoutMessages.PaymentRef;
+import com.copenhagen.merchantmock.security.MerchantAuthorizationSigner;
 import com.copenhagen.merchantmock.support.ApiException;
 import com.copenhagen.merchantmock.support.Audit;
 import com.copenhagen.merchantmock.support.LogContext;
+import com.copenhagen.merchantmock.support.MerchantProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * 체크아웃 생성·조회·수정(Jira 172). 판정은 {@link CheckoutEvaluator}, 저장은 {@link CheckoutRepository}.
+ * 체크아웃 생성·조회·수정·취소(Jira 172·182)와 서명(175). 판정은 {@link CheckoutEvaluator}, 저장은
+ * {@link CheckoutRepository}, 도장은 {@link MerchantAuthorizationSigner}.
  *
  * <p>생성 멱등은 id 로 흡수한다. Idempotency-Key 에서 UUIDv5 를 만들어 id 로 쓰고 INSERT 가 PK 에 걸리면
  * 기존 행을 돌려준다(DESIGN.md 8.1절). 수정은 전체 교체라 본래 멱등이다.
+ *
+ * <p>판정이 {@code ready_for_complete} 면 그 자리에서 서명한다(6.4절). 판정기가 {@code purchase_request_id} 없는
+ * 요청을 {@code incomplete} 로 내리므로 여기 오는 ready 는 항상 서명할 수 있다. 재계산(PUT)은 새 내용이라 새로
+ * 서명하고, 조건이 깨져 {@code incomplete} 로 내려가면 컬럼의 서명도 같이 비운다.
  */
 @Service
 public class CheckoutService {
@@ -26,11 +36,16 @@ public class CheckoutService {
 
     private final CheckoutRepository repository;
     private final CheckoutEvaluator evaluator;
+    private final MerchantAuthorizationSigner signer;
+    private final MerchantProperties merchant;
     private final ObjectMapper objectMapper;
 
-    public CheckoutService(CheckoutRepository repository, CheckoutEvaluator evaluator, ObjectMapper objectMapper) {
+    public CheckoutService(CheckoutRepository repository, CheckoutEvaluator evaluator,
+            MerchantAuthorizationSigner signer, MerchantProperties merchant, ObjectMapper objectMapper) {
         this.repository = repository;
         this.evaluator = evaluator;
+        this.signer = signer;
+        this.merchant = merchant;
         this.objectMapper = objectMapper;
     }
 
@@ -44,7 +59,8 @@ public class CheckoutService {
         }
 
         CheckoutEvaluator.Evaluation evaluation = evaluator.evaluate(id, request, Optional.empty());
-        CheckoutSession session = toSession(id, request, evaluation, 0L);
+        Checkout checkout = signIfReady(id, request, evaluation);
+        CheckoutSession session = toSession(id, request, evaluation, checkout, 0L);
         if (!repository.insert(session)) {
             LOG.info("체크아웃 생성 경합. 기존 행 반환. id={}", id);
             return repository.findById(id).map(this::snapshotOf)
@@ -52,7 +68,7 @@ public class CheckoutService {
         }
         LOG.info("체크아웃 생성. id={} status={}", id, evaluation.status());
         Audit.event("checkout.created").after(evaluation.status().apiValue()).log();
-        return evaluation.checkout();
+        return checkout;
     }
 
     public Checkout get(String checkoutId) {
@@ -72,14 +88,40 @@ public class CheckoutService {
 
         Checkout previous = snapshotOf(current);
         CheckoutEvaluator.Evaluation evaluation = evaluator.evaluate(checkoutId, request, Optional.of(previous));
-        CheckoutSession next = toSession(checkoutId, request, evaluation, current.version());
+        Checkout checkout = signIfReady(checkoutId, request, evaluation);
+        CheckoutSession next = toSession(checkoutId, request, evaluation, checkout, current.version());
         if (!repository.update(next, current.version())) {
             throw ApiException.checkoutNotModifiable(checkoutId, current.status());
         }
         LOG.info("체크아웃 수정. id={} {} -> {}", checkoutId, current.status(), evaluation.status());
         Audit.event("checkout.updated").before(current.status().apiValue()).after(evaluation.status().apiValue())
                 .log();
-        return evaluation.checkout();
+        return checkout;
+    }
+
+    /**
+     * {@code ready_for_complete} 면 Merchant Authorization 을 발급해 응답에 얹는다(DESIGN.md 6.4절).
+     *
+     * <p>claim 은 여섯이다. {@code amountMinor} 는 totals 의 total, {@code exp} 는 expires_at. 감사에는 kid 만
+     * 남기고 JWS 원문은 남기지 않는다(18.10). 아니면 판정 결과를 그대로 돌려준다.
+     */
+    private Checkout signIfReady(String id, CheckoutRequest request, CheckoutEvaluator.Evaluation evaluation) {
+        Checkout checkout = evaluation.checkout();
+        if (evaluation.status() != CheckoutStatus.READY_FOR_COMPLETE) {
+            return checkout;
+        }
+        String jws = signer.sign(new MerchantAuthorizationSigner.Claims(
+                merchant.id(),
+                id,
+                request.purchaseRequestId(),
+                checkout.totalAmount(),
+                checkout.currency(),
+                evaluation.expiresAt().toInstant()));
+        LOG.info("Merchant Authorization 발급. id={} kid={} amountMinor={} exp={}", id, merchant.signing().kid(),
+                checkout.totalAmount(), evaluation.expiresAt());
+        Audit.event("checkout.signed").after(CheckoutStatus.READY_FOR_COMPLETE.apiValue())
+                .with("kid", merchant.signing().kid()).log();
+        return checkout.withMerchantAuthorization(jws);
     }
 
     /**
@@ -127,14 +169,10 @@ public class CheckoutService {
         return new CancelResult(checkoutId, CheckoutStatus.CANCELED.apiValue());
     }
 
+    /** @param checkout 서명까지 얹은 응답. 이 JSON 이 그대로 {@code canonical_checkout} 이 된다. */
     private CheckoutSession toSession(String id, CheckoutRequest request,
-            CheckoutEvaluator.Evaluation evaluation, long version) {
-        Checkout checkout = evaluation.checkout();
-        long total = checkout.totals().stream()
-                .filter(t -> "total".equals(t.type()))
-                .mapToLong(CheckoutMessages.Total::amount)
-                .findFirst()
-                .orElse(0L);
+            CheckoutEvaluator.Evaluation evaluation, Checkout checkout, long version) {
+        long total = checkout.totalAmount();
         boolean hasAddress = request != null && request.fulfillment() != null
                 && request.fulfillment().destination() != null;
         String address = hasAddress ? objectMapper.writeValueAsString(request.fulfillment().destination()) : null;
@@ -151,18 +189,29 @@ public class CheckoutService {
                 lineSkus,
                 objectMapper.writeValueAsString(checkout),
                 evaluation.expiresAt(),
-                version);
+                version).withMerchantAuthorizationJws(checkout.merchantAuthorization());
     }
 
     /**
      * 저장된 스냅샷이 응답이다. 다시 계산하지 않는다.
      *
-     * <p>상태만 예외다. 취소·만료는 status 컬럼만 바꾸고 스냅샷 문자열은 건드리지 않으므로(DESIGN.md 7.1절)
-     * 나갈 때 현재 값으로 덮는다. 저장된 것은 서명 대상이고 나가는 것은 현재 상태다.
+     * <p>상태와 완료 결과만 얹는다. 취소·만료·완료는 status 컬럼만 바꾸고 스냅샷 문자열은 건드리지
+     * 않으므로(DESIGN.md 7.1절) 나갈 때 현재 값으로 덮는다. {@code completed} 면 저장된 Complete 응답의
+     * {@code order}·{@code payment} 를, {@code complete_in_progress} 면 {@code payment} 만 얹는다. Core 확정본 6.1 의
+     * 응답 유실 복구가 이 경로다.
      */
     private Checkout snapshotOf(CheckoutSession session) {
         Checkout stored = objectMapper.readValue(session.canonicalCheckout(), Checkout.class);
         String live = session.status().apiValue();
-        return live.equals(stored.status()) ? stored : stored.withStatus(live);
+        Checkout current = live.equals(stored.status()) ? stored : stored.withStatus(live);
+        if (session.status() == CheckoutStatus.COMPLETED && session.completionResponseJson() != null) {
+            CompleteResult completion = objectMapper.readValue(session.completionResponseJson(), CompleteResult.class);
+            return current.withCompletion(completion.order(), completion.payment());
+        }
+        if (session.status() == CheckoutStatus.COMPLETE_IN_PROGRESS) {
+            PaymentStatus shown = session.paymentStatus() == null ? PaymentStatus.PROCESSING : session.paymentStatus();
+            return current.withCompletion(null, new PaymentRef(session.payPaymentId(), shown.name(), null));
+        }
+        return current;
     }
 }

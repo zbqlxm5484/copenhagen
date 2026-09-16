@@ -291,6 +291,188 @@ class JdbcCheckoutRepositoryPostgresTest {
     }
 
     @Test
+    @DisplayName("서명과 결제·완료 컬럼이 그대로 읽힌다")
+    void insertAndFindById_signedSession_roundTripsSignatureAndPaymentColumns() {
+        // given
+        CheckoutSession signed = ready("checkout-1", NOW.plusMinutes(5))
+                .withMerchantAuthorizationJws("eyJhbGciOiJFUzI1NiJ9.eyJjaGVja291dElkIjoiY2hlY2tvdXQtMSJ9.sig");
+        repository.insert(signed);
+
+        // when
+        CheckoutSession stored = repository.findById("checkout-1").orElseThrow();
+
+        // then
+        assertEquals(signed.merchantAuthorizationJws(), stored.merchantAuthorizationJws());
+        assertNull(stored.completionResponseJson());
+        assertNull(stored.paymentStatus());
+        assertNull(stored.payPaymentId());
+
+        repository.beginPayment("checkout-1", NOW, "cred-1", NOW.plusSeconds(30));
+        repository.finishPayment("checkout-1", PaymentStatus.SUCCESS, "pay-1");
+        CheckoutSession paid = repository.findById("checkout-1").orElseThrow();
+        assertEquals(PaymentStatus.SUCCESS, paid.paymentStatus());
+        assertEquals("pay-1", paid.payPaymentId());
+    }
+
+    @Test
+    @DisplayName("PUT 재계산이 서명 컬럼을 새 값으로 바꾸고 null 이면 비운다")
+    void update_resigned_replacesSignatureColumn() {
+        // given
+        repository.insert(ready("checkout-1", NOW.plusMinutes(5)).withMerchantAuthorizationJws("a.b.c"));
+
+        // when
+        repository.update(ready("checkout-1", NOW.plusMinutes(10)).withMerchantAuthorizationJws("d.e.f"), 0L);
+        assertEquals("d.e.f", repository.findById("checkout-1").orElseThrow().merchantAuthorizationJws());
+        repository.update(ready("checkout-1", null), 1L);
+
+        // then
+        assertNull(repository.findById("checkout-1").orElseThrow().merchantAuthorizationJws(),
+                "incomplete 로 내려가면 서명을 폐기한다");
+    }
+
+    @Test
+    @DisplayName("Complete 시작은 만료 전 ready_for_complete 에만 되고 두 번째는 false 다")
+    void beginComplete_readyBeforeExpiry_marksInProgressOnce() {
+        // given
+        repository.insert(ready("checkout-1", NOW.plusMinutes(5)));
+
+        // when
+        boolean first = repository.beginComplete("checkout-1", NOW);
+        boolean second = repository.beginComplete("checkout-1", NOW);
+
+        // then
+        assertTrue(first);
+        assertFalse(second);
+        assertEquals(CheckoutStatus.COMPLETE_IN_PROGRESS, repository.findById("checkout-1").orElseThrow().status());
+    }
+
+    @Test
+    @DisplayName("Complete 시작은 expires_at 이 지났으면 false 다. 만료 검사의 1차 방어선")
+    void beginComplete_expired_returnsFalse() {
+        // given
+        repository.insert(ready("checkout-1", NOW.minusSeconds(1)));
+        repository.insert(ready("checkout-2", NOW));
+
+        // when & then
+        assertFalse(repository.beginComplete("checkout-1", NOW));
+        assertFalse(repository.beginComplete("checkout-2", NOW), "같은 초는 만료다");
+        assertEquals(CheckoutStatus.READY_FOR_COMPLETE, repository.findById("checkout-1").orElseThrow().status());
+    }
+
+    @Test
+    @DisplayName("Complete 시작은 다른 상태에서는 false 다")
+    void beginComplete_otherStatuses_returnFalse() {
+        for (CheckoutStatus status : CheckoutStatus.values()) {
+            if (status == CheckoutStatus.READY_FOR_COMPLETE) {
+                continue;
+            }
+            String id = "checkout-" + status.name().toLowerCase();
+            repository.insert(new CheckoutSession(id, status, "KRW", 92000L, null, null, null,
+                    "{\"id\":\"" + id + "\"}", NOW.plusMinutes(5), 0L));
+            assertFalse(repository.beginComplete(id, NOW), status.name());
+        }
+    }
+
+    @Test
+    @DisplayName("Complete 종료는 진행 중 행만 completed 로 바꾸고 응답을 jsonb 로 저장한다")
+    void finishComplete_inProgress_completesAndStoresResponseOnce() {
+        // given
+        repository.insert(ready("checkout-1", NOW.plusMinutes(5)));
+        repository.beginComplete("checkout-1", NOW);
+        String response = "{\"id\":\"checkout-1\",\"status\":\"completed\",\"order\":{\"id\":\"order-1\"}}";
+
+        // when
+        boolean finished = repository.finishComplete("checkout-1", response);
+        boolean again = repository.finishComplete("checkout-1", "{\"id\":\"other\"}");
+
+        // then
+        assertTrue(finished);
+        assertFalse(again);
+        CheckoutSession stored = repository.findById("checkout-1").orElseThrow();
+        assertEquals(CheckoutStatus.COMPLETED, stored.status());
+        assertTrue(stored.completionResponseJson().contains("\"order\""));
+        assertTrue(stored.completionResponseJson().contains("\"order-1\""), "처음 저장한 응답이 남는다");
+    }
+
+    @Test
+    @DisplayName("Complete 되돌림은 진행 중 행만 ready_for_complete 로 바꾼다")
+    void revertComplete_inProgress_revertsOnce() {
+        // given
+        repository.insert(ready("checkout-1", NOW.plusMinutes(5)));
+        assertFalse(repository.revertComplete("checkout-1"), "진행 중이 아니면 false");
+        repository.beginComplete("checkout-1", NOW);
+
+        // when
+        boolean reverted = repository.revertComplete("checkout-1");
+
+        // then
+        assertTrue(reverted);
+        assertEquals(CheckoutStatus.READY_FOR_COMPLETE, repository.findById("checkout-1").orElseThrow().status());
+        assertTrue(repository.beginComplete("checkout-1", NOW), "되돌린 뒤 다시 Complete 할 수 있다");
+    }
+
+    @Test
+    @DisplayName("동시에 Complete 를 시작하면 한 요청만 행을 바꾼다")
+    void beginComplete_concurrentRequests_onlyOneWins() throws Exception {
+        // given
+        repository.insert(ready("checkout-1", NOW.plusMinutes(5)));
+        int threads = 8;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        List<Callable<Boolean>> tasks = IntStream.range(0, threads)
+                .mapToObj(i -> (Callable<Boolean>) () -> {
+                    barrier.await(5, TimeUnit.SECONDS);
+                    return repository.beginComplete("checkout-1", NOW);
+                })
+                .toList();
+
+        // when
+        List<Future<Boolean>> results = pool.invokeAll(tasks);
+        pool.shutdown();
+
+        // then
+        int winners = 0;
+        for (Future<Boolean> result : results) {
+            if (result.get()) {
+                winners++;
+            }
+        }
+        assertEquals(1, winners, "같은 키로 동시에 두 번 와도 Pay 는 한 번이다(Jira 176 완료 조건)");
+    }
+
+    @Test
+    @DisplayName("청구 직전 표시는 FAILED 로 끝난 행에도 된다. 재승인 재청구 경로다(8.1절)")
+    void beginPayment_afterFailed_marksProcessingAgain() {
+        // given
+        repository.insert(ready("checkout-1", NOW.plusMinutes(5)));
+        repository.beginPayment("checkout-1", NOW, "cred-1", NOW.plusSeconds(30));
+        repository.finishPayment("checkout-1", PaymentStatus.FAILED, null);
+
+        // when
+        boolean again = repository.beginPayment("checkout-1", NOW.plusMinutes(1), "cred-2", NOW.plusSeconds(90));
+
+        // then
+        assertTrue(again);
+        assertEquals("PROCESSING", paymentStatus("checkout-1"));
+        assertEquals("cred-2", jdbc.queryForObject(
+                "SELECT payment_credential_id FROM checkout_sessions WHERE id = ?", String.class, "checkout-1"));
+    }
+
+    @Test
+    @DisplayName("청구 직전 표시는 SUCCESS·UNKNOWN·PROCESSING 행에는 안 된다")
+    void beginPayment_settledOrPending_returnsFalse() {
+        for (PaymentStatus status : List.of(PaymentStatus.SUCCESS, PaymentStatus.UNKNOWN, PaymentStatus.PROCESSING)) {
+            String id = "checkout-" + status.name().toLowerCase();
+            repository.insert(ready(id, NOW.plusMinutes(5)));
+            repository.beginPayment(id, NOW, "cred-1", NOW.plusSeconds(30));
+            if (status != PaymentStatus.PROCESSING) {
+                repository.finishPayment(id, status, "pay-1");
+            }
+            assertFalse(repository.beginPayment(id, NOW, "cred-2", NOW.plusSeconds(30)), status.name());
+        }
+    }
+
+    @Test
     @DisplayName("청구 직전 표시는 결제가 없는 행에만 되고 두 번째는 false 다")
     void beginPayment_freshRow_marksProcessingOnce() {
         // given
