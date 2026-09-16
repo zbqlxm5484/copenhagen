@@ -7,10 +7,17 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.copenhagen.contract.internalapi.PaymentStatus;
+
 /** DB 없이 돌리는 저장소. 조건부 UPDATE 의 version 규칙을 JDBC 구현과 같게 흉내 낸다. */
 final class InMemoryCheckoutRepository implements CheckoutRepository {
 
     private final Map<String, CheckoutSession> rows = new ConcurrentHashMap<>();
+    private final Map<String, PaymentRow> payments = new ConcurrentHashMap<>();
+
+    /** checkout_sessions 의 결제 컬럼 셋. CheckoutSession 에는 아직 없어 옆에 둔다(179). */
+    record PaymentRow(PaymentStatus status, String payPaymentId, OffsetDateTime requestedAt) {
+    }
 
     @Override
     public boolean insert(CheckoutSession session) {
@@ -52,6 +59,35 @@ final class InMemoryCheckoutRepository implements CheckoutRepository {
                 .toList();
         due.forEach(r -> rows.put(r.id(), r.withStatus(CheckoutStatus.CANCELED)));
         return due.size();
+    }
+
+    @Override
+    public boolean beginPayment(String id, OffsetDateTime requestedAt) {
+        CheckoutSession current = rows.get(id);
+        if (current == null || payments.containsKey(id)) {
+            return false;
+        }
+        payments.put(id, new PaymentRow(PaymentStatus.PROCESSING, null, requestedAt));
+        rows.put(id, current.withVersion(current.version() + 1));
+        return true;
+    }
+
+    @Override
+    public boolean finishPayment(String id, PaymentStatus status, String payPaymentId) {
+        PaymentRow payment = payments.get(id);
+        CheckoutSession current = rows.get(id);
+        if (current == null || payment == null || payment.status() != PaymentStatus.PROCESSING) {
+            return false;
+        }
+        payments.put(id, new PaymentRow(status,
+                payPaymentId == null ? payment.payPaymentId() : payPaymentId, payment.requestedAt()));
+        rows.put(id, current.withVersion(current.version() + 1));
+        return true;
+    }
+
+    /** 테스트가 결제 컬럼을 읽을 때 쓴다. 결제가 없으면 null. */
+    PaymentRow paymentRow(String id) {
+        return payments.get(id);
     }
 
     int size() {

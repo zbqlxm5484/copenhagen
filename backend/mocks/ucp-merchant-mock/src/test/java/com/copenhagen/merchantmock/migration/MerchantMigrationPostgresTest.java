@@ -4,6 +4,7 @@ import java.util.List;
 
 import javax.sql.DataSource;
 
+import com.copenhagen.contract.internalapi.PaymentStatus;
 import com.copenhagen.merchantmock.support.EmbeddedPostgresSupport;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
@@ -51,7 +52,7 @@ class MerchantMigrationPostgresTest {
     }
 
     @Test
-    @DisplayName("빈 DB 에 V1~V6 를 전부 적용한다")
+    @DisplayName("빈 DB 에 V1~V7 를 전부 적용한다")
     void migrate_emptyDatabase_appliesAllVersions() {
         // given
         String schema = postgres.newSchema();
@@ -62,13 +63,13 @@ class MerchantMigrationPostgresTest {
 
         // then
         JdbcTemplate jdbc = postgres.jdbcFor(dataSource);
-        assertEquals(6, applied);
-        assertEquals("6", currentVersion(jdbc, schema));
+        assertEquals(7, applied);
+        assertEquals("7", currentVersion(jdbc, schema));
         TABLES.forEach(table -> assertTrue(tableExists(jdbc, schema, table), table + " 가 없다"));
     }
 
     @Test
-    @DisplayName("V3 까지 적용된 DB 위에 V4·V5·V6 가 올라간다")
+    @DisplayName("V3 까지 적용된 DB 위에 V4·V5·V6·V7 가 올라간다")
     void migrate_databaseAtV3_appliesRemainingVersions() {
         // given
         String schema = postgres.newSchema();
@@ -82,8 +83,8 @@ class MerchantMigrationPostgresTest {
         int applied = postgres.flywayFor(dataSource, schema, null).migrate().migrationsExecuted;
 
         // then
-        assertEquals(3, applied);
-        assertEquals("6", currentVersion(jdbc, schema));
+        assertEquals(4, applied);
+        assertEquals("7", currentVersion(jdbc, schema));
         assertTrue(tableExists(jdbc, schema, "order_items"));
         assertEquals(5, seededProductCount(jdbc), "기존 시드 데이터가 살아 있어야 한다");
     }
@@ -147,7 +148,7 @@ class MerchantMigrationPostgresTest {
     }
 
     @Test
-    @DisplayName("V5 까지 적용된 DB 위에 V6 가 올라가고 기존 체크아웃 행이 살아 있다")
+    @DisplayName("V5 까지 적용된 DB 위에 V6·V7 이 올라가고 기존 체크아웃 행이 살아 있다")
     void migrate_databaseAtV5_addsLineSkusColumn() {
         // given
         String schema = postgres.newSchema();
@@ -161,8 +162,8 @@ class MerchantMigrationPostgresTest {
         int applied = postgres.flywayFor(dataSource, schema, null).migrate().migrationsExecuted;
 
         // then
-        assertEquals(1, applied);
-        assertEquals("6", currentVersion(jdbc, schema));
+        assertEquals(2, applied);
+        assertEquals("7", currentVersion(jdbc, schema));
         assertEquals(1, jdbc.queryForObject(
                 "SELECT count(*) FROM checkout_sessions WHERE id = 'before-v6'", Integer.class));
         assertNull(jdbc.queryForObject(
@@ -190,6 +191,51 @@ class MerchantMigrationPostgresTest {
                 INSERT INTO checkout_sessions (id, status, line_skus_json)
                 VALUES (?, 'READY_FOR_COMPLETE', ?::jsonb)
                 """, "skus-2", "{깨진 JSON"));
+    }
+
+    @Test
+    @DisplayName("V6 까지 적용된 DB 의 REQUESTED 결제 행이 V7 에서 PROCESSING 으로 옮겨진다")
+    void migrate_databaseAtV6_movesRequestedPaymentsToProcessing() {
+        // given
+        String schema = postgres.newSchema();
+        DataSource dataSource = postgres.dataSourceFor(schema);
+        postgres.flywayFor(dataSource, schema, "6").migrate();
+        JdbcTemplate jdbc = postgres.jdbcFor(dataSource);
+        jdbc.update("INSERT INTO checkout_sessions (id, status, payment_status) VALUES (?, ?, ?)",
+                "requested", "COMPLETE_IN_PROGRESS", "REQUESTED");
+        jdbc.update("INSERT INTO checkout_sessions (id, status, payment_status) VALUES (?, ?, ?)",
+                "success", "COMPLETED", "SUCCESS");
+        jdbc.update("INSERT INTO checkout_sessions (id, status) VALUES (?, ?)", "none", "READY_FOR_COMPLETE");
+
+        // when
+        int applied = postgres.flywayFor(dataSource, schema, null).migrate().migrationsExecuted;
+
+        // then
+        assertEquals(1, applied);
+        assertEquals("7", currentVersion(jdbc, schema));
+        assertEquals("PROCESSING", paymentStatus(jdbc, "requested"), "옛 값은 뜻이 같은 PROCESSING 으로 옮긴다");
+        assertEquals("SUCCESS", paymentStatus(jdbc, "success"), "다른 값은 건드리지 않는다");
+        assertNull(paymentStatus(jdbc, "none"));
+    }
+
+    @Test
+    @DisplayName("결제 상태 CHECK 가 공유 enum 다섯 값만 받고 REQUESTED 는 거절한다")
+    void paymentStatusCheck_sharedEnumValues_acceptedAndRequestedRejected() {
+        // given
+        JdbcTemplate jdbc = migrated().jdbc();
+
+        // when & then
+        for (PaymentStatus status : PaymentStatus.values()) {
+            jdbc.update("INSERT INTO checkout_sessions (id, status, payment_status) VALUES (?, ?, ?)",
+                    "ok-" + status, "COMPLETE_IN_PROGRESS", status.name());
+        }
+        assertThrows(RuntimeException.class, () -> jdbc.update(
+                "INSERT INTO checkout_sessions (id, status, payment_status) VALUES (?, ?, ?)",
+                "bad-1", "COMPLETE_IN_PROGRESS", "REQUESTED"));
+    }
+
+    private static String paymentStatus(JdbcTemplate jdbc, String id) {
+        return jdbc.queryForObject("SELECT payment_status FROM checkout_sessions WHERE id = ?", String.class, id);
     }
 
     /**
