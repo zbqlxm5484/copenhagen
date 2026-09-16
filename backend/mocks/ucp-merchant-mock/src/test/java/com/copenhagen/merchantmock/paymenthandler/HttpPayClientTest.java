@@ -5,6 +5,8 @@ import java.util.Map;
 import java.util.Set;
 
 import com.copenhagen.contract.internalapi.PaymentStatus;
+import com.copenhagen.merchantmock.support.LogContext;
+import org.slf4j.MDC;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -252,5 +254,27 @@ class HttpPayClientTest {
 
     private static String successBody(String status) {
         return "{\"paymentId\":\"pay-1\",\"status\":\"" + status + "\",\"amountMinor\":92000,\"currency\":\"KRW\"}";
+    }
+
+    @Test
+    @DisplayName("요청 컨텍스트에 requestId 가 있으면 X-Request-Id 로 그대로 나간다. Core→나→Pay 가 한 값으로 이어진다")
+    void charge_withRequestContext_propagatesRequestId() {
+        // given
+        MDC.put(LogContext.REQUEST_ID, "core-req-42");
+        server.expect(requestTo(PAYMENTS_URL))
+                .andExpect(header(HttpPayClient.REQUEST_ID_HEADER, "core-req-42"))
+                .andRespond(withSuccess("""
+                        {"paymentId":"pay-1","status":"SUCCESS","amountMinor":92000,"currency":"KRW"}
+                        """, MediaType.APPLICATION_JSON));
+
+        try {
+            // when
+            client.charge(request());
+
+            // then
+            server.verify();
+        } finally {
+            MDC.clear();
+        }
     }
 }

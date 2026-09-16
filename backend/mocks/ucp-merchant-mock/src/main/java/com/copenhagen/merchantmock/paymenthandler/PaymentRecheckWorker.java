@@ -10,6 +10,9 @@ import com.copenhagen.merchantmock.checkout.CheckoutRepository;
 import com.copenhagen.merchantmock.checkout.PaymentRecheck;
 import com.copenhagen.merchantmock.security.CheckoutDigest;
 import com.copenhagen.merchantmock.support.MerchantProperties;
+import com.copenhagen.merchantmock.support.Audit;
+import com.copenhagen.merchantmock.support.LogContext;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -89,7 +92,10 @@ public class PaymentRecheckWorker {
 
     /** 한 건이 터져도 나머지를 계속 확인한다. 리스 덕분에 이 행은 다음 주기에 다시 집힌다. */
     private void recheckOne(PaymentRecheck row, OffsetDateTime now) {
-        try {
+        try (LogContext.Scope scope = LogContext.open(
+                LogContext.REQUEST_ID, "recheck-" + UUID.randomUUID(),
+                LogContext.CHECKOUT_ID, row.checkoutId(),
+                LogContext.PAYMENT_ID, row.payPaymentId())) {
             apply(row, ask(row), now);
         } catch (RuntimeException exception) {
             LOG.error("결제 재조회가 예외로 끝났다. 다음 주기에 다시 집는다. checkoutId={} cause={}",
@@ -137,6 +143,9 @@ public class PaymentRecheckWorker {
         }
         LOG.info("결제 결과를 확정했다. checkoutId={} status={} paymentId={} attempts={}",
                 row.checkoutId(), result.status(), result.paymentId(), row.attemptCount());
+        Audit.event("payment.resolved").before(PaymentStatus.UNKNOWN).after(result.status())
+                .reason("recheck").with(LogContext.PAYMENT_ID, result.paymentId())
+                .with("attempts", row.attemptCount()).log();
         if (result.status() == PaymentStatus.SUCCESS) {
             // 주문 생성과 completed 전이는 176 이 소유한다(DESIGN.md 8.8절). 아직 없다.
             LOG.warn("늦게 확정된 SUCCESS 다. 주문 생성은 176 이 붙을 때 이어진다. checkoutId={}",
@@ -148,6 +157,8 @@ public class PaymentRecheckWorker {
         if (row.attemptCount() >= properties.recheckMaxAttempts()) {
             LOG.error("결제 결과를 {}회 확인하고도 모른다. 더 묻지 않는다. 사람이 Pay 와 대조해야 한다. "
                     + "checkoutId={} paymentId={}", row.attemptCount(), row.checkoutId(), row.payPaymentId());
+            Audit.event("payment.recheck_exhausted").before(PaymentStatus.UNKNOWN).after(PaymentStatus.UNKNOWN)
+                    .reason("max_attempts").with("attempts", row.attemptCount()).log();
             return;
         }
         repository.scheduleNextRecheck(row.checkoutId(),

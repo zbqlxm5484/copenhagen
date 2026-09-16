@@ -7,6 +7,11 @@ import java.util.Map;
 
 import com.copenhagen.merchantmock.support.MerchantPropertiesFixture;
 import org.junit.jupiter.api.AfterEach;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import com.copenhagen.merchantmock.support.LogContext;
+import org.slf4j.MDC;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -147,5 +152,33 @@ class OrderWebhookPublisherTest {
         WebhookDelivery row = repository.findByOrderId(WebhookTestSupport.ORDER_ID).get(0);
         assertEquals(WebhookTestSupport.NOW_SEOUL.plus(WebhookTestSupport.FIRST_DELAY), row.nextAttemptAt());
         assertEquals(WebhookTestSupport.NOW_SEOUL, row.createdAt());
+    }
+
+    @Test
+    @DisplayName("커밋 뒤 발송 스레드가 요청의 requestId 를 이어받는다. 웹훅 로그가 체크아웃 로그와 한 줄로 묶인다")
+    void orderCreated_asyncExecutor_carriesRequestIdIntoDispatch() throws Exception {
+        // given
+        MDC.put(LogContext.REQUEST_ID, "core-req-42");
+        CountDownLatch done = new CountDownLatch(1);
+        AtomicReference<String> seen = new AtomicReference<>();
+        WebhookDispatcher capturing = webhookId -> {
+            seen.set(MDC.get(LogContext.REQUEST_ID));
+            done.countDown();
+            return WebhookDispatcher.Result.DELIVERED;
+        };
+        OrderWebhookPublisher async = new OrderWebhookPublisher(repository, capturing,
+                command -> new Thread(command).start(), objectMapper, MerchantPropertiesFixture.defaults(),
+                Clock.fixed(WebhookTestSupport.NOW, WebhookTestSupport.SEOUL));
+
+        try {
+            // when
+            async.orderCreated(WebhookTestSupport.order());
+
+            // then
+            assertTrue(done.await(5, TimeUnit.SECONDS), "발송 스레드가 돌아야 한다");
+            assertEquals("core-req-42", seen.get());
+        } finally {
+            MDC.clear();
+        }
     }
 }

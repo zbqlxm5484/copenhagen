@@ -17,6 +17,8 @@ import com.copenhagen.merchantmock.security.SigningKeyProvider;
 import com.copenhagen.merchantmock.scenario.Scenario;
 import com.copenhagen.merchantmock.scenario.ScenarioState;
 import com.copenhagen.merchantmock.support.MerchantProperties;
+import com.copenhagen.merchantmock.support.Audit;
+import com.copenhagen.merchantmock.support.LogContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +61,8 @@ public class HttpWebhookDispatcher implements WebhookDispatcher {
     static final String HEADER_CONTENT_DIGEST = "Content-Digest";
     static final String HEADER_SIGNATURE_INPUT = "Signature-Input";
     static final String HEADER_SIGNATURE = "Signature";
+    /** 추적용. Core 가 자기 로그와 맞춰 볼 수 있게 요청의 requestId 를 그대로 싣는다(12.1절). 서명 대상은 아니다. */
+    static final String HEADER_REQUEST_ID = "X-Request-Id";
 
     private static final Logger LOG = LoggerFactory.getLogger(HttpWebhookDispatcher.class);
 
@@ -102,6 +106,13 @@ public class HttpWebhookDispatcher implements WebhookDispatcher {
             return Result.SKIPPED_NOT_PENDING;
         }
         WebhookDelivery delivery = found.get();
+        try (LogContext.Scope scope = LogContext.open(
+                LogContext.WEBHOOK_ID, webhookId, LogContext.ORDER_ID, delivery.orderId())) {
+            return send(webhookId, delivery);
+        }
+    }
+
+    private Result send(String webhookId, WebhookDelivery delivery) {
         if (!signingKeys.canSign()) {
             LOG.warn("서명 개인키가 없어 웹훅을 보내지 않는다. PENDING 으로 남긴다. webhookId={} orderId={}",
                     webhookId, delivery.orderId());
@@ -121,6 +132,7 @@ public class HttpWebhookDispatcher implements WebhookDispatcher {
                 contentDigest);
 
         Integer responseStatus = null;
+        String reason;
         try {
             HttpStatusCode status = post(target, delivery, now, contentDigest, signed, body);
             responseStatus = status.value();
@@ -128,16 +140,23 @@ public class HttpWebhookDispatcher implements WebhookDispatcher {
                 repository.markDelivered(webhookId, status.value(), record);
                 LOG.info("웹훅 전달. webhookId={} orderId={} event={} http={}", webhookId, delivery.orderId(),
                         delivery.eventType().value(), status.value());
+                Audit.event("webhook.delivered").before(WebhookStatus.PENDING).after(WebhookStatus.DELIVERED)
+                        .with("http", status.value()).with("attempt", delivery.attemptCount() + 1).log();
                 duplicateIfScenario(target, delivery, now, contentDigest, signed, body);
                 return Result.DELIVERED;
             }
+            reason = "http_" + status.value();
             LOG.warn("웹훅이 거절됐다. 재시도를 예약한다. webhookId={} http={}", webhookId, status.value());
         } catch (RuntimeException exception) {
+            reason = exception.getClass().getSimpleName();
             LOG.warn("웹훅을 보내지 못했다. 재시도를 예약한다. webhookId={} target={} cause={}", webhookId, target,
                     exception.toString());
         }
         OffsetDateTime nextAttemptAt = now.plus(backoff(delivery.attemptCount() + 1));
         repository.markRetry(webhookId, responseStatus, nextAttemptAt, record);
+        Audit.event("webhook.retry_scheduled").before(WebhookStatus.PENDING).after(WebhookStatus.PENDING)
+                .reason(reason).with("attempt", delivery.attemptCount() + 1)
+                .with("nextAttemptAt", nextAttemptAt.toString()).log();
         return Result.RETRY_SCHEDULED;
     }
 
@@ -152,6 +171,7 @@ public class HttpWebhookDispatcher implements WebhookDispatcher {
                 .header(HEADER_CONTENT_DIGEST, contentDigest)
                 .header(HEADER_SIGNATURE_INPUT, signed.signatureInput())
                 .header(HEADER_SIGNATURE, signed.signature())
+                .header(HEADER_REQUEST_ID, LogContext.requestIdOrNew())
                 .body(body)
                 .exchange((request, response) -> response.getStatusCode());
     }

@@ -3,6 +3,8 @@ package com.copenhagen.merchantmock.checkout;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 
+import com.copenhagen.merchantmock.support.Audit;
+import com.copenhagen.merchantmock.support.LogContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,9 +50,13 @@ public class CheckoutExpirySweeper {
     @Scheduled(fixedDelayString = "${merchant.checkout.sweep-interval:PT30S}",
             initialDelayString = "${merchant.checkout.sweep-interval:PT30S}")
     public void sweep() {
-        int closed = repository.expireReady(OffsetDateTime.now(clock), batchSize);
-        if (closed > 0) {
-            LOG.info("만료 체크아웃 {}건을 canceled 로 닫았다", closed);
+        try (LogContext.Scope scope = LogContext.openWorker("sweep")) {
+            int closed = repository.expireReady(OffsetDateTime.now(clock), batchSize);
+            if (closed > 0) {
+                LOG.info("만료 체크아웃 {}건을 canceled 로 닫았다", closed);
+                Audit.event("checkout.expired").after(CheckoutStatus.CANCELED.apiValue()).reason("ttl_elapsed")
+                        .with("count", closed).log();
+            }
         }
     }
 }

@@ -13,10 +13,16 @@ import com.copenhagen.merchantmock.checkout.CheckoutRepository;
 import com.copenhagen.merchantmock.checkout.PaymentRecheck;
 import com.copenhagen.merchantmock.checkout.CheckoutSession;
 import com.copenhagen.merchantmock.support.MerchantPropertiesFixture;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import com.copenhagen.merchantmock.support.Audit;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -233,6 +239,43 @@ class PaymentServiceTest {
                 throw failure;
             }
             return result;
+        }
+    }
+
+    @Test
+    @DisplayName("credentialId 는 일반 로그에도 감사 로그에도 남지 않는다(설계서 18.10)")
+    void charge_anyCharge_neverLogsCredential() {
+        // given
+        ch.qos.logback.classic.Logger root =
+                (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+        ch.qos.logback.classic.Logger audit =
+                (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Audit.LOGGER_NAME);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        root.addAppender(appender);
+        audit.addAppender(appender);
+        String secret = "cred-SECRET-7f3a";
+        client.result = PaymentResult.unknown("PAY_UNREACHABLE");
+
+        try {
+            // when
+            service.charge(new PaymentService.Charge("checkout-1", "sha256:abc", 92000L, "KRW", secret));
+
+            // then
+            assertFalse(appender.list.isEmpty(), "청구 한 번에 로그가 남아야 검사가 의미 있다");
+            for (ILoggingEvent event : appender.list) {
+                assertFalse(event.getFormattedMessage().contains(secret),
+                        "credential 이 로그에 있다: " + event.getFormattedMessage());
+            }
+            assertTrue(appender.list.stream().anyMatch(event -> Audit.LOGGER_NAME.equals(event.getLoggerName())
+                    && event.getFormattedMessage().contains("\"event\":\"payment.finished\"")
+                    && event.getFormattedMessage().contains("\"checkoutId\":\"checkout-1\"")
+                    && event.getFormattedMessage().contains("\"after\":\"UNKNOWN\"")),
+                    "결제 결과 전이가 감사 이벤트로 남아야 한다");
+        } finally {
+            root.detachAppender(appender);
+            audit.detachAppender(appender);
+            MDC.clear();
         }
     }
 }

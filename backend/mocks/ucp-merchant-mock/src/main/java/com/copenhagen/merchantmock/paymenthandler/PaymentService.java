@@ -6,6 +6,8 @@ import java.time.OffsetDateTime;
 import com.copenhagen.contract.internalapi.PaymentStatus;
 import com.copenhagen.merchantmock.checkout.CheckoutRepository;
 import com.copenhagen.merchantmock.support.MerchantProperties;
+import com.copenhagen.merchantmock.support.Audit;
+import com.copenhagen.merchantmock.support.LogContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -54,6 +56,7 @@ public class PaymentService {
      * @throws IllegalStateException 이미 결제가 시작된 체크아웃에 다시 청구했을 때. 부르는 쪽의 버그다
      */
     public PaymentResult charge(Charge charge) {
+        LogContext.put(LogContext.CHECKOUT_ID, charge.checkoutId());
         OffsetDateTime now = OffsetDateTime.now(clock);
         // credentialId 와 첫 재조회 시각을 청구 직전에 같이 적는다. 응답이 유실되면 이 행만 보고
         // 재POST 본문을 되살려야 한다(183, DESIGN.md 8.8절).
@@ -62,6 +65,7 @@ public class PaymentService {
             throw new IllegalStateException(
                     "이미 결제가 시작된 체크아웃에 다시 청구하려 했다: " + charge.checkoutId());
         }
+        Audit.event("payment.started").after(PaymentStatus.PROCESSING).log();
 
         PaymentRequest request = new PaymentRequest(merchant.id(), charge.checkoutId(), charge.checkoutHash(),
                 charge.amountMinor(), charge.currency(), charge.credentialId());
@@ -83,6 +87,9 @@ public class PaymentService {
             throw new IllegalStateException(
                     "결제 결과를 반영할 PROCESSING 행이 없다: " + checkoutId + " (" + result.status() + ")");
         }
+        LogContext.put(LogContext.PAYMENT_ID, result.paymentId());
+        Audit.event("payment.finished").before(PaymentStatus.PROCESSING).after(result.status())
+                .reason(result.errorCode()).log();
         if (result.status() == PaymentStatus.UNKNOWN) {
             LOG.warn("결제 결과 불명. 재청구하지 않고 재조회 워커에 맡긴다. checkoutId={} paymentId={} errorCode={}",
                     checkoutId, result.paymentId(), result.errorCode());
