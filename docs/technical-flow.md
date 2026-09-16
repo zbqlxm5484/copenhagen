@@ -10,10 +10,11 @@
 | v4 | UCP Profile Discovery 및 Capability Negotiation을 명시하고 Core를 Platform, Merchant를 Business로 정의. UCP Cart Capability는 사용하지 않고 Catalog / Checkout / Order Capability를 사용하도록 확정. Core Platform Profile과 Order Webhook을 추가하여 주문 생성 이후 Merchant의 Order lifecycle 변경을 Core에 전달하도록 확장. |
 | v5 | Pay 승인 세션·Payment·대사 작업의 종료 조건, 결제 중복 방지, KRW 단일 통화, Checkout Evidence와 사용자 승인 스냅샷의 역할을 명시. |
 | v5.1 | 자체 ID/PW 로그인 순서, 실패·잠금·만료 처리, 최종 로그인 성공과 JWT 발급 경계를 12장에 추가. |
+| v5.2 | Refresh Token 갱신(Rotation)·재사용 탐지·로그아웃 흐름을 13장에 추가. 12장의 로그인 경로를 `/api/core/v1`로 정정하고 JWT 미구현 전제 문구를 구현 완료 기준으로 갱신. |
 
 > **프로젝트 설계 기준:** 프로젝트 설계서 v2.1
-> **Technical Flow 문서 버전:** v5.1
-> API, DTO, DB 및 서비스 간 연동 설계는 별도 명시가 없는 한 v5.1 Technical Flow를 기준으로 한다.
+> **Technical Flow 문서 버전:** v5.2
+> API, DTO, DB 및 서비스 간 연동 설계는 별도 명시가 없는 한 v5.2 Technical Flow를 기준으로 한다.
 
 ---
 
@@ -704,7 +705,7 @@ RUNNING → FAILED   재시도 가능
 
 ## 12.1 정상 흐름과 책임 경계
 
-1. Client가 Core의 `POST /api/v1/auth/login`에 `loginId`, `password`를 전달한다.
+1. Client가 Core의 `POST /api/core/v1/auth/login`에 `loginId`, `password`, `deviceId`, `deviceName`을 전달한다.
 2. Core Auth Service가 `local_account`를 조회한다.
 3. 연결된 `users.status`가 `ACTIVE`인지 확인한다.
 4. `local_account.locked_until`로 자체 로그인 일시 잠금을 확인하고, 만료된 잠금이면 아래 만료 처리를 수행한다.
@@ -713,7 +714,7 @@ RUNNING → FAILED   재시도 가능
 7. 토큰 발급까지 성공한 뒤 최종 로그인 성공 DB 처리를 수행한다.
 8. `200 OK`와 Access Token / Refresh Token 및 사용자 정보를 응답한다. Token 상세 DTO는 후속 설계에서 확정한다.
 
-Client가 로그인 후 별도 `/auth/token`을 호출하지 않는다. 위 흐름은 JWT 연동까지 완료된 최종 구조다. 현재 자체 로그인 구현 단계에서는 JWT/Refresh Token 자체 구현을 하지 않고, credential(ID/PW) 인증 결과와 최종 성공 처리 로직을 분리 가능한 구조로 작성한다. JWT 연동 시 6~7단계를 최종 성공 지점에 연결한다.
+Client가 로그인 후 별도 `/auth/token`을 호출하지 않는다. 위 흐름은 JWT 연동까지 완료된 최종 구조이며, 구현순서 5에서 구현이 끝났다. credential(ID/PW) 인증은 `LoginService`, 토큰 발급과 `last_login_at` 갱신은 `AuthLoginService`가 맡는다. 발급되는 토큰의 수명주기(갱신·로그아웃)는 13장을 따른다.
 
 ## 12.2 계정 조회·상태 확인 실패
 
@@ -763,3 +764,66 @@ Client가 로그인 후 별도 `/auth/token`을 호출하지 않는다. 위 흐�
 - 기술정의서: 사용자 인증 방식·인증 실패 차단·범위 외 결정·구현 기준 행.
 - 기능 요구사항: INIT-02 및 INIT-02.1~02.3의 로그인 요구사항, INIT-05 및 INIT-05.1~05.2의 차단 요구사항. 필수 테스트 7개는 기술정의서의 자체 로그인 최소 검증 행을 따른다.
 - 논리 ERD·물리 SQL·매핑 CSV: 자체 로그인 계정 필드, 타입, 기본값과 제약.
+
+---
+
+# 13. 토큰 갱신과 로그아웃
+
+12장에서 발급한 Access / Refresh Token의 수명주기를 정의한다. 두 API 모두 Access Token을 요구하지 않는다. Access Token이 이미 만료된 상태에서도 갱신과 로그아웃이 되어야 하므로, Refresh Token 소유 자체가 인증 수단이다.
+
+## 13.1 정책 기준값
+
+| 항목 | 값 |
+|---|---|
+| Access Token | ES256 서명 JWT, 만료 30분. `sub`는 `users.public_id` |
+| Refresh Token | 난수 32바이트(Base64URL). DB에는 SHA-256 hex 해시만 저장하고 원문은 보관하지 않는다. 만료 14일 |
+| 세션 단위 | 기기(`device_id`)별 독립. `UNIQUE(user_id, device_id) WHERE revoked_at IS NULL`로 기기당 활성 토큰 1건 |
+| 폐기 방식 | 행 삭제가 아니라 `refresh_tokens.revoked_at` 설정. 폐기된 옛 `token_hash`가 남아야 재사용 탐지가 가능하다 |
+
+## 13.2 정상 갱신 흐름 (Rotation)
+
+1. Client가 `POST /api/core/v1/auth/token/refresh`에 `refreshToken`을 전달한다. `deviceId`는 보내지 않는다.
+2. Core가 `refreshToken`의 SHA-256 해시로 `refresh_tokens` 행을 조회하고 잠근다. 서버가 이 행에서 `device_id`를 이미 알고 있다.
+3. 폐기 여부와 만료를 확인한다(13.3).
+4. 연결된 `users.status`가 `ACTIVE`인지 확인한다. 아니면 `403 AUTH_ACCOUNT_UNAVAILABLE`로 거부하며, 이때 기존 토큰은 폐기하지 않는다.
+5. 기존 행에 `revoked_at`과 `last_used_at`을 기록하고, 같은 `device_id`·`device_name`으로 새 행을 INSERT한다.
+6. 새 Access Token을 발급한다.
+7. `200 OK`와 `{ accessToken, refreshToken, expiresIn }`을 응답한다. `expiresIn`은 1800이다.
+
+Client는 갱신할 때마다 저장된 Refresh Token을 응답의 새 값으로 교체해야 한다. 계정 상태 확인을 회전보다 먼저 두는 이유는 이용할 수 없는 계정의 토큰을 불필요하게 폐기하지 않기 위해서다. Access Token 발급을 회전 뒤에 두는 이유는 서명이 실패하면 회전까지 함께 롤백시켜, 새 토큰만 저장되고 응답은 실패하는 상태를 만들지 않기 위해서다.
+
+## 13.3 갱신 실패와 재사용 탐지
+
+| 상황 | 응답 | 부수 효과 |
+|---|---|---|
+| 해시에 해당하는 행 없음 | `401 AUTH_REFRESH_TOKEN_INVALID` | 없음 |
+| `expires_at <= 현재 시각` | `401 AUTH_REFRESH_TOKEN_INVALID` | 없음. 만료는 탈취가 아니므로 전체 폐기하지 않는다 |
+| `revoked_at IS NOT NULL` | `401 AUTH_REFRESH_TOKEN_REUSED` | **해당 사용자의 모든 기기 Refresh Token을 즉시 폐기.** 모든 기기에서 재로그인이 필요하다 |
+| `users.status != ACTIVE` | `403 AUTH_ACCOUNT_UNAVAILABLE` | 없음. 제시된 토큰도 폐기하지 않는다 |
+
+재사용 탐지의 전체 폐기는 `401`을 던지기 전에 별도 트랜잭션(`REQUIRES_NEW`)으로 커밋한다. 같은 트랜잭션에서 폐기하면 예외와 함께 롤백되어 탈취 대응이 사라진다.
+
+## 13.4 로그아웃
+
+1. Client가 `POST /api/core/v1/auth/logout`에 `refreshToken`을 전달한다.
+2. Core가 해시로 행을 찾아 `revoked_at`을 기록한다.
+3. `204 No Content`를 응답한다.
+
+요청에 포함된 Refresh Token(과 그 `device_id`)만 폐기하며 다른 기기의 세션은 유지된다. 전체 기기 로그아웃은 비밀번호 변경·회원 탈퇴에서만 발생한다(별도 기능).
+
+행이 없거나 이미 폐기된 토큰이어도 `204`로 응답하고 이미 찍힌 `revoked_at`을 덮어쓰지 않는다. 멱등하게 두어 클라이언트 재시도에 안전하고, 토큰 존재 여부를 외부에 노출하지 않는다.
+
+## 13.5 알려진 한계
+
+- 정상 로그아웃한 토큰으로 갱신을 시도하면 13.3의 재사용 탐지에 걸려 전 기기가 폐기된다. `revoked_at`만으로는 "로그아웃으로 폐기"와 "회전으로 폐기"를 구분할 수 없기 때문이다. 정상 클라이언트는 로그아웃 시 저장 토큰을 삭제하므로 발생하지 않는다.
+- 같은 기기에서 갱신 요청이 동시에 두 번 나가면 뒤 요청이 재사용으로 판정된다. 행 잠금으로 데이터 정합성은 보장되지만 오탐은 남는다.
+- 만료된 토큰 행의 정리 배치는 아직 정하지 않았다.
+
+위 구분이 필요해지면 `revoked_reason` 컬럼 추가를 인증 감사 로그 설계와 함께 검토한다.
+
+## 13.6 관련 문서
+
+- API 명세: `Access Token 갱신`, `로그아웃` 두 행.
+- 기술정의서: JWT/Refresh Token 상세, JWT Rotation·토큰 폐기 저장 방식 행.
+- 기능 요구사항: INIT-04 자동 로그인(갱신 API + 앱 조합).
+- 논리 ERD·물리 SQL: `refresh_tokens` 테이블과 `uq_refresh_tokens_user_device` 부분 UNIQUE 인덱스.
