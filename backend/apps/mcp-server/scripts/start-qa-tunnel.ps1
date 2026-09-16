@@ -1,25 +1,28 @@
 param(
     [Parameter(Mandatory = $true)][ValidatePattern('^tunnel_[A-Za-z0-9]{1,64}$')][string]$TunnelId,
     [Parameter(Mandatory = $true)][string]$ClientPath,
+    [ValidateSet(1, 2)][int]$Stage = 1,
     [switch]$Check
 )
 $ErrorActionPreference = 'Stop'
 if (-not (Test-Path -LiteralPath $ClientPath -PathType Leaf)) { throw 'Install the official OpenAI tunnel-client first.' }
-$runtimeRoot = Join-Path (Split-Path -Parent $PSScriptRoot) 'build\qa'
+$port = 8090 + $Stage
+$expectedRuntime = if ($Stage -eq 2) { 'catalog-mock' } else { 'connection-only' }
+$runtimeRoot = Join-Path (Split-Path -Parent $PSScriptRoot) $(if ($Stage -eq 2) { 'build\qa2' } else { 'build\qa' })
 $profiles = Join-Path $runtimeRoot 'tunnel-profiles'
-$profileName = 'copenhagen-qa1-' + $TunnelId
+$profileName = "copenhagen-qa$Stage-" + $TunnelId
 $profile = Join-Path $profiles ($profileName + '.yaml')
-$probe = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:8091/qa/check' -TimeoutSec 10
-if ($probe.Headers['X-Copenhagen-Qa'] -ne 'connection-only') { throw 'Port 8091 is not the QA1 runtime.' }
+$probe = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$port/qa/check" -TimeoutSec 10
+if ($probe.Headers['X-Copenhagen-Qa'] -ne $expectedRuntime) { throw "Port $port is not the QA$Stage runtime." }
 $data = $probe.Content | ConvertFrom-Json
 if ($data.isError -or $data.structuredContent.service -ne 'copenhagen-mcp') { throw 'QA MCP round trip failed.' }
 if (-not (Test-Path -LiteralPath $profile)) {
     & $ClientPath init --sample sample_mcp_remote_no_auth --profile $profileName --profile-dir $profiles `
-        --tunnel-id $TunnelId --mcp-server-url http://127.0.0.1:8091/mcp --health-listen-addr 127.0.0.1:0
+        --tunnel-id $TunnelId --mcp-server-url "http://127.0.0.1:$port/mcp" --health-listen-addr 127.0.0.1:0
     if ($LASTEXITCODE -ne 0) { throw 'Unable to create QA tunnel profile.' }
 }
-if ($Check) { Write-Output 'QA1 runtime and tunnel profile are ready.'; exit 0 }
-Write-Host 'Copenhagen QA1 | connection tools only | localhost:8091'
+if ($Check) { Write-Output "QA$Stage runtime and tunnel profile are ready."; exit 0 }
+Write-Host "Copenhagen QA$Stage | $expectedRuntime | localhost:$port"
 Write-Host 'Enter the runtime key with Tunnels Read + Use. It will not be saved.'
 $secureKey = Read-Host 'Runtime API key' -AsSecureString
 if ($secureKey.Length -eq 0) { $secureKey.Dispose(); throw 'No runtime key entered.' }

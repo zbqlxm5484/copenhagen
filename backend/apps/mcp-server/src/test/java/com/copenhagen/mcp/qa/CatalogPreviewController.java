@@ -1,0 +1,72 @@
+package com.copenhagen.mcp.qa;
+
+import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.McpSyncClient;
+import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
+import io.modelcontextprotocol.spec.McpSchema;
+import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Map;
+import java.util.Set;
+import org.springframework.boot.test.context.TestComponent;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+
+/** Local preview -> MCP HTTP -> Mock Core HTTP. 브라우저에 QA 인증 값을 공개하지 않는다. */
+@RestController
+@TestComponent
+final class CatalogPreviewController {
+
+    @GetMapping(value = "/qa", produces = "text/html;charset=UTF-8")
+    String preview() throws IOException {
+        String html = new ClassPathResource("mcp-ui/catalog.html").getContentAsString(StandardCharsets.UTF_8);
+        String bridge = """
+                <script>
+                window.openai = {
+                  callTool: async function(name, args) {
+                    const response = await fetch('/qa/tools', {method: 'POST', cache: 'no-store',
+                      headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name, arguments: args})});
+                    if (!response.ok) throw new Error('QA server unavailable');
+                    return response.json();
+                  }
+                };
+                </script>
+                """;
+        return html.replace("<body>", "<body>" + bridge);
+    }
+
+    @GetMapping("/qa/check")
+    Object check(HttpServletRequest request) {
+        return invoke(request, "check_connection", Map.of());
+    }
+
+    @PostMapping("/qa/tools")
+    Object tool(HttpServletRequest request, @RequestBody Call call) {
+        if (!Set.of("search_products", "display_products", "open_copenhagen", "get_product_detail")
+                .contains(call.name())) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST);
+        }
+        return invoke(request, call.name(), call.arguments());
+    }
+
+    private Object invoke(HttpServletRequest request, String name, Map<String, Object> arguments) {
+        try (McpSyncClient client = McpClient.sync(HttpClientStreamableHttpTransport
+                .builder("http://127.0.0.1:" + request.getLocalPort()).endpoint("/mcp").build())
+                .requestTimeout(Duration.ofSeconds(7)).build()) {
+            client.initialize();
+            McpSchema.CallToolResult result = client.callTool(McpSchema.CallToolRequest.builder()
+                    .name(name).arguments(arguments).build());
+            return Map.of("isError", Boolean.TRUE.equals(result.isError()),
+                    "structuredContent", result.structuredContent() == null ? Map.of() : result.structuredContent());
+        }
+    }
+
+    record Call(String name, Map<String, Object> arguments) {
+    }
+}

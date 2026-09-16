@@ -5,7 +5,7 @@
   "scripts": {
     "build": "node build.mjs",
     "check": "node build.mjs --check",
-    "test": "node --test src/connection.test.js"
+    "test": "node --test src/*.test.js"
   },
   "dependencies": { "@modelcontextprotocol/ext-apps": "2.0.0" },
   "devDependencies": { "esbuild": "0.28.2" }
