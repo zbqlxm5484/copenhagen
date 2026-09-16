@@ -11,6 +11,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,8 +22,10 @@ import org.springframework.core.io.ClassPathResource;
 public class CatalogUiConfiguration {
 
     @Bean
-    CatalogResource catalogResource() throws IOException, NoSuchAlgorithmException {
-        String html = new ClassPathResource("mcp-ui/catalog.html").getContentAsString(StandardCharsets.UTF_8);
+    CatalogResource catalogResource(@Value("${mcp.cart.enabled:false}") boolean cartEnabled)
+            throws IOException, NoSuchAlgorithmException {
+        String html = new ClassPathResource("mcp-ui/catalog.html").getContentAsString(StandardCharsets.UTF_8)
+                .replace("__CART_ENABLED__", Boolean.toString(cartEnabled));
         String version = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                 .digest(html.getBytes(StandardCharsets.UTF_8))).substring(0, 16);
         return new CatalogResource("ui://copenhagen/catalog-" + version + ".html", html);

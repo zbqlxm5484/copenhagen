@@ -1,4 +1,5 @@
 import { App } from '@modelcontextprotocol/ext-apps';
+import { createCartUi } from './cart-app.js';
 import { acceptHostSearch, availability, detailData, detailPrompt, filters, money, safeImage, searchData, timedCall } from './catalog.js';
 
 const $ = id => document.getElementById(id);
@@ -9,6 +10,10 @@ const element = (tag, text, className) => {
   const item = document.createElement(tag); if (text !== undefined) item.textContent = text;
   if (className) item.className = className; return item;
 };
+const cart = createCartUi(callTool, element, saveWidgetState);
+function saveWidgetState() {
+  window.openai?.setWidgetState?.({ version: 2, query: lastQuery, cartPending: cart.pending() });
+}
 function status(message, error = false) { $('status').textContent = message; $('status').dataset.error = String(error); }
 function controls() {
   for (const control of document.querySelectorAll('form input,form select,form button,#retry')) control.disabled = busy;
@@ -78,6 +83,7 @@ async function loadDetail(request) {
     body.append(element('p', p.shipping.status === 'UNKNOWN' ? '배송 조건 · 배송비 미확인'
       : `${p.shipping.description} · 배송비 ${money(p.shipping.fee)}`, 'sub'));
     const explain = element('button', '채팅으로 자세히 설명');
+    cart.appendAdd(body, p, request);
     explain.addEventListener('click', async () => {
       explain.disabled = true;
       try {
@@ -105,13 +111,17 @@ async function loadDetail(request) {
 }
 function render(data) {
   current = data; lastQuery = filters(data.query);
-  $('mode').textContent = data.mode === 'QA' ? 'LOCAL QA2' : '상품 탐색';
+  $('mode').textContent = data.mode === 'QA' ? (cart.enabled ? 'LOCAL QA3' : 'LOCAL QA2') : '상품 탐색';
   $('notice').textContent = data.mode === 'QA' ? '가상몰 3곳 · 노이즈를 적용한 QA 가격 · 재고는 수집 시점 기준' : '가격과 재고는 조회 시점 기준입니다.';
   $('checked-at').textContent = `확인 ${new Date(data.checkedAt).toLocaleTimeString('ko-KR', { hour12: false })}`;
   options('category', data.categories.map(x => [x, x]), '상품군 선택', data.query.category);
   options('merchantId', data.merchants.map(x => [x.merchantId, x.name]), '전체 판매처', data.query.merchantId);
   for (const key of formFields.filter(x => !['category', 'merchantId'].includes(x))) $(key).value = data.query[key] ?? '';
   $('sort').value = data.query.sort ?? 'RELEVANCE';
+  $('search-filters').open = data.status === 'CLARIFY';
+  const filterCount = ['category', 'merchantId', 'minPrice', 'maxPrice', 'brand'].filter(k => lastQuery[k] !== undefined).length
+    + (data.query.sort && data.query.sort !== 'RELEVANCE' ? 1 : 0);
+  $('filter-label').textContent = filterCount ? `필터 ${filterCount}개 적용` : '필터 · 상품군 · 판매처';
   $('page').textContent = `${data.query.page ?? 1} 페이지 · ${data.total.toLocaleString('ko-KR')}개`;
   const cards = $('cards'); cards.replaceChildren();
   for (const product of data.products) {
@@ -136,7 +146,7 @@ function render(data) {
     : data.status === 'PARTIAL' ? `일부 판매처 조회 실패 (${data.failedMerchants.length}곳) · 확인된 결과만 표시합니다.`
     : data.products.length ? '상품을 선택해 판매처별 가격을 확인하세요.' : '검색 결과 없음');
   $('retry').hidden = data.status !== 'PARTIAL';
-  window.openai?.setWidgetState?.({ version: 1, query: lastQuery });
+  saveWidgetState();
   controls();
 }
 async function search(input) {
@@ -187,9 +197,10 @@ async function start() {
   if (typeof window.openai?.callTool !== 'function') await connect();
   else void connect();
   if (!current) {
-    let restored = {}; try { if (window.openai?.widgetState?.version === 1) restored = filters(window.openai.widgetState.query); } catch { }
+    let restored = {}; try { if ([1, 2].includes(window.openai?.widgetState?.version)) restored = filters(window.openai.widgetState.query); } catch { }
     await search(restored);
   }
+  void cart.refresh().catch(() => {});
 }
 window.addEventListener('pageshow', () => { controls(); if (!sdkReady && !window.openai?.callTool) void connect(); });
 void start();

@@ -19,14 +19,20 @@ final class QaAccessFilter implements Filter {
 
     private final String token;
     private final boolean catalog;
+    private final boolean cart;
 
     QaAccessFilter(String token) {
         this(token, false);
     }
 
     QaAccessFilter(String token, boolean catalog) {
+        this(token, catalog, false);
+    }
+
+    QaAccessFilter(String token, boolean catalog, boolean cart) {
         this.token = token;
         this.catalog = catalog;
+        this.cart = cart;
     }
 
     @Override
@@ -38,7 +44,7 @@ final class QaAccessFilter implements Filter {
             output.setStatus(403);
             return;
         }
-        output.setHeader("X-Copenhagen-Qa", catalog ? "catalog-mock" : "connection-only");
+        output.setHeader("X-Copenhagen-Qa", cart ? "cart-mock" : catalog ? "catalog-mock" : "connection-only");
         output.setHeader("Cache-Control", "no-store");
         String path = http.getRequestURI();
         if (path.equals("/qa") || path.equals("/qa/check") || (catalog && path.equals("/qa/tools"))) {

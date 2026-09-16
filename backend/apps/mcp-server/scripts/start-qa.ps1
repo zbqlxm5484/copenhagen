@@ -1,12 +1,12 @@
-param([string]$JavaHome = $env:JAVA_HOME, [ValidateSet(1, 2)][int]$Stage = 1)
+param([string]$JavaHome = $env:JAVA_HOME, [ValidateSet(1, 2, 3)][int]$Stage = 1)
 $ErrorActionPreference = 'Stop'
 $moduleRoot = Split-Path -Parent $PSScriptRoot
 $backendRoot = [IO.Path]::GetFullPath((Join-Path $moduleRoot '..\..'))
 $port = 8090 + $Stage
-$runtimeRoot = Join-Path $moduleRoot $(if ($Stage -eq 2) { 'build\qa2' } else { 'build\qa' })
+$runtimeRoot = Join-Path $moduleRoot $(if ($Stage -gt 1) { "build\qa$Stage" } else { 'build\qa' })
 $catalogFile = Join-Path $runtimeRoot 'catalog.json'
-if ($Stage -eq 2 -and -not (Test-Path -LiteralPath $catalogFile)) {
-    throw 'Run scripts/import-qa-catalog.py with the supplied SQLite bundle before starting QA2.'
+if ($Stage -gt 1 -and -not (Test-Path -LiteralPath $catalogFile)) {
+    throw "Import the supplied catalog to build/qa$Stage/catalog.json before starting QA$Stage."
 }
 if (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue) {
     throw "Port $port is already in use. Keep the existing service or run stop-qa.ps1 -Stage $Stage first."
@@ -29,8 +29,16 @@ try {
 } finally { Pop-Location }
 $classPath = (Get-Content -LiteralPath (Join-Path $moduleRoot 'build\qa\classpath.txt') -Raw).Trim().Replace('\', '/')
 $argFile = Join-Path $runtimeRoot 'java.args'
-$mainClass = if ($Stage -eq 2) { 'com.copenhagen.mcp.qa.LocalCatalogQa' } else { 'com.copenhagen.mcp.qa.LocalMcpQa' }
-$catalogArgument = if ($Stage -eq 2) { '"-Dcopenhagen.qa.catalog=' + $catalogFile.Replace('\', '/') + '"' + "`n" } else { '' }
+$mainClass = switch ($Stage) {
+    3 { 'com.copenhagen.mcp.qa.LocalCartQa' }
+    2 { 'com.copenhagen.mcp.qa.LocalCatalogQa' }
+    default { 'com.copenhagen.mcp.qa.LocalMcpQa' }
+}
+$catalogArgument = if ($Stage -gt 1) { '"-Dcopenhagen.qa.catalog=' + $catalogFile.Replace('\', '/') + '"' + "`n" } else { '' }
+if ($Stage -eq 3) {
+    $cartFile = Join-Path $runtimeRoot 'cart.json'
+    $catalogArgument += '"-Dcopenhagen.qa.cart=' + $cartFile.Replace('\', '/') + '"' + "`n"
+}
 $arguments = '-Dfile.encoding=UTF-8' + "`n" + $catalogArgument + "-cp`n" + '"' + $classPath + '"' + "`n$mainClass`n"
 [IO.File]::WriteAllText($argFile, $arguments, [Text.UTF8Encoding]::new($false))
 $process = Start-Process -FilePath (Join-Path $JavaHome 'bin\java.exe') -ArgumentList ('@"' + $argFile + '"') `

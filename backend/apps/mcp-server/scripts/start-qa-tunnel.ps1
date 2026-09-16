@@ -1,14 +1,14 @@
 param(
     [Parameter(Mandatory = $true)][ValidatePattern('^tunnel_[A-Za-z0-9]{1,64}$')][string]$TunnelId,
     [Parameter(Mandatory = $true)][string]$ClientPath,
-    [ValidateSet(1, 2)][int]$Stage = 1,
+    [ValidateSet(1, 2, 3)][int]$Stage = 1,
     [switch]$Check
 )
 $ErrorActionPreference = 'Stop'
 if (-not (Test-Path -LiteralPath $ClientPath -PathType Leaf)) { throw 'Install the official OpenAI tunnel-client first.' }
 $port = 8090 + $Stage
-$expectedRuntime = if ($Stage -eq 2) { 'catalog-mock' } else { 'connection-only' }
-$runtimeRoot = Join-Path (Split-Path -Parent $PSScriptRoot) $(if ($Stage -eq 2) { 'build\qa2' } else { 'build\qa' })
+$expectedRuntime = switch ($Stage) { 3 { 'cart-mock' } 2 { 'catalog-mock' } default { 'connection-only' } }
+$runtimeRoot = Join-Path (Split-Path -Parent $PSScriptRoot) $(if ($Stage -gt 1) { "build\qa$Stage" } else { 'build\qa' })
 $profiles = Join-Path $runtimeRoot 'tunnel-profiles'
 $profileName = "copenhagen-qa$Stage-" + $TunnelId
 $profile = Join-Path $profiles ($profileName + '.yaml')

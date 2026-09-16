@@ -1,6 +1,12 @@
 package com.copenhagen.mcp.qa;
 
 import com.copenhagen.mcp.auth.McpIdentity;
+import com.copenhagen.mcp.cart.CartEditSchemas;
+import com.copenhagen.mcp.cart.CartSchemas;
+import com.copenhagen.mcp.cart.CartViewSchemas;
+import com.copenhagen.mcp.cart.CoreCart;
+import com.copenhagen.mcp.cart.CoreCartEdits;
+import com.copenhagen.mcp.cart.CoreCartView;
 import com.copenhagen.mcp.catalog.CatalogSchemas;
 import com.copenhagen.mcp.catalog.CoreProductCatalog;
 import com.copenhagen.mcp.catalog.CoreProductDetails;
@@ -28,13 +34,23 @@ final class QaCoreServer implements AutoCloseable {
     private final CoreClient client;
 
     QaCoreServer(QaCatalogStore store) throws IOException {
+        this(store, null);
+    }
+
+    QaCoreServer(QaCatalogStore store, QaCartStore carts) throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/fixture/catalog/search", exchange -> search(exchange, store));
         server.createContext("/fixture/catalog/detail", exchange -> search(exchange, store));
+        if (carts != null) {
+            server.createContext("/fixture/cart/add", exchange -> cart(exchange, carts));
+            server.createContext("/fixture/cart/view", exchange -> cart(exchange, carts));
+            server.createContext("/fixture/cart/update", exchange -> cart(exchange, carts));
+            server.createContext("/fixture/cart/delete", exchange -> cart(exchange, carts));
+        }
         server.start();
         http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
         client = new CoreClient(http, new CoreProperties(URI.create("http://127.0.0.1:" + server.getAddress().getPort()),
-                Duration.ofSeconds(2), Duration.ofSeconds(5), 131072),
+                Duration.ofSeconds(2), Duration.ofSeconds(5), 262144),
                 McpJsonDefaults.getMapper(), McpJsonDefaults.getSchemaValidator());
     }
 
@@ -46,6 +62,56 @@ final class QaCoreServer implements AutoCloseable {
     CoreProductDetails detailsAdapter() {
         return (identity, request) -> client.post("/fixture/catalog/detail", body(identity, request.arguments()),
                 DetailSchemas.CORE);
+    }
+
+    CoreCart cartAdapter() {
+        return (identity, request) -> client.post("/fixture/cart/add", body(identity, request), CartSchemas.CORE_ADD);
+    }
+
+    CoreCartView cartViewAdapter() {
+        return identity -> client.post("/fixture/cart/view", body(identity, Map.of()), CartViewSchemas.CORE);
+    }
+
+    CoreCartEdits cartEditsAdapter() {
+        return (identity, action, request) -> switch (action) {
+            case "UPDATE" -> client.post("/fixture/cart/update", body(identity, request), CartEditSchemas.CORE_UPDATE);
+            case "DELETE" -> client.post("/fixture/cart/delete", body(identity, request), CartEditSchemas.CORE_DELETE);
+            default -> throw new IllegalArgumentException("Unsupported cart edit");
+        };
+    }
+
+    @SuppressWarnings("unchecked")
+    private void cart(HttpExchange exchange, QaCartStore carts) throws IOException {
+        try (exchange) {
+            String path = exchange.getRequestURI().getPath();
+            if (!exchange.getRequestMethod().equals("POST")
+                    || !java.util.Set.of("/fixture/cart/add", "/fixture/cart/view",
+                            "/fixture/cart/update", "/fixture/cart/delete").contains(path)) {
+                exchange.sendResponseHeaders(404, -1);
+                return;
+            }
+            byte[] bytes = exchange.getRequestBody().readNBytes(8193);
+            if (bytes.length > 8192) {
+                exchange.sendResponseHeaders(413, -1);
+                return;
+            }
+            Map<String, Object> input = McpJsonDefaults.getMapper().readValue(bytes, new TypeRef<>() { });
+            try {
+                Map<String, Object> data = path.endsWith("/view") ? carts.view((String) input.get("publicUserRef"))
+                        : carts.change((String) input.get("publicUserRef"),
+                                path.substring(path.lastIndexOf('/') + 1).toUpperCase(java.util.Locale.ROOT),
+                                (Map<String, Object>) input.get("arguments"));
+                byte[] output = McpJsonDefaults.getMapper().writeValueAsBytes(Map.of("publicUserRef",
+                        input.get("publicUserRef"), "connectionRef", input.get("connectionRef"), "data", data));
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, output.length);
+                exchange.getResponseBody().write(output);
+            } catch (SecurityException exception) {
+                exchange.sendResponseHeaders(403, -1);
+            } catch (RuntimeException | IOException exception) {
+                exchange.sendResponseHeaders(503, -1);
+            }
+        }
     }
 
     private static Map<String, Object> body(McpIdentity identity, Map<String, Object> arguments) {
