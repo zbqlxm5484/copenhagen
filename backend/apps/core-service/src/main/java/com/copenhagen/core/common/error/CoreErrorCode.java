@@ -89,6 +89,41 @@ public enum CoreErrorCode {
             "CART_OPTION_REQUIRED",
             "옵션을 선택해야 장바구니에 담을 수 있습니다.",
             "SELECT_OPTION"),
+    ORDER_CART_EMPTY(
+            HttpStatus.CONFLICT,
+            "ORDER_CART_EMPTY",
+            "장바구니가 비어 있어 주문을 검증할 수 없습니다.",
+            "ADD_CART_ITEM"),
+    ORDER_VALIDATION_FAILED(
+            HttpStatus.CONFLICT,
+            "ORDER_VALIDATION_FAILED",
+            "주문을 검증하지 못했습니다.",
+            "RETURN_TO_CART"),
+    ORDER_PRICE_CHANGED(
+            HttpStatus.CONFLICT,
+            "ORDER_PRICE_CHANGED",
+            "상품 가격이 변경되었습니다.",
+            "RETURN_TO_CART"),
+    ORDER_STOCK_INSUFFICIENT(
+            HttpStatus.CONFLICT,
+            "ORDER_STOCK_INSUFFICIENT",
+            "재고가 부족한 상품이 있습니다.",
+            "RETURN_TO_CART"),
+    ORDER_ADDRESS_NOT_SERVICEABLE(
+            HttpStatus.CONFLICT,
+            "ORDER_ADDRESS_NOT_SERVICEABLE",
+            "선택한 배송지로는 주문할 수 없습니다.",
+            "CHANGE_ADDRESS"),
+    ORDER_MERCHANT_HANDOFF_REQUIRED(
+            HttpStatus.CONFLICT,
+            "ORDER_MERCHANT_HANDOFF_REQUIRED",
+            "판매자에게 직접 문의가 필요한 주문입니다.",
+            "CONTACT_MERCHANT"),
+    MERCHANT_CHECKOUT_UNAVAILABLE(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "MERCHANT_CHECKOUT_UNAVAILABLE",
+            "판매자 주문 서비스에 일시적으로 연결할 수 없습니다.",
+            "RETRY_LATER"),
     REQUEST_METHOD_NOT_ALLOWED(
             HttpStatus.METHOD_NOT_ALLOWED,
             "REQUEST_METHOD_NOT_ALLOWED",

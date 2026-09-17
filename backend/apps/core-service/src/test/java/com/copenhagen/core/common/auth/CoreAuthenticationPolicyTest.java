@@ -69,4 +69,19 @@ class CoreAuthenticationPolicyTest {
     void requiresAuthentication_cartLikePrefix_false() {
         assertFalse(CoreAuthenticationPolicy.requiresAuthentication("/api/core/v1/cart-history"));
     }
+
+    @Test
+    @DisplayName("주문 라우트(검증 포함)는 모두 인증이 필요하다")
+    void requiresAuthentication_orderRoutes_true() {
+        assertTrue(CoreAuthenticationPolicy.requiresAuthentication("/api/core/v1/orders"));
+        assertTrue(CoreAuthenticationPolicy.requiresAuthentication("/api/core/v1/orders/validations"));
+        assertTrue(CoreAuthenticationPolicy.requiresAuthentication(
+                "/api/core/v1/orders/" + UUID.randomUUID()));
+    }
+
+    @Test
+    @DisplayName("주문 경로를 prefix로만 포함하는 다른 경로는 인증 대상이 아니다")
+    void requiresAuthentication_orderLikePrefix_false() {
+        assertFalse(CoreAuthenticationPolicy.requiresAuthentication("/api/core/v1/orders-history"));
+    }
 }
