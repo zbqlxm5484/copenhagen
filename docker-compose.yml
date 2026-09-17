@@ -37,6 +37,8 @@ services:
       # Agent OAuth 인가 서버 issuer/audience. 운영 배포에서는 반드시 실제 값으로 덮어써야 한다.
       AGENT_OAUTH_ISSUER: ${AGENT_OAUTH_ISSUER:-http://localhost:8080}
       AGENT_OAUTH_MCP_AUDIENCE: ${AGENT_OAUTH_MCP_AUDIENCE:-http://localhost:8080/mcp}
+      AGENT_OAUTH_JWT_PRIVATE_KEY: ${AGENT_OAUTH_JWT_PRIVATE_KEY:-}
+      AGENT_OAUTH_JWT_KEY_ID: ${AGENT_OAUTH_JWT_KEY_ID:-agent-oauth-dev}
       PAY_SERVICE_URL: http://pay-service:8080
       MERCHANT_SERVICE_URL: http://ucp-merchant-mock:8080
     depends_on:
@@ -61,6 +63,23 @@ services:
       dockerfile: apps/mcp-server/Dockerfile
     environment:
       CORE_SERVICE_URL: http://core-service:8080
+      # Opt in only after Core clients, keys and App Link are configured on the server.
+      SPRING_PROFILES_ACTIVE: ${MCP_SPRING_PROFILES_ACTIVE:-}
+      MCP_AUTH_RESOURCE: ${MCP_AUTH_RESOURCE:-https://j15a207.p.ssafy.io/mcp}
+      MCP_AUTH_ISSUER: ${MCP_AUTH_ISSUER:-}
+      MCP_AUTH_JWKS_URI: ${MCP_AUTH_JWKS_URI:-}
+      CORE_TOKEN_URI: ${CORE_TOKEN_URI:-}
+      CORE_MCP_CLIENT_ID: ${CORE_MCP_CLIENT_ID:-copenhagen-mcp}
+      CORE_MCP_PRIVATE_JWK_FILE: /run/secrets/mcp/client.jwk
+      MCP_APP_LINK_BASE: ${MCP_APP_LINK_BASE:-}
+      MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-j15a207.p.ssafy.io,mcp-server:8080,localhost:8080}
+      MCP_ALLOWED_ORIGINS: ${MCP_ALLOWED_ORIGINS:-https://chatgpt.com}
+    volumes:
+      # An empty directory is harmless for the default profile; integration requires client.jwk.
+      - type: bind
+        source: ${MCP_SECRETS_DIR:-./.secrets/mcp}
+        target: /run/secrets/mcp
+        read_only: true
     depends_on:
       core-service:
         condition: service_healthy

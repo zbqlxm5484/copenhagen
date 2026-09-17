@@ -5,6 +5,9 @@
 | 외부 경로 | 전달 대상 |
 | --- | --- |
 | `/mcp` | `mcp-server` |
+| `/.well-known/oauth-protected-resource`, `/.well-known/oauth-protected-resource/mcp` | `mcp-server` |
+| `/.well-known/oauth-authorization-server`, `/.well-known/jwks.json` | `core-service` |
+| `/oauth/authorize`, `/oauth/authorize/**`, `/oauth/token` | `core-service` |
 | `/api/core/**` | `core-service` |
 | `/api/pay/**` | `pay-service` |
 | `/.well-known/ucp` | `core-service` |

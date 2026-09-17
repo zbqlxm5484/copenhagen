@@ -34,7 +34,7 @@ Core의 Agent 토큰 audience는 최종 MCP canonical HTTPS URL과 정확히 같
 
 로컬 계약 테스트와 실제 배포 검증을 구분한다. 공개 서버 연결, OAuth 로그인,
 Core 업무 API 왕복은 각 담당자의 설정과 배포가 완료된 뒤 검증한다.
-배포 준비 이슈 S15P21A207-397의 변경은 별도 MR이며, 이 브랜치에 임의로 합치지 않는다.
+배포 적용 절차는 [MCP OAuth 서버 연결](../../../../infra/docker/mcp-oauth-deployment.md)을 따른다.
 
 ## 현재 구현과 활성화
 
@@ -51,8 +51,9 @@ OpenAI API 키와 로컬 Secure Tunnel 런타임 키는 이 직접 연결 경로
 
 저장소에서 확인한 내부 주소는 `http://core-service:8080`이다. 기존 앱 JWT의
 `copenhagen-core` issuer / `copenhagen-app` audience는 Agent OAuth 계약과 다르므로 재사용하지 않는다.
-현재 develop에는 최종 OAuth와 `/internal/v1` 업무 API 구현이 없어 issuer·JWKS·token URL,
-App Link 경로는 추정값으로 채우지 않았다. 누락된 필수값을 넣기 전에는 실제 연동 프로필을 켜지 않는다.
+2026-09-17 develop에 Core OAuth(337)가 병합되었다. 동일 호스트용 issuer·JWKS·token URL은
+환경변수 예제에 반영했다. 실제 callback·MCP 서비스 공개키·App Link와 `/internal/v1` 업무 API의
+준비 상태는 별도 확인한다. 누락된 필수값을 넣기 전에는 실제 연동 프로필을 켜지 않는다.
 
 ### 공개 경로 전달
 
@@ -65,7 +66,8 @@ App Link 경로는 추정값으로 채우지 않았다. 누락된 필수값을 �
 | `/.well-known/jwks.json` | Core | nginx 404, Core JWKS 배포와 전달 필요 |
 | `/oauth/authorize`, `/oauth/token` | Core | 최종 OAuth 배포 경로 확인 필요 |
 
-위 확인은 2026-09-17 시점이다. 인증 서버를 다른 HTTPS origin에 배치하면 issuer의 실제
+위 응답은 2026-09-17 변경 배포 전 확인 결과다. S15P21A207-405에서 공개 경로 프록시를
+추가했으며 실제 배포 후 표의 응답을 다시 검증해야 한다. 인증 서버를 다른 HTTPS origin에 배치하면 issuer의 실제
 discovery와 JWKS URL을 사용한다. `/internal/v1`은 외부에 공개하지 않는다.
 
 ## 도구와 호출 계약

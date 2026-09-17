@@ -204,6 +204,7 @@ nginx-config-test:
   before_script:
     - apk add --no-cache python3 openssl
   script:
+    - python3 scripts/test-mcp-deployment.py
     - python3 scripts/test-nginx-config.py
   rules:
     - changes:
@@ -214,6 +215,7 @@ nginx-config-test:
         - infra/docker/https.override.yml
         - scripts/deploy-dev-nginx.sh
         - scripts/test-nginx-config.py
+        - scripts/test-mcp-deployment.py
     - when: never
 
 repository-lint:
