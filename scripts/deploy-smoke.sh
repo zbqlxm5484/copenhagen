@@ -15,7 +15,12 @@ curl_image=docker.io/curlimages/curl:8.16.0
 services=(pg-mock pay-service ucp-merchant-mock core-service mcp-server)
 image_variables=(PG_MOCK_IMAGE PAY_IMAGE MERCHANT_MOCK_IMAGE CORE_IMAGE MCP_IMAGE)
 images=()
+gradle_cache=${SMOKE_GRADLE_CACHE:-}
+runtime_cache=${SMOKE_RUNTIME_CACHE:-}
+runtime_images=()
 phase=prepare
+phase_started=$SECONDS
+started=$SECONDS
 
 # 개인 .env와 기존 배포 이미지 설정을 사용하지 않습니다.
 unset PG_MOCK_IMAGE PAY_IMAGE MERCHANT_MOCK_IMAGE CORE_IMAGE MCP_IMAGE SMOKE_NGINX_IMAGE
@@ -31,6 +36,13 @@ compose() {
 
 record() {
     printf '%s\n' "$*" | tee -a "$results/result.log"
+}
+
+set_phase() {
+    record "TIMING phase=$phase seconds=$((SECONDS - phase_started))"
+    phase=$1
+    phase_started=$SECONDS
+    record "START phase=$phase"
 }
 
 snapshot() {
@@ -52,10 +64,11 @@ snapshot() {
 }
 
 cleanup() {
-    local status=$? file
+    local status=$? file cleanup_started=$SECONDS
     trap - EXIT
     # 진단 실패 때문에 원래 종료 코드나 자원 정리가 달라지지 않게 합니다.
     set +e
+    record "TIMING phase=$phase seconds=$((SECONDS - phase_started))"
     if [ "$status" -ne 0 ]; then
         record "FAIL exit=$status phase=$phase"
     fi
@@ -79,36 +92,107 @@ cleanup() {
     fi
     rm -rf "$work"
     record "exit=$status phase=$phase"
+    record "TIMING phase=cleanup seconds=$((SECONDS - cleanup_started))"
+    record "TIMING total_seconds=$((SECONDS - started))"
     exit "$status"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-build_images() {
-    local source=$1 tag=$2 service dockerfile image
-    phase="build-$tag"
-    for service in "${services[@]}"; do
-        case "$service" in
-            pg-mock|ucp-merchant-mock) dockerfile="mocks/$service/Dockerfile" ;;
-            *) dockerfile="apps/$service/Dockerfile" ;;
-        esac
-        image="$COMPOSE_PROJECT_NAME/$service:$tag"
-        images+=("$image")
-        if [ "$tag" = candidate ] && [ "${SMOKE_USE_CI_ARTIFACTS:-false}" = true ]; then
-            sh "$root/scripts/build-ci-image.sh" "${dockerfile%/Dockerfile}" "$image"
-        else
-            if [ -n "${CI_GRADLE_MAX_WORKERS:-}" ] && ! grep -q '^ARG GRADLE_MAX_WORKERS' "$source/backend/$dockerfile"; then
-                record "INFO $tag/$service uses a historical Dockerfile without a Gradle worker override"
-            fi
-            docker build --load --build-arg "GRADLE_MAX_WORKERS=${CI_GRADLE_MAX_WORKERS:-}" \
-                --file "$source/backend/$dockerfile" --tag "$image" "$source/backend"
-        fi
+prepare_gradle_cache() {
+    [ -n "$gradle_cache" ] || return 0
+    mkdir -p "$gradle_cache"
+    if [ -d "$gradle_cache/wrapper" ]; then
+        record 'CACHE gradle=restored'
+    else
+        record 'CACHE gradle=empty'
+    fi
+    images+=("$COMPOSE_PROJECT_NAME/gradle-cache:seed")
+    # A unique token executes the copy without clearing BuildKit cache mounts.
+    docker build --build-arg "SMOKE_CACHE_RUN=$COMPOSE_PROJECT_NAME-seed" --target seed \
+        --tag "$COMPOSE_PROJECT_NAME/gradle-cache:seed" \
+        --file "$root/infra/docker/smoke-gradle-cache.Dockerfile" "$gradle_cache"
+}
+
+save_gradle_cache() {
+    [ -n "$gradle_cache" ] || return 0
+    set_phase cache-export
+    docker build --build-arg "SMOKE_CACHE_RUN=$COMPOSE_PROJECT_NAME-export" --target export \
+        --output "type=local,dest=$gradle_cache" \
+        --file "$root/infra/docker/smoke-gradle-cache.Dockerfile" "$gradle_cache"
+}
+
+restore_runtime_cache() {
+    [ -n "$runtime_cache" ] || return 0
+    mkdir -p "$runtime_cache"
+    if [ -f "$runtime_cache/images.tar" ]; then
+        record 'CACHE runtime=restored'
+        docker image load --input "$runtime_cache/images.tar"
+    else
+        record 'CACHE runtime=empty'
+    fi
+}
+
+refresh_runtime_images() {
+    [ -n "$runtime_cache" ] || return 0
+    local refs image
+    refs=$(compose config --format json | jq -er \
+        '[.services | to_entries[] | select(.key == "core-db" or .key == "pay-db" or .key == "merchant-db" or .key == "redis" or .key == "smoke-http") | .value.image] | unique[]')
+    while IFS= read -r image; do runtime_images+=("$image"); done <<< "$refs"
+    # Check mutable upstream tags; restored layers avoid downloading them again.
+    compose pull --quiet core-db pay-db merchant-db redis smoke-http
+}
+
+cache_base_image() {
+    [ -n "$runtime_cache" ] || return 0
+    local image=$1 previous
+    for previous in "${runtime_images[@]}"; do
+        [ "$previous" != "$image" ] || return 0
     done
+    docker pull "$image"
+    runtime_images+=("$image")
+}
+
+save_runtime_cache() {
+    [ -n "$runtime_cache" ] || return 0
+    set_phase runtime-cache-export
+    local unique_images=()
+    mapfile -t unique_images < <(printf '%s\n' "${runtime_images[@]}" | sort -u)
+    docker image save --output "$runtime_cache/images.tar" "${unique_images[@]}"
+}
+
+build_images() {
+    local source=$1 tag=$2 service image nginx_image module
+    set_phase "build-$tag"
+    python3 "$root/scripts/smoke-dockerfiles.py" "$source" "$work/dockerfiles-$tag" \
+        "$COMPOSE_PROJECT_NAME" "$tag"
+    while IFS= read -r image; do
+        [ -z "$image" ] || cache_base_image "$image"
+    done < "$work/dockerfiles-$tag/base-images.txt"
+    for service in "${services[@]}"; do
+        images+=("$COMPOSE_PROJECT_NAME/$service:$tag")
+    done
+    if [ "$tag" = candidate ] && [ "${SMOKE_USE_CI_ARTIFACTS:-false}" = true ]; then
+        for service in "${services[@]}"; do
+            case "$service" in
+                pg-mock|ucp-merchant-mock) module="mocks/$service" ;;
+                *) module="apps/$service" ;;
+            esac
+            sh "$root/scripts/build-ci-image.sh" "$module" "$COMPOSE_PROJECT_NAME/$service:$tag"
+        done
+    else
+        docker buildx bake --load --progress plain \
+            --allow "fs.read=$source/backend" --allow "fs.read=$work/dockerfiles-$tag" \
+            --set "*.args.GRADLE_MAX_WORKERS=${CI_GRADLE_MAX_WORKERS:-}" \
+            --file "$work/dockerfiles-$tag/bake.json"
+    fi
     images+=("$COMPOSE_PROJECT_NAME/nginx:$tag")
     # 실제 Compose와 동일한 Nginx image 및 설정을 사용합니다.
+    nginx_image=$(docker compose --env-file "$work/settings.env" --file "$source/docker-compose.yml" config --format json | jq -er '.services.nginx.image')
+    cache_base_image "$nginx_image"
     docker build --load --tag "$COMPOSE_PROJECT_NAME/nginx:$tag" --file - "$source/infra/nginx" <<EOF
-FROM $(docker compose --env-file "$work/settings.env" --file "$source/docker-compose.yml" config --format json | jq -er '.services.nginx.image')
+FROM $nginx_image
 COPY nginx.conf /etc/nginx/nginx.conf
 EOF
 }
@@ -133,7 +217,7 @@ render_compose() {
 
 expect_http() {
     local url=$1 expected=$2 assertion=${3:-} response code body status reason
-    if response=$(docker run --rm --network "${COMPOSE_PROJECT_NAME}_default" "$curl_image" \
+    if response=$(compose exec -T smoke-http curl \
         --silent --connect-timeout 5 --max-time 10 \
         --header 'Accept: application/json' --write-out '\n%{http_code}' "$url" 2>/dev/null); then
         :
@@ -252,10 +336,21 @@ if [ "${SMOKE_USE_CI_ARTIFACTS:-false}" = true ]; then
     done
 fi
 docker info >/dev/null
+restore_runtime_cache
+prepare_gradle_cache
 docker pull "$curl_image"
-build_images "$root" candidate
+candidate_source=$root
+if [ "${CI:-false}" = true ] || [ -n "${CI_PIPELINE_SOURCE:-}" ]; then
+    # Archive both commits consistently: runner checkout permissions can differ
+    # from git archive and invalidate identical backend build contexts.
+    candidate_source=$work/candidate
+    mkdir "$candidate_source"
+    git -C "$root" archive HEAD | tar -x -C "$candidate_source"
+fi
+build_images "$candidate_source" candidate
 configure "$root" candidate
-phase=fresh-deploy
+set_phase fresh-deploy
+refresh_runtime_images
 compose up -d --no-build --wait --wait-timeout "$wait_timeout"
 check_http 401
 record 'PASS fresh deployment'
@@ -266,7 +361,8 @@ mkdir "$work/base"
 git -C "$root" archive "$base_sha" | tar -x -C "$work/base"
 build_images "$work/base" base
 configure "$work/base" base
-phase=baseline-deploy
+set_phase baseline-deploy
+refresh_runtime_images
 compose up -d --no-build --wait --wait-timeout "$wait_timeout"
 # develop 기준 이미지에도 Pay 서비스 간 인증 정책이 포함되어 있어 Merchant 경로는 401이어야 한다.
 check_http 401
@@ -283,7 +379,7 @@ snapshot
 render_compose "$root"
 merchant_status=401
 for index in "${!services[@]}"; do
-    phase="upgrade-${services[$index]}"
+    set_phase "upgrade-${services[$index]}"
     (cd "$work" && sh "$root/scripts/deploy-dev-service.sh" \
         "${services[$index]}" "${image_variables[$index]}" \
         "$COMPOSE_PROJECT_NAME/${services[$index]}:candidate" "$work/compose.yml" "$wait_timeout")
@@ -295,12 +391,12 @@ for index in "${!services[@]}"; do
 done
 sed -i "s|^SMOKE_NGINX_IMAGE=.*|SMOKE_NGINX_IMAGE=$COMPOSE_PROJECT_NAME/nginx:candidate|" "$work/.env"
 compose up -d --no-deps --no-build --pull never --wait --wait-timeout "$wait_timeout" nginx
-phase=upgrade-complete
+set_phase upgrade-complete
 check_http 401
 snapshot
 record 'PASS upgrade deployment'
 
-phase=rollback
+set_phase rollback
 images+=("$COMPOSE_PROJECT_NAME/core-service:broken")
 docker build --load --tag "$COMPOSE_PROJECT_NAME/core-service:broken" - <<EOF
 FROM docker.io/library/alpine:3.22
@@ -318,3 +414,5 @@ restored=$(docker inspect --format '{{.Image}}' "$(compose ps --quiet core-servi
 check_http 401
 check_data
 record 'PASS failed deployment restored the previous image and environment'
+save_gradle_cache
+save_runtime_cache

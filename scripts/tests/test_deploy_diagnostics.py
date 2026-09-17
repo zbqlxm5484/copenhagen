@@ -17,6 +17,7 @@ def fixture_environment():
 
 
 DOCKER = r'''#!/usr/bin/env python3
+import json
 import os
 from pathlib import Path
 import sys
@@ -25,6 +26,12 @@ args = sys.argv[1:]
 mode = os.environ['TEST_MODE']
 with open(os.environ['TEST_TRACE'], 'a') as trace:
     trace.write(' '.join(args) + '\n')
+    if args[:2] == ['buildx', 'bake']:
+        manifest = json.loads(Path(args[args.index('--file') + 1]).read_text())
+        for target in manifest['target'].values():
+            trace.write('BUILD ' + target['context'] + ' ' + target['tags'][0] + '\n')
+if args[0] == 'compose' and 'exec' in args and 'smoke-http' in args:
+    args = ['run'] + args[args.index('curl') + 1:]
 if mode.startswith('deploy-'):
     secret = 'synthetic.p[a]ss&word'
     if args[0] == 'image':
@@ -60,16 +67,25 @@ if args[0] == 'compose':
     secret = next((line.split('=', 1)[1] for line in env.read_text().splitlines()
                    if line.startswith('CORE_DB_PASSWORD=')), '')
     if command[0] == 'config':
-        print('{"services":{"nginx":{"image":"nginx:1.28"}}}'
+        print('{"services":{"nginx":{"image":"nginx:1.28"},"core-db":{"image":"postgres:17-alpine"},"pay-db":{"image":"postgres:17-alpine"},"merchant-db":{"image":"postgres:17-alpine"},"redis":{"image":"redis:7-alpine"},"smoke-http":{"image":"curlimages/curl:8.16.0"}}}'
               if '--format' in command else 'services: {}')
     elif command[0] == 'up':
-        if not mode.startswith('http-'):
+        if mode == 'smoke-success':
+            if 'core-service:broken' in env.read_text():
+                sys.exit(7)
+        elif not mode.startswith('http-'):
             sys.exit(7)
     elif command[0] == 'exec':
         if 'wget' in ' '.join(command):
             if mode == 'http-dependency-request':
                 sys.exit(4)
-            print('response-body-secret')
+            if mode == 'smoke-success':
+                print('{"status":"UP","ucp":{"services":{"dev.ucp.shopping":[{"transport":"rest"}]}},"keys":[1]}')
+            else:
+                print('response-body-secret')
+        elif 'psql' in ' '.join(command):
+            if 'SELECT id' in sys.stdin.read():
+                print(os.environ['COMPOSE_PROJECT_NAME'])
     elif command[0] == 'ps':
         print('test-container' if '--quiet' in command else 'pay-service restarting')
         if mode == 'diagnostic-error':
@@ -101,14 +117,17 @@ elif args[0] == 'run':
         else:
             print('{"status":404,"path":"' + path + '"}\n404')
 elif args[0] == 'inspect':
-    print('status=restarting ExitCode=1 OOMKilled=false health=unhealthy')
+    print('test-image' if args[2] == '{{.Image}}' else
+          'status=restarting ExitCode=1 OOMKilled=false health=unhealthy')
     if mode == 'diagnostic-error':
         sys.exit(11)
+elif args[:2] == ['image', 'inspect']:
+    print('test-image')
 '''
 
 
 class SmokeDiagnosticsTest(unittest.TestCase):
-    def run_smoke(self, mode):
+    def run_smoke(self, mode, cache=False, ci=False):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             docker = work / 'docker'
@@ -120,6 +139,20 @@ class SmokeDiagnosticsTest(unittest.TestCase):
             env.update(PATH=f'{work}:{os.environ["PATH"]}',
                        TEST_MODE=mode, TEST_TRACE=str(trace),
                        SMOKE_ARTIFACT_DIR=str(artifacts), SMOKE_BASE_REF='HEAD')
+            if cache:
+                cache_directory = work / 'gradle-cache'
+                (cache_directory / 'wrapper').mkdir(parents=True)
+                env['SMOKE_GRADLE_CACHE'] = str(cache_directory)
+                runtime_cache = work / 'runtime-cache'
+                runtime_cache.mkdir()
+                (runtime_cache / 'images.tar').write_text('synthetic cache')
+                env['SMOKE_RUNTIME_CACHE'] = str(runtime_cache)
+            if ci:
+                head = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                                               text=True).strip()
+                env.update(CI='true', CI_PIPELINE_SOURCE='merge_request_event',
+                           CI_COMMIT_SHA=head, CI_MERGE_REQUEST_DIFF_BASE_SHA=head,
+                           CI_MERGE_REQUEST_TARGET_BRANCH_NAME='develop')
             result = subprocess.run(['bash', str(ROOT / 'scripts/deploy-smoke.sh')],
                                     env=env, text=True, capture_output=True, timeout=30)
             output = result.stdout + result.stderr
@@ -181,6 +214,49 @@ class SmokeDiagnosticsTest(unittest.TestCase):
             r'if \[ "\$\{services\[\$index\]\}" = pay-service \]; then\s+'
             r'merchant_status=401\s+fi',
         )
+
+    def test_full_smoke_keeps_all_nine_http_rounds_and_rollback(self):
+        code, output, files, trace = self.run_smoke('smoke-success')
+        self.assertEqual(code, 0, output)
+        self.assertEqual(trace.count('exec -T smoke-http curl '), 90)
+        self.assertNotIn('\nrun ', trace)
+        self.assertEqual(output.count('persisted data'), 18)
+        self.assertIn('PASS fresh deployment', output)
+        self.assertIn('PASS upgrade deployment', output)
+        self.assertIn('ROLLBACK SUCCESS', output)
+        self.assertIn('PASS failed deployment restored', output)
+        for service in ('pg-mock', 'pay-service', 'ucp-merchant-mock',
+                        'core-service', 'mcp-server'):
+            self.assertIn('TIMING phase=upgrade-' + service, files['result.log'])
+        self.assertIn('TIMING total_seconds=', files['result.log'])
+
+    def test_gradle_cache_import_and_export_keep_the_full_source_build(self):
+        code, output, _, trace = self.run_smoke('smoke-success', cache=True)
+        self.assertEqual(code, 0, output)
+        self.assertIn('CACHE gradle=restored', output)
+        self.assertIn('--target seed', trace)
+        self.assertIn('--target export', trace)
+        self.assertNotIn('--no-cache', trace)
+        self.assertLess(trace.index('--target seed'), trace.index('pg-mock:candidate'))
+        self.assertEqual(trace.count('exec -T smoke-http curl '), 90)
+        self.assertIn('PASS failed deployment restored', output)
+        self.assertIn('TIMING phase=cache-export', output)
+        self.assertIn('CACHE runtime=restored', output)
+        self.assertIn('image load --input', trace)
+        self.assertIn('pull --quiet core-db pay-db merchant-db redis smoke-http', trace)
+        saved = next(line for line in trace.splitlines() if line.startswith('image save '))
+        self.assertIn('postgres:17-alpine', saved)
+        self.assertIn('docker.io/library/eclipse-temurin:21-jdk-alpine', saved)
+        self.assertIn('nginx:1.28', saved)
+        self.assertNotIn('core-service', saved)
+        self.assertIn('TIMING phase=runtime-cache-export', output)
+
+    def test_ci_archives_both_source_contexts_consistently(self):
+        code, output, _, trace = self.run_smoke('smoke-success', ci=True)
+        self.assertEqual(code, 0, output)
+        self.assertEqual(len(re.findall(r'^BUILD .*/candidate/backend ', trace, re.M)), 5)
+        self.assertEqual(len(re.findall(r'^BUILD .*/base/backend ', trace, re.M)), 5)
+        self.assertIn('PASS failed deployment restored', output)
 
 
 class DeployDiagnosticsTest(unittest.TestCase):

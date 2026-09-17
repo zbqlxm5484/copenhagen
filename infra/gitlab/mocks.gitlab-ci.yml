@@ -159,6 +159,8 @@ merchant-mock-build:
         - infra/gitlab/**/*
         - infra/nginx/**/*
         - infra/docker/smoke.override.yml
+        - infra/docker/smoke-gradle-cache.Dockerfile
+        - scripts/smoke-dockerfiles.py
         - scripts/deploy-smoke.sh
         - scripts/smoke-base.sh
         - scripts/deploy-dev-service.sh
@@ -201,6 +203,8 @@ pg-mock-build:
         - infra/gitlab/**/*
         - infra/nginx/**/*
         - infra/docker/smoke.override.yml
+        - infra/docker/smoke-gradle-cache.Dockerfile
+        - scripts/smoke-dockerfiles.py
         - scripts/deploy-smoke.sh
         - scripts/smoke-base.sh
         - scripts/deploy-dev-service.sh
