@@ -10,14 +10,14 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Flow;
 
 /** 헤더의 Content-Length와 무관하게 실제 수신 바이트 수를 제한한다. */
-final class LimitedBodySubscriber implements HttpResponse.BodySubscriber<byte[]> {
+public final class LimitedBodySubscriber implements HttpResponse.BodySubscriber<byte[]> {
 
     private final int limit;
     private final ByteArrayOutputStream output = new ByteArrayOutputStream();
     private final CompletableFuture<byte[]> body = new CompletableFuture<>();
     private Flow.Subscription subscription;
 
-    LimitedBodySubscriber(int limit) {
+    public LimitedBodySubscriber(int limit) {
         this.limit = limit;
     }
 

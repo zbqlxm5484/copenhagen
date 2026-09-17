@@ -4,6 +4,7 @@ import com.copenhagen.mcp.auth.McpAuthException;
 import com.copenhagen.mcp.auth.McpAuthResponses;
 import com.copenhagen.mcp.auth.McpIdentity;
 import com.copenhagen.mcp.core.CoreClientException;
+import com.copenhagen.mcp.core.CoreApiException;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -58,6 +59,12 @@ public class McpToolExecutor {
                 McpSchema.CallToolResult result = result(authResponses.body(exception), true);
                 return new McpSchema.CallToolResult(result.content(), true, result.structuredContent(),
                         authResponses.toolMetadata(exception));
+            } catch (IOException serializationException) {
+                return error(ToolErrorCode.INTERNAL_ERROR);
+            }
+        } catch (CoreApiException exception) {
+            try {
+                return result(exception.body(), true);
             } catch (IOException serializationException) {
                 return error(ToolErrorCode.INTERNAL_ERROR);
             }

@@ -1,0 +1,52 @@
+package com.copenhagen.mcp.integration;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/** Core 최종 계약의 필드만 허용하는 MCP 입력. 사용자 신원과 금액은 입력받지 않는다. */
+public final class CommerceSchemas {
+    public static final Map<String, Object> ID = Map.of("type", "string", "pattern", "^[A-Za-z0-9_-]{1,96}$");
+    public static final Map<String, Object> VERSION = Map.of("type", "integer", "minimum", 0);
+    public static final Map<String, Object> QUANTITY = Map.of("type", "integer", "minimum", 1, "maximum", 99);
+    public static final Map<String, Object> KEY = Map.of("type", "string", "pattern",
+            "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
+    public static final Map<String, Object> EMPTY = object(Map.of(), List.of());
+    public static final Map<String, Object> SEARCH = search();
+    public static final Map<String, Object> DETAIL = object(Map.of("merchantId", ID, "merchantProductId", ID),
+            List.of("merchantId", "merchantProductId"));
+    public static final Map<String, Object> ADD = object(Map.of("cartVersion", VERSION, "merchantId", ID,
+            "merchantProductId", ID, "merchantVariantId", ID, "quantity", QUANTITY, "idempotencyKey", KEY),
+            List.of("cartVersion", "merchantId", "merchantProductId", "merchantVariantId",
+                    "quantity", "idempotencyKey"));
+    public static final Map<String, Object> UPDATE = object(Map.of("cartVersion", VERSION, "cartItemId", ID,
+            "merchantVariantId", ID, "quantity", QUANTITY, "idempotencyKey", KEY),
+            List.of("cartVersion", "cartItemId", "merchantVariantId", "quantity", "idempotencyKey"));
+    public static final Map<String, Object> DELETE = object(Map.of("cartVersion", VERSION, "cartItemId", ID,
+            "idempotencyKey", KEY), List.of("cartVersion", "cartItemId", "idempotencyKey"));
+    public static final Map<String, Object> PURCHASE = object(Map.of("cartId", ID, "cartVersion", VERSION,
+            "idempotencyKey", KEY), List.of("cartId", "cartVersion", "idempotencyKey"));
+    public static final Map<String, Object> OUTPUT = object(Map.of("kind", Map.of("type", "string"),
+            "data", Map.of("type", "object")), List.of("kind", "data"));
+
+    private CommerceSchemas() {
+    }
+
+    private static Map<String, Object> search() {
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put("query", Map.of("type", "string", "maxLength", 120));
+        properties.put("categoryId", ID);
+        properties.put("merchantId", ID);
+        properties.put("brand", Map.of("type", "string", "maxLength", 120));
+        properties.put("minPrice", Map.of("type", "integer", "minimum", 0, "maximum", 1000000000000L));
+        properties.put("maxPrice", Map.of("type", "integer", "minimum", 0, "maximum", 1000000000000L));
+        properties.put("sort", Map.of("type", "string", "enum", List.of("RELEVANCE", "PRICE_ASC", "PRICE_DESC")));
+        properties.put("cursor", Map.of("type", "string", "maxLength", 4096));
+        properties.put("pageSize", Map.of("type", "integer", "minimum", 1, "maximum", 30));
+        return object(properties, List.of());
+    }
+
+    static Map<String, Object> object(Map<String, Object> properties, List<String> required) {
+        return Map.of("type", "object", "properties", properties, "required", required, "additionalProperties", false);
+    }
+}

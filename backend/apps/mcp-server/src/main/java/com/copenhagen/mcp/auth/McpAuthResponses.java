@@ -4,6 +4,7 @@ import io.modelcontextprotocol.json.McpJsonMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Map;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -36,7 +37,7 @@ public final class McpAuthResponses {
 
     public Map<String, Object> toolMetadata(McpAuthException exception) {
         if (exception.error().status() == 401 || exception.error() == McpAuthError.INSUFFICIENT_SCOPE) {
-            return Map.of("mcp/www_authenticate", challenge(exception));
+            return Map.of("mcp/www_authenticate", List.of(challenge(exception)));
         }
         return Map.of();
     }
