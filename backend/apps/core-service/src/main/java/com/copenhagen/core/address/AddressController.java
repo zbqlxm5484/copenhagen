@@ -1,6 +1,7 @@
 package com.copenhagen.core.address;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -49,9 +50,18 @@ public class AddressController {
     }
 
     @GetMapping
-    public List<AddressResponse> list(HttpServletRequest request) {
+    public ItemsResponse<AddressResponse> list(HttpServletRequest request) {
         long userId = requireUserId(request);
-        return addressService.list(userId).stream().map(AddressResponse::from).toList();
+        List<AddressResponse> items = addressService.list(userId).stream()
+                .map(AddressResponse::from)
+                .toList();
+        return new ItemsResponse<>(items);
+    }
+
+    @GetMapping("/{addressId}")
+    public AddressResponse get(HttpServletRequest request, @PathVariable UUID addressId) {
+        long userId = requireUserId(request);
+        return AddressResponse.from(addressService.get(userId, addressId));
     }
 
     @PutMapping("/{addressId}")
@@ -104,8 +114,10 @@ public class AddressController {
         @JsonAlias("address")
         String addressLine1,
 
+        @JsonAlias("detail")
         String addressLine2,
 
+        @JsonAlias("memo")
         String deliveryRequest
 ) {
 }
@@ -115,18 +127,24 @@ public class AddressController {
 
     public record AddressResponse(
             UUID addressId,
-            String recipientName,
-            String recipientPhone,
+            String recipient,
+            String phone,
             String postalCode,
-            String addressLine1,
-            String addressLine2,
-            String deliveryRequest,
+            String address,
+            String detail,
+            String memo,
             boolean isDefault) {
 
         static AddressResponse from(AddressResult result) {
             return new AddressResponse(
                     result.addressId(), result.recipientName(), result.recipientPhone(), result.postalCode(),
-                    result.addressLine1(), result.addressLine2(), result.deliveryRequest(), result.isDefault());
+                    result.addressLine1(),
+                    Objects.requireNonNullElse(result.addressLine2(), ""),
+                    Objects.requireNonNullElse(result.deliveryRequest(), ""),
+                    result.isDefault());
         }
+    }
+
+    public record ItemsResponse<T>(List<T> items) {
     }
 }

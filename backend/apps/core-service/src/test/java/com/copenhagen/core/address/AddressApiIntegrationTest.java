@@ -69,17 +69,17 @@ class AddressApiIntegrationTest {
 
         mockMvc.perform(get("/api/core/v1/addresses").header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].addressId").value(firstAddressId))
-                .andExpect(jsonPath("$[0].isDefault").value(true))
-                .andExpect(jsonPath("$[1].isDefault").value(false));
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].addressId").value(firstAddressId))
+                .andExpect(jsonPath("$.items[0].isDefault").value(true))
+                .andExpect(jsonPath("$.items[1].isDefault").value(false));
 
         mockMvc.perform(put("/api/core/v1/addresses/" + secondAddressId)
                         .header("Authorization", "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(addressBody("김철수", "010-3333-3333", "33333", "서울시 3", null, null)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.recipientPhone").value("010-3333-3333"))
+                .andExpect(jsonPath("$.phone").value("010-3333-3333"))
                 .andExpect(jsonPath("$.isDefault").value(false));
 
         mockMvc.perform(patch("/api/core/v1/addresses/" + secondAddressId + "/default")
@@ -96,9 +96,9 @@ class AddressApiIntegrationTest {
 
         mockMvc.perform(get("/api/core/v1/addresses").header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].addressId").value(firstAddressId))
-                .andExpect(jsonPath("$[0].isDefault").value(true));
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].addressId").value(firstAddressId))
+                .andExpect(jsonPath("$.items[0].isDefault").value(true));
     }
 
     @Test
