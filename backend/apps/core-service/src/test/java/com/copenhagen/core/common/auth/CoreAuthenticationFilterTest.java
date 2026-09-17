@@ -6,6 +6,7 @@ import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
@@ -16,6 +17,7 @@ import com.copenhagen.core.auth.jwt.CoreAuthJwtKeySet;
 import com.copenhagen.core.auth.jwt.CoreJwtIssuer;
 import com.copenhagen.core.auth.jwt.CoreJwtVerifier;
 import com.copenhagen.core.common.error.CoreApiErrorWriter;
+import com.copenhagen.core.common.logging.CoreLogContext;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -33,6 +35,11 @@ class CoreAuthenticationFilterTest {
     private final CoreJwtVerifier verifier = new CoreJwtVerifier(keySet, FIXED_CLOCK);
     private final CoreApiErrorWriter errorWriter = new CoreApiErrorWriter(new ObjectMapper());
     private final CoreAuthenticationFilter filter = new CoreAuthenticationFilter(verifier, errorWriter);
+
+    @AfterEach
+    void clearLogContext() {
+        CoreLogContext.clear();
+    }
 
     @Test
     @DisplayName("공개 라우트는 토큰 없이도 통과한다")
@@ -63,6 +70,7 @@ class CoreAuthenticationFilterTest {
 
         assertEquals(200, response.getStatus());
         assertEquals(Optional.of(subject), CoreRequestContext.findPrincipal(request));
+        assertEquals(subject.toString(), CoreLogContext.get(CoreLogContext.USER_ID));
     }
 
     @Test

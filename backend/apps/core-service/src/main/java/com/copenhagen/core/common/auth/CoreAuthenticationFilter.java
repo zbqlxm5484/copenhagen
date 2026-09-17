@@ -19,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import com.copenhagen.core.auth.jwt.CoreJwtVerifier;
 import com.copenhagen.core.common.error.CoreApiErrorWriter;
 import com.copenhagen.core.common.error.CoreErrorCode;
+import com.copenhagen.core.common.logging.CoreLogContext;
 
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
@@ -60,6 +61,7 @@ public class CoreAuthenticationFilter extends OncePerRequestFilter {
         }
 
         CoreRequestContext.setPrincipal(request, principal.get());
+        CoreLogContext.put(CoreLogContext.USER_ID, principal.get().toString());
         filterChain.doFilter(request, response);
     }
 

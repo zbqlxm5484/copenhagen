@@ -12,6 +12,8 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.copenhagen.core.common.logging.CoreLogContext;
+
 @RestControllerAdvice(basePackages = "com.copenhagen.core")
 public class GlobalExceptionHandler {
 
@@ -107,6 +109,8 @@ public class GlobalExceptionHandler {
             String currentState,
             String nextAction,
             Long retryAfterSeconds) {
+        // 컨트롤러 단계 오류는 access 줄이 errorCode를 여기서만 알 수 있다(이슈 374).
+        CoreLogContext.put(CoreLogContext.ERROR_CODE, errorCode.code());
         ApiErrorResponse response = new ApiErrorResponse(
                 errorCode.code(),
                 message,
