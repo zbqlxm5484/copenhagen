@@ -57,11 +57,12 @@ class JdbcWebhookRepositoryPostgresTest {
         postgres.flywayFor(dataSource, schema, null).migrate();
         this.jdbc = postgres.jdbcFor(dataSource);
         this.repository = new JdbcWebhookRepository(jdbc);
-        jdbc.update("INSERT INTO checkout_sessions (id, status) VALUES (?, 'COMPLETED')",
+        jdbc.update("INSERT INTO checkout_sessions (id, merchant_id, status) VALUES (?, 'merchant-a', 'COMPLETED')",
                 WebhookTestSupport.CHECKOUT_ID);
         jdbc.update("""
-                INSERT INTO orders (id, checkout_session_id, status, total_amount, currency, raw_order_json)
-                VALUES (?, ?, 'CREATED', 92000, 'KRW', ?::jsonb)
+                INSERT INTO orders (id, merchant_id,
+                                    checkout_session_id, status, total_amount, currency, raw_order_json)
+                VALUES (?, 'merchant-a', ?, 'CREATED', 92000, 'KRW', ?::jsonb)
                 """, WebhookTestSupport.ORDER_ID, WebhookTestSupport.CHECKOUT_ID, WebhookTestSupport.RAW_ORDER_JSON);
     }
 

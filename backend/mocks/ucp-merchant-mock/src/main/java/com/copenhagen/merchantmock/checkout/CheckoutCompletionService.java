@@ -91,10 +91,14 @@ public class CheckoutCompletionService implements PaymentResolutionListener {
      *
      * @throws ApiException 검증 다섯 중 하나에 걸렸을 때(6.5절). Pay 는 불리지 않았다
      */
-    public CompleteResult complete(String checkoutId, String credentialId) {
+    public CompleteResult complete(String merchantId, String checkoutId, String credentialId) {
         LogContext.put(LogContext.CHECKOUT_ID, checkoutId);
         requireCredentialId(credentialId);
         CheckoutSession session = find(checkoutId);
+        if (!merchantId.equals(session.merchantId())) {
+            // 다른 몰의 체크아웃은 없는 것으로 답한다(393). 존재를 드러내지 않는다.
+            throw ApiException.checkoutNotFound(checkoutId);
+        }
 
         Optional<CompleteResult> settled = settledResponse(session);
         if (settled.isPresent()) {
@@ -112,6 +116,7 @@ public class CheckoutCompletionService implements PaymentResolutionListener {
                 .after(CheckoutStatus.COMPLETE_IN_PROGRESS.apiValue()).log();
 
         PaymentResult result = payments.charge(new PaymentService.Charge(
+                session.merchantId(),
                 checkoutId,
                 CheckoutDigest.of(requireSigned(session)),
                 session.totalAmount() == null ? 0L : session.totalAmount(),

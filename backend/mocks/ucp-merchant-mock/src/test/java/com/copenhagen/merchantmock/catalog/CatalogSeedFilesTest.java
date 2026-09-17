@@ -137,7 +137,7 @@ class CatalogSeedFilesTest {
     }
 
     @Test
-    @DisplayName("같은 상품은 몰이 달라도 productId 가 같고 가격은 원본의 ±10% 안에서 갈린다")
+    @DisplayName("같은 상품은 몰이 달라도 externalId 가 같고 id 는 다르며 가격은 ±10% 안에서 갈린다")
     void seedFiles_sameProductSharesIdAndPricesDiffer() {
         // given
         Map<String, List<CatalogSeed.Entry>> byExternalId = new HashMap<>();
@@ -157,8 +157,10 @@ class CatalogSeedFilesTest {
             shared++;
             long min = offers.stream().mapToLong(CatalogSeed.Entry::basePrice).min().orElseThrow();
             long max = offers.stream().mapToLong(CatalogSeed.Entry::basePrice).max().orElseThrow();
+            // 내부 PK id 는 몰마다 다르다(393, DESIGN.md 5.4절). 몰 사이에서 같은 것은 externalId(productId)다.
+            Set<String> ids = new HashSet<>();
             for (CatalogSeed.Entry offer : offers) {
-                assertEquals(offers.get(0).id(), offer.id(), offer.externalId());
+                assertTrue(ids.add(offer.id()), "몰이 다른데 id 가 같다: " + offer.externalId());
             }
             // 두 몰이 각각 0.90 과 1.10 을 받았을 때가 가장 벌어진다. 반올림 한 단위(100원)를 여유로 둔다.
             assertTrue(max * 90 <= min * 110 + 100 * 110, offers.get(0).externalId() + " " + min + ".." + max);

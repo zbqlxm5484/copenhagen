@@ -5,6 +5,9 @@ import java.time.OffsetDateTime;
 /**
  * orders 한 행(DESIGN.md 5.4절).
  *
+ * <p>{@code merchantId} 는 체크아웃에서 복사한 몰 스코프다(393). 조회는 경로의 몰과 대조하고 웹훅 페이로드에
+ * {@code merchant_id} 로 실린다.
+ *
  * <p>배송 다섯은 주문 시점 사본이다. 체크아웃의 {@code fulfillment_address} 를 조인해 읽지 않는다.
  * 같은 사람이라도 주문마다 수령인과 주소가 다를 수 있다.
  *
@@ -13,6 +16,7 @@ import java.time.OffsetDateTime;
  */
 public record Order(
         String id,
+        String merchantId,
         String checkoutSessionId,
         OrderStatus status,
         long totalAmount,

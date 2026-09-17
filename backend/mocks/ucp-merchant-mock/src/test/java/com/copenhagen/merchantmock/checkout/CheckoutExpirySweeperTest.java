@@ -36,13 +36,13 @@ class CheckoutExpirySweeperTest {
     void sweep_expiredReadyCheckout_movesToCanceled() {
         // given & when
         Harness harness = harness();
-        String id = harness.service().create(runningShoesToSeoul(), "checkout-create-1").id();
+        String id = harness.service().create("merchant-a", runningShoesToSeoul(), "checkout-create-1").id();
 
         sweeperAt(harness, Duration.ofMinutes(6), 100).sweep();
 
         // then
         assertEquals(CheckoutStatus.CANCELED, harness.repository().findById(id).orElseThrow().status());
-        assertEquals("canceled", harness.service().get(id).status());
+        assertEquals("canceled", harness.service().get("merchant-a", id).status());
     }
 
     @Test
@@ -50,7 +50,7 @@ class CheckoutExpirySweeperTest {
     void sweep_notYetExpired_leavesCheckoutUntouched() {
         // given & when
         Harness harness = harness();
-        String id = harness.service().create(runningShoesToSeoul(), "checkout-create-1").id();
+        String id = harness.service().create("merchant-a", runningShoesToSeoul(), "checkout-create-1").id();
 
         sweeperAt(harness, Duration.ofMinutes(4), 100).sweep();
 
@@ -64,7 +64,8 @@ class CheckoutExpirySweeperTest {
         // given & when
         Harness harness = harness();
         String id = harness.service()
-                .create(request(null, line("product-101", "product-101-270", 1)), "checkout-create-1").id();
+                .create("merchant-a", request(null, line("product-101", "product-101-270", 1)), "checkout-create-1")
+                .id();
 
         sweeperAt(harness, Duration.ofDays(1), 100).sweep();
 
@@ -77,7 +78,7 @@ class CheckoutExpirySweeperTest {
     void sweep_completeInProgressCheckout_isNotSwept() {
         // given & when
         Harness harness = harness();
-        String id = harness.service().create(runningShoesToSeoul(), "checkout-create-1").id();
+        String id = harness.service().create("merchant-a", runningShoesToSeoul(), "checkout-create-1").id();
         CheckoutSession current = harness.repository().findById(id).orElseThrow();
         harness.repository().put(current.withStatus(CheckoutStatus.COMPLETE_IN_PROGRESS));
 
@@ -93,8 +94,8 @@ class CheckoutExpirySweeperTest {
     void sweep_alreadyCanceledCheckout_isNotTouchedAgain() {
         // given & when
         Harness harness = harness();
-        String id = harness.service().create(runningShoesToSeoul(), "checkout-create-1").id();
-        harness.service().cancel(id);
+        String id = harness.service().create("merchant-a", runningShoesToSeoul(), "checkout-create-1").id();
+        harness.service().cancel("merchant-a", id);
         long versionAfterCancel = harness.repository().findById(id).orElseThrow().version();
 
         sweeperAt(harness, Duration.ofMinutes(6), 100).sweep();
@@ -109,7 +110,7 @@ class CheckoutExpirySweeperTest {
         // given & when
         Harness harness = harness();
         for (int i = 1; i <= 3; i++) {
-            harness.service().create(runningShoesToSeoul(), "checkout-create-" + i);
+            harness.service().create("merchant-a", runningShoesToSeoul(), "checkout-create-" + i);
         }
 
         CheckoutExpirySweeper sweeper = sweeperAt(harness, Duration.ofMinutes(6), 2);

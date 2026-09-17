@@ -100,12 +100,10 @@ services:
       start_period: 20s
     restart: unless-stopped
 
-  # 가상 몰 셋. 같은 이미지를 환경변수만 다르게 셋 띄운다(ucp-merchant-mock DESIGN.md 5.7절, ADR 0007).
-  # 세 몰이 원본 상품 1,408건 풀을 나눠 갖고 같은 상품이 몰마다 다른 가격이라 가격 비교 시연이 된다.
-  # b·c 는 profile "malls" 뒤에 있다. `docker compose --profile malls up -d` 로 켠다. 기본 up 과 CI 스모크는
-  # a 하나만 띄운다 — Core 는 지금 merchant-a 하나만 등록돼 있고(MERCHANT_SERVICE_URL) b·c 를 Core
-  # services.merchants[] 와 Pay 토큰 JSON·merchant_accounts 에 등록하는 것은 각 담당의 일이라, 등록 전에는
-  # 떠 있어도 검색에 잡히지 않는다.
+  # 가상 몰 셋을 컨테이너 하나가 서빙한다(ucp-merchant-mock DESIGN.md 3.3·5.7절, ADR 0008). 몰은 application.yml 의
+  # merchant.malls 목록이고 경로 /api/ucp/v1/{merchantId}/... 의 세그먼트가 어느 몰인지 말한다. 시드 파일 셋이 한 DB 에 들어간다.
+  # Core 는 지금 merchant-a 하나만 등록돼 있다(MERCHANT_SERVICE_URL). b·c 를 Core services.merchants[] 에 몰별 base-url 로,
+  # Pay 토큰 JSON·merchant_accounts 에 등록하는 것은 각 담당의 일이다. 옛 경로 /ucp/v1/** 는 merchant-a 별칭으로 산다.
   ucp-merchant-mock:
     image: ${MERCHANT_MOCK_IMAGE:-copenhagen/ucp-merchant-mock:local}
     build:
@@ -116,71 +114,8 @@ services:
       MERCHANT_DB_USER: ${MERCHANT_DB_USER:-merchant}
       MERCHANT_DB_PASSWORD: ${MERCHANT_DB_PASSWORD:-merchant-dev-password}
       PAY_SERVICE_URL: http://pay-service:8080
-      # 이 컨테이너가 흉내 내는 외부 사업자. id·상호·시드 파일·서명키 kid 넷이 한 몰이다.
-      MERCHANT_ID: merchant-a
-      MERCHANT_SELLER_NAME: ${MERCHANT_SELLER_NAME:-한강마켓}
-      MERCHANT_PUBLIC_BASE_URL: http://ucp-merchant-mock:8080
-      MERCHANT_SIGNING_KID: merchant-a-es256-1
-      # 시연 카탈로그 약 1,100건. 비우면 V3 시드 5건만 뜬다.
-      MERCHANT_CATALOG_SEED_FILE: ${MERCHANT_CATALOG_SEED_FILE:-classpath:catalog/merchant-a.json}
-    depends_on:
-      merchant-db:
-        condition: service_healthy
-      pay-service:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health"]
-      interval: 10s
-      timeout: 3s
-      retries: 12
-      start_period: 20s
-    restart: unless-stopped
-
-  ucp-merchant-mock-b:
-    profiles: ["malls"]
-    image: ${MERCHANT_MOCK_IMAGE:-copenhagen/ucp-merchant-mock:local}
-    build:
-      context: ./backend
-      dockerfile: mocks/ucp-merchant-mock/Dockerfile
-    environment:
-      MERCHANT_DB_URL: jdbc:postgresql://merchant-db:5432/merchant-db-b
-      MERCHANT_DB_USER: ${MERCHANT_DB_USER:-merchant}
-      MERCHANT_DB_PASSWORD: ${MERCHANT_DB_PASSWORD:-merchant-dev-password}
-      PAY_SERVICE_URL: http://pay-service:8080
-      MERCHANT_ID: merchant-b
-      MERCHANT_SELLER_NAME: 노을상점
-      MERCHANT_PUBLIC_BASE_URL: http://ucp-merchant-mock-b:8080
-      MERCHANT_SIGNING_KID: merchant-b-es256-1
-      MERCHANT_CATALOG_SEED_FILE: classpath:catalog/merchant-b.json
-    depends_on:
-      merchant-db:
-        condition: service_healthy
-      pay-service:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health"]
-      interval: 10s
-      timeout: 3s
-      retries: 12
-      start_period: 20s
-    restart: unless-stopped
-
-  ucp-merchant-mock-c:
-    profiles: ["malls"]
-    image: ${MERCHANT_MOCK_IMAGE:-copenhagen/ucp-merchant-mock:local}
-    build:
-      context: ./backend
-      dockerfile: mocks/ucp-merchant-mock/Dockerfile
-    environment:
-      MERCHANT_DB_URL: jdbc:postgresql://merchant-db:5432/merchant-db-c
-      MERCHANT_DB_USER: ${MERCHANT_DB_USER:-merchant}
-      MERCHANT_DB_PASSWORD: ${MERCHANT_DB_PASSWORD:-merchant-dev-password}
-      PAY_SERVICE_URL: http://pay-service:8080
-      MERCHANT_ID: merchant-c
-      MERCHANT_SELLER_NAME: 별빛몰
-      MERCHANT_PUBLIC_BASE_URL: http://ucp-merchant-mock-c:8080
-      MERCHANT_SIGNING_KID: merchant-c-es256-1
-      MERCHANT_CATALOG_SEED_FILE: classpath:catalog/merchant-c.json
+      # 시연 카탈로그. 몰 셋의 시드 파일을 쉼표로 이어 한 DB 에 넣는다(몰당 약 1,100건). 비우면 V3 시드 5건만 뜬다.
+      MERCHANT_CATALOG_SEED_FILES: ${MERCHANT_CATALOG_SEED_FILES:-classpath:catalog/merchant-a.json,classpath:catalog/merchant-b.json,classpath:catalog/merchant-c.json}
     depends_on:
       merchant-db:
         condition: service_healthy
@@ -249,11 +184,6 @@ services:
       POSTGRES_PASSWORD: ${MERCHANT_DB_PASSWORD:-merchant-dev-password}
     volumes:
       - merchant-db-data:/var/lib/postgresql/data
-    configs:
-      # 몰 b·c 의 데이터베이스. 볼륨이 비어 있을 때 한 번만 실행된다. bind mount 가 아니라 inline config 인 이유는
-      # CI 스모크의 Docker daemon(dind)이 job 컨테이너의 파일 경로를 공유하지 않기 때문이다(infra/docker/smoke.override.yml).
-      - source: merchant-db-init
-        target: /docker-entrypoint-initdb.d/10-merchant-malls.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -272,14 +202,6 @@ services:
       timeout: 3s
       retries: 12
     restart: unless-stopped
-
-configs:
-  merchant-db-init:
-    content: |
-      -- 가상 몰 b·c 의 데이터베이스(ucp-merchant-mock DESIGN.md 5.7절). a 는 POSTGRES_DB 의 merchant-db 를 쓴다.
-      -- 이미 볼륨이 있으면 docker compose down -v 로 지운 뒤 다시 올려야 만들어진다.
-      CREATE DATABASE "merchant-db-b" OWNER CURRENT_USER;
-      CREATE DATABASE "merchant-db-c" OWNER CURRENT_USER;
 
 volumes:
   core-db-data:

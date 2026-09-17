@@ -5,12 +5,16 @@ import java.util.List;
 /**
  * 메모리에 올려 두는 상품 한 건. DB 의 products 한 행에 대응한다(DESIGN.md 5.4절).
  *
- * <p>옵션과 재고는 variants 로 흡수했다. 상품 수십 개 규모라 전량 메모리 로드가 조인보다 싸다(13절).
+ * <p>{@code merchantId} 는 몰 스코프다(393). 같은 상품이 몰마다 한 행씩 있고 {@code externalId} 는 몰 사이에서
+ * 같다 — 그것이 UCP 응답의 productId 이고 가격 비교의 열쇠다. {@code id} 는 내부 PK 라 몰마다 다르다.
+ *
+ * <p>옵션과 재고는 variants 로 흡수했다. 전량 메모리 로드가 조인보다 싸다(13절).
  *
  * <p>MVP 는 재고를 차감하지 않는다. 품절은 시나리오 API 로 stock 을 0 으로 주입해 만든다.
  */
 public record Product(
         String id,
+        String merchantId,
         String externalId,
         String title,
         String description,

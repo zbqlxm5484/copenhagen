@@ -43,7 +43,7 @@ class OrderControllerTest {
         Created created = harness.service().create(readyCheckout(), PaymentStatus.SUCCESS);
 
         // when & then
-        mockMvc.perform(get("/ucp/v1/orders/{orderId}", created.id()))
+        mockMvc.perform(get("/api/ucp/v1/merchant-a/orders/{orderId}", created.id()))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", MediaType.APPLICATION_JSON_VALUE))
                 .andExpect(jsonPath("$.id").value(created.id()))
@@ -62,7 +62,7 @@ class OrderControllerTest {
         Created created = harness.service().create(readyCheckout(), PaymentStatus.SUCCESS);
 
         // when & then
-        mockMvc.perform(get("/ucp/v1/orders/{orderId}", created.id()))
+        mockMvc.perform(get("/api/ucp/v1/merchant-a/orders/{orderId}", created.id()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total_amount").doesNotExist())
                 .andExpect(jsonPath("$.currency").doesNotExist())
@@ -74,7 +74,7 @@ class OrderControllerTest {
     @DisplayName("없는 주문은 404 ORDER_NOT_FOUND 다")
     void get_missingOrder_returns404() throws Exception {
         // when & then
-        mockMvc.perform(get("/ucp/v1/orders/{orderId}", "order-없음"))
+        mockMvc.perform(get("/api/ucp/v1/merchant-a/orders/{orderId}", "order-없음"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.errorCode").value("ORDER_NOT_FOUND"))
                 .andExpect(jsonPath("$.nextAction").value("CHECK_PURCHASE_STATUS"))

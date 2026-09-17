@@ -18,10 +18,13 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * 시연 카탈로그 시드를 기동 시 한 번 적재한다(DESIGN.md 5.7절).
  *
- * <p>{@code merchant.catalog.seed-file} 이 비어 있으면 아무 일도 하지 않는다. 기본값이 비어
+ * <p>{@code merchant.catalog.seed-files} 가 비어 있으면 아무 일도 하지 않는다. 기본값이 비어
  * 있으므로 테스트와 CI 는 V3 fixture 5건만 본다. 시연은 compose 에서 환경변수로 켠다.
  *
- * <p>경로가 설정돼 있는데 파일이 없으면 기동을 세운다. 시드가 조용히 안 들어가서 상품 5건만
+ * <p>파일 셋을 한 DB 에 넣는다(393). 파일 머리의 {@code mall} 이 등록된 몰({@code merchant.malls[]})이어야 한다.
+ * 모르는 몰의 시드가 들어가면 어느 경로로도 보이지 않는 행이 생기므로 기동을 세운다.
+ *
+ * <p>경로가 설정돼 있는데 파일이 없어도 기동을 세운다. 시드가 조용히 안 들어가서 상품 5건만
  * 보이는 채로 시연에 들어가는 것이 더 나쁘다.
  */
 @Component
@@ -45,27 +48,29 @@ public class CatalogSeedLoader {
         this.writer = writer;
     }
 
-    /** 설정돼 있으면 시드를 넣고 쓴 건수를, 아니면 0 을 돌려준다. */
+    /** 설정돼 있으면 시드를 넣고 쓴 건수 합을, 아니면 0 을 돌려준다. */
     public int loadIfConfigured() {
         MerchantProperties.Catalog catalog = properties.catalog();
-        if (catalog == null || !catalog.hasSeedFile()) {
-            LOG.info("시연 카탈로그 시드 없음. merchant.catalog.seed-file 이 비어 있다");
+        if (catalog == null || !catalog.hasSeedFiles()) {
+            LOG.info("시연 카탈로그 시드 없음. merchant.catalog.seed-files 가 비어 있다");
             return 0;
         }
-
-        String location = catalog.seedFile();
-        CatalogSeed seed = read(location);
-        int written = writer.upsertAll(seed.products());
-        LOG.info("시연 카탈로그 시드 적재 완료. 몰 {}({}), 상품 {}건, 출처 {}",
-                seed.mallName(), seed.mall(), written, location);
-        return written;
+        int total = 0;
+        for (String location : catalog.seedFiles()) {
+            CatalogSeed seed = read(location);
+            int written = writer.upsertAll(seed.products());
+            total += written;
+            LOG.info("시연 카탈로그 시드 적재 완료. 몰 {}({}), 상품 {}건, 출처 {}",
+                    seed.mallName(), seed.mall(), written, location);
+        }
+        return total;
     }
 
     private CatalogSeed read(String location) {
         Resource resource = resourceLoader.getResource(location);
         if (!resource.exists()) {
             throw new IllegalStateException(
-                    "merchant.catalog.seed-file 이 가리키는 파일이 없다: " + location);
+                    "merchant.catalog.seed-files 가 가리키는 파일이 없다: " + location);
         }
         try (InputStream input = resource.getInputStream()) {
             return parse(objectMapper.readTree(input), location);
@@ -76,35 +81,35 @@ public class CatalogSeedLoader {
     }
 
     private CatalogSeed parse(JsonNode root, String location) {
+        String mall = root.path("mall").asString("");
+        if (mall.isBlank() || properties.mall(mall).isEmpty()) {
+            throw new IllegalStateException(
+                    "시연 카탈로그 시드의 mall 이 merchant.malls 에 없다: '" + mall + "' (" + location + ")");
+        }
         JsonNode products = root.path("products");
         if (!products.isArray() || products.isEmpty()) {
             throw new IllegalStateException("시연 카탈로그 시드에 products 배열이 없다: " + location);
         }
-
         List<CatalogSeed.Entry> entries = new ArrayList<>(products.size());
         for (JsonNode product : products) {
-            entries.add(toEntry(product, location));
+            entries.add(toEntry(mall, product, location));
         }
-        return new CatalogSeed(
-                root.path("mall").asString(""),
-                root.path("mallName").asString(""),
-                List.copyOf(entries));
+        return new CatalogSeed(mall, root.path("mallName").asString(""), List.copyOf(entries));
     }
 
-    private CatalogSeed.Entry toEntry(JsonNode product, String location) {
+    private CatalogSeed.Entry toEntry(String mall, JsonNode product, String location) {
         String externalId = product.path("externalId").asString("");
         if (externalId.isBlank()) {
             throw new IllegalStateException("시연 카탈로그 시드에 externalId 가 없는 상품이 있다: " + location);
         }
-
         JsonNode variants = product.path("variants");
         if (!variants.isArray() || variants.isEmpty()) {
             // 옵션이 없으면 pickVariant 가 SKU 를 못 찾아 체크아웃이 성립하지 않는다(5.7절).
             throw new IllegalStateException("옵션 없는 상품이 시드에 있다: " + externalId + " (" + location + ")");
         }
-
         return new CatalogSeed.Entry(
                 product.path("id").asString(),
+                mall,
                 externalId,
                 product.path("title").asString(),
                 product.path("imageUrl").asString(null),

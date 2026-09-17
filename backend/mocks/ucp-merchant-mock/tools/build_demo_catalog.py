@@ -65,13 +65,13 @@ def u(*parts):
     return int.from_bytes(digest[:8], "big") / 2 ** 64
 
 
-def deterministic_id(external_id):
-    """external_id 로 UUID 를 고정한다. 몰이 달라도 같은 상품이면 같은 id 라 Core 가 묶을 수 있다.
+def deterministic_id(mall, external_id):
+    """몰과 external_id 로 UUID 를 고정한다. 결정적이라 다시 돌려도 같은 행을 upsert 한다.
 
-    Java 쪽 UUID.nameUUIDFromBytes 와 값이 같지는 않지만 그건 문제가 아니다 — 로더는 파일의 id 를
-    그대로 쓰고 다시 돌려도 같은 id 라 upsert 가 중복을 안 만든다는 것만 중요하다.
+    393 부터 id 는 몰마다 다르다 — 한 DB 한 테이블에 같은 상품이 몰별로 한 행씩 들어가고 id 가 PK 다.
+    Core 가 몰 사이에서 같은 상품으로 묶는 열쇠는 id 가 아니라 externalId(UCP 응답의 productId)다(DESIGN.md 5.4절).
     """
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"copenhagen:merchant-mock:product:{external_id}"))
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"copenhagen:merchant-mock:product:{mall}:{external_id}"))
 
 
 def rounding_unit(price):
@@ -181,7 +181,7 @@ def to_product(row, mall, max_variants):
     sold_out = u(external_id, mall, "stock") < SOLD_OUT_RATIO
     base_price = max(round_to(row["price"] * factor, unit), unit)
     return {
-        "id": deterministic_id(external_id),
+        "id": deterministic_id(mall, external_id),
         "externalId": external_id,
         "title": row["name"],
         "imageUrl": row["image"],

@@ -29,7 +29,7 @@ class RequestIdFilterTest {
     @Test
     @DisplayName("Core 가 보낸 X-Request-Id 를 MDC 에 넣고 응답 헤더로 되돌려 준다")
     void doFilter_withHeader_usesItAndEchoes() throws Exception {
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ucp/v1/checkout-sessions");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/ucp/v1/merchant-a/checkout-sessions");
         request.addHeader(RequestIdFilter.HEADER, "core-req-42");
         MockHttpServletResponse response = new MockHttpServletResponse();
         AtomicReference<String> seen = new AtomicReference<>();
@@ -44,7 +44,7 @@ class RequestIdFilterTest {
     @Test
     @DisplayName("헤더가 없으면 만들어서 쓰고 그 값을 응답 헤더로 알려 준다")
     void doFilter_withoutHeader_generates() throws Exception {
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/ucp/v1/orders/order-1");
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/ucp/v1/merchant-a/orders/order-1");
         MockHttpServletResponse response = new MockHttpServletResponse();
         AtomicReference<String> seen = new AtomicReference<>();
 

@@ -36,19 +36,21 @@ public class BusinessProfileService {
         this.signingKeyProvider = signingKeyProvider;
     }
 
-    public BusinessProfileResponse build() {
+    /** 몰 하나의 Profile. 모르는 몰은 404(393). endpoint 만 몰마다 다르고 키·Capability 는 같다. */
+    public BusinessProfileResponse build(String merchantId) {
+        properties.requireMall(merchantId);
         String version = properties.ucpVersion();
         BusinessProfileResponse.Ucp ucp = new BusinessProfileResponse.Ucp(
                 version,
-                services(version),
+                services(version, merchantId),
                 capabilities(version),
                 paymentHandlers());
         return new BusinessProfileResponse(ucp, keys());
     }
 
-    private Map<String, List<BusinessProfileResponse.Service>> services(String version) {
+    private Map<String, List<BusinessProfileResponse.Service>> services(String version, String merchantId) {
         BusinessProfileResponse.Service rest = new BusinessProfileResponse.Service(
-                version, REST_TRANSPORT, properties.restEndpoint());
+                version, REST_TRANSPORT, properties.restEndpoint(merchantId));
         Map<String, List<BusinessProfileResponse.Service>> services = new LinkedHashMap<>();
         services.put(SHOPPING_SERVICE, List.of(rest));
         return services;

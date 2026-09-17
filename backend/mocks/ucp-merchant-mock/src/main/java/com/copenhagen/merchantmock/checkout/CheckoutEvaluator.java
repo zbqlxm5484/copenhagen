@@ -69,10 +69,10 @@ public class CheckoutEvaluator {
     /**
      * @param previous 수정(PUT)이면 직전 스냅샷. 단가가 달라졌는지 비교해 CHECKOUT_PRICE_CHANGED 를 얹는다.
      */
-    Evaluation evaluate(String checkoutId, CheckoutRequest request, Optional<Checkout> previous) {
+    Evaluation evaluate(String merchantId, String checkoutId, CheckoutRequest request, Optional<Checkout> previous) {
         List<Message> messages = new ArrayList<>();
         Map<String, String> lineSkus = new LinkedHashMap<>();
-        List<LineItem> lines = resolveLines(request, messages, lineSkus);
+        List<LineItem> lines = resolveLines(merchantId, request, messages, lineSkus);
         long subtotal = lines.stream().mapToLong(l -> l.item().price() * l.quantity()).sum();
 
         FulfillmentResult fulfillment = resolveFulfillment(request, messages);
@@ -109,7 +109,7 @@ public class CheckoutEvaluator {
                 Collections.unmodifiableMap(new LinkedHashMap<>(lineSkus)));
     }
 
-    private List<LineItem> resolveLines(CheckoutRequest request, List<Message> messages,
+    private List<LineItem> resolveLines(String merchantId, CheckoutRequest request, List<Message> messages,
             Map<String, String> lineSkus) {
         List<CheckoutRequest.LineItemRequest> requested =
                 request == null || request.lineItems() == null ? List.of() : request.lineItems();
@@ -123,7 +123,7 @@ public class CheckoutEvaluator {
             CheckoutRequest.LineItemRequest line = requested.get(i);
             String target = "line_items[" + i + "]";
 
-            Product product = catalog.byExternalId(line.productId())
+            Product product = catalog.byExternalId(merchantId, line.productId())
                     .filter(p -> p.status() == Product.ProductStatus.ACTIVE)
                     .orElseThrow(() -> ApiException.productNotFound(line.productId()));
 

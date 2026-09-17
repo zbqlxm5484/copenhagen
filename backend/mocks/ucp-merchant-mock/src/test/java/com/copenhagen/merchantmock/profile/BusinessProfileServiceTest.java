@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BusinessProfileServiceTest {
 
     private static BusinessProfileResponse build(MerchantProperties properties) {
-        return new BusinessProfileService(properties, new SigningKeyProvider(properties)).build();
+        return new BusinessProfileService(properties, new SigningKeyProvider(properties)).build("merchant-a");
     }
 
     @Test
@@ -35,7 +35,7 @@ class BusinessProfileServiceTest {
         List<BusinessProfileResponse.Service> shopping = profile.ucp().services().get("dev.ucp.shopping");
         assertEquals(1, shopping.size());
         assertEquals("rest", shopping.get(0).transport());
-        assertEquals("http://ucp-merchant-mock:8080/ucp/v1", shopping.get(0).endpoint());
+        assertEquals("http://ucp-merchant-mock:8080/api/ucp/v1/merchant-a", shopping.get(0).endpoint());
         assertEquals("2026-08-25", shopping.get(0).version());
     }
 

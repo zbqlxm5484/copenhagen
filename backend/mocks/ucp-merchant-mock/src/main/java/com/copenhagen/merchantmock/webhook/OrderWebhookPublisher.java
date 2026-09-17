@@ -79,6 +79,8 @@ public class OrderWebhookPublisher implements OrderEventListener {
 
     private String payloadOf(Order order) {
         ObjectNode root = objectMapper.createObjectNode();
+        // 어느 몰의 주문인지(393). Core 가 몰별 base-url 로 주문을 다시 조회할 때 이 값을 쓴다.
+        root.put("merchant_id", order.merchantId());
         root.set("order", objectMapper.readTree(order.rawOrderJson()));
         return objectMapper.writeValueAsString(root);
     }

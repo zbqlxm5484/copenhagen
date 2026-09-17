@@ -19,9 +19,9 @@ import tools.jackson.databind.ObjectMapper;
 public class JdbcProductRepository implements ProductRepository {
 
     private static final String SELECT_ALL = """
-            SELECT id, external_id, title, image_url, base_price, currency, status, variants_json::text
+            SELECT id, merchant_id, external_id, title, image_url, base_price, currency, status, variants_json::text
               FROM products
-             ORDER BY external_id
+             ORDER BY merchant_id, external_id
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -40,6 +40,7 @@ public class JdbcProductRepository implements ProductRepository {
     private RowMapper<Product> rowMapper() {
         return (rs, rowNum) -> new Product(
                 rs.getString("id"),
+                rs.getString("merchant_id"),
                 rs.getString("external_id"),
                 rs.getString("title"),
                 null,
