@@ -21,6 +21,8 @@ Dockerfile              독립 이미지 빌드 정의
 
 ## 개발 명령
 
+서버 통합 배포 설정·토큰 구분·CI 업데이트 절차는 [배포 준비 문서](docs/deployment.md)를 참고하세요.
+
 `backend/`에서 실행합니다.
 
 ```bash

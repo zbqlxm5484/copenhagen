@@ -12,6 +12,7 @@
         - backend/gradle.properties
         - backend/build.gradle
         - backend/settings.gradle
+        - backend/.dockerignore
         - backend/gradle/**/*
         - backend/gradlew
         - backend/gradlew.bat
@@ -39,6 +40,7 @@
         - backend/gradle.properties
         - backend/build.gradle
         - backend/settings.gradle
+        - backend/.dockerignore
         - backend/gradle/**/*
         - backend/gradlew
         - backend/gradlew.bat
@@ -62,6 +64,17 @@ mcp-test:
     GRADLE_MODULE: apps/mcp-server
     GRADLE_TASK: :apps:mcp-server:test
 
+mcp-ui-test:
+  extends: .mcp-verify-rules
+  image: node:22-alpine
+  stage: test
+  before_script:
+    - cd backend/apps/mcp-server/ui
+  script:
+    - npm ci --no-audit --no-fund
+    - npm test
+    - npm run check
+
 mcp-build:
   extends:
     - .gradle-jar-job
@@ -70,6 +83,9 @@ mcp-build:
   needs:
     - job: mcp-test
       artifacts: true
+      optional: true
+    - job: mcp-ui-test
+      artifacts: false
       optional: true
   variables:
     GRADLE_MODULE: apps/mcp-server
