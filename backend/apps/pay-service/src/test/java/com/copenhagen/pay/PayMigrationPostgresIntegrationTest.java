@@ -73,12 +73,15 @@ class PayMigrationPostgresIntegrationTest {
 
     @Test
     void appliesEveryPayMigrationToAnEmptyDatabase() {
-        assertEquals(9, flyway.migrate().migrationsExecuted);
+        assertEquals(10, flyway.migrate().migrationsExecuted);
 
         assertEquals(
-                List.of("1", "2", "3", "4", "5", "6", "7", "8", "9"),
+                List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"),
                 appliedVersions());
         assertTrue(tableExists("pay_idempotency_records"));
+        assertTrue(tableExists("pay_notification_installations"));
+        assertTrue(tableExists("pay_notification_outbox"));
+        assertTrue(tableExists("pay_notification_deliveries"));
         assertTrue(columnExists("authorization_sessions", "display_snapshot"));
         assertTrue(columnExists("biometric_challenges", "challenge_value"));
         assertTrue(columnExists("pay_verified_checkout_evidence", "merchant_key_id"));
@@ -91,9 +94,9 @@ class PayMigrationPostgresIntegrationTest {
         assertEquals("8", currentVersion());
         assertFalse(tableExists("pay_idempotency_records"));
 
-        assertEquals(1, flyway.migrate().migrationsExecuted);
-        assertEquals("9", currentVersion());
-        assertEquals(9, appliedVersions().size());
+        assertEquals(2, flyway.migrate().migrationsExecuted);
+        assertEquals("10", currentVersion());
+        assertEquals(10, appliedVersions().size());
     }
 
     @Test

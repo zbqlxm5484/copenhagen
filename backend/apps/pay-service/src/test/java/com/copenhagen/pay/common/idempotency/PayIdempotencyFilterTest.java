@@ -45,4 +45,16 @@ class PayIdempotencyFilterTest {
                 "request-001",
                 PayRequestContext.findIdempotencyKey(request).orElseThrow().value());
     }
+
+    @Test
+    void notificationInstallationRequestDoesNotRequireIdempotencyKey() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "PUT",
+                "/api/pay/v1/notification-installations");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        assertEquals(200, response.getStatus());
+    }
 }
