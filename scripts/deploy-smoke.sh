@@ -232,12 +232,8 @@ check_data() {
     done
 }
 
-base_sha=$(git -C "$root" rev-parse "${SMOKE_BASE_REF:-origin/develop}^{commit}")
+base_sha=$(sh "$root/scripts/smoke-base.sh")
 record "base=$base_sha candidate=$(git -C "$root" rev-parse HEAD) project=$COMPOSE_PROJECT_NAME"
-if ! git -C "$root" merge-base --is-ancestor "$base_sha" HEAD; then
-    record 'FAIL target branch is not included; rebase onto the target branch and rerun'
-    exit 1
-fi
 docker info >/dev/null
 docker pull "$curl_image"
 build_images "$root" candidate

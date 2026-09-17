@@ -163,3 +163,21 @@ backend-lint:
       changes:
         - backend/**/*
     - when: never
+
+ci-config-test:
+  image: alpine:3.22
+  stage: lint
+  before_script:
+    - apk add --no-cache python3 py3-yaml bash git jq shellcheck
+  script:
+    - PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v
+    - sh -n scripts/smoke-base.sh
+    - bash -n scripts/deploy-smoke.sh
+    - sh -n scripts/deploy-dev-service.sh
+    - shellcheck scripts/smoke-base.sh scripts/deploy-smoke.sh scripts/deploy-dev-service.sh
+  rules:
+    - changes:
+        - .gitlab-ci.yml
+        - infra/gitlab/**/*
+        - scripts/**/*
+    - when: never

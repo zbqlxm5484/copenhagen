@@ -72,6 +72,8 @@ pay-docker-build:
     - .pay-delivery-rules
   stage: docker-build
   needs:
+    - job: deploy-smoke
+      artifacts: false
     - job: pay-build
       artifacts: false
   variables:
@@ -84,6 +86,8 @@ pay-deploy-dev:
     - .pay-delivery-rules
   stage: deploy-dev
   needs:
+    - job: deploy-smoke
+      artifacts: false
     - job: pay-docker-build
       artifacts: false
   resource_group: development-ec2

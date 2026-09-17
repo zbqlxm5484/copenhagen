@@ -10,10 +10,14 @@
 | 이벤트 | lint/test/build | deploy-smoke | EC2 배포 |
 | --- | --- | --- | --- |
 | `develop` 대상 MR 생성, 갱신 | 변경 영향 job | Backend 또는 배포 설정 변경 시 전체 스택 | 없음 |
-| `develop` push, MR merge 포함 | 변경 영향 job | 없음 | 변경 영향 서비스 |
+| `develop` push, MR merge 포함 | 변경 영향 job | Backend 또는 배포 설정 변경 시 전체 스택 | 스모크 성공 후 변경 영향 서비스 |
 | 다른 브랜치 push | pipeline 없음 | 없음 | 없음 |
 
 Stage: `lint -> test -> build -> deploy-smoke -> docker-build -> deploy-dev`
+
+`deploy-smoke`는 앞선 stage의 선택된 검증이 모두 성공한 뒤 실행합니다. 모든 서비스의 `*-docker-build`와 `*-deploy-dev`는 `deploy-smoke`를 필수 `needs`로 지정합니다. 스모크가 실패·취소되면 이미지 전송과 EC2 배포를 진행하지 않으며, 필수 Job이 누락되면 pipeline 생성이 실패합니다. `optional: true`나 `allow_failure`로 우회하지 않습니다.
+
+CI·배포 스크립트 변경 시 `ci-config-test`가 기준 SHA 선택, Job 선택·의존 관계와 기존 실패 진단·복구 회귀 테스트 및 ShellCheck를 실행합니다.
 
 ## MR 배포 스모크 테스트
 
@@ -28,7 +32,7 @@ Stage: `lint -> test -> build -> deploy-smoke -> docker-build -> deploy-dev`
 검증 순서:
 
 1. MR 이미지 빌드, 빈 DB 기동, HTTP 검사
-2. 임시 볼륨 초기화, 대상 브랜치 버전 기동, 표식 데이터 생성
+2. 임시 볼륨 초기화, 고정한 기준 SHA 버전 기동, 표식 데이터 생성
 3. DB 유지 상태에서 MR 이미지 순차 교체, HTTP와 데이터 검사
 4. 실패 이미지 배포, 이전 이미지 복구 검사
 5. 로그 수집, 임시 자원 정리
@@ -43,16 +47,29 @@ Stage: `lint -> test -> build -> deploy-smoke -> docker-build -> deploy-dev`
 
 검증 제외: 결제 전체 E2E, 업무 데이터의 전체 마이그레이션 호환성, DB schema 원복, 실제 EC2의 SSH 권한과 자원 상태, 배포된 서비스별 SHA 일치.
 
-변경 감지 경로: `backend/**/*`, 루트 CI/Compose, `infra/gitlab/**/*`, `infra/nginx/**/*`, smoke override, 스모크/배포 스크립트. 해당 경로의 README 포함. 그 외 문서 변경은 생략.
+변경 감지 경로: `backend/**/*`, 루트 CI/Compose, `infra/gitlab/**/*`, `infra/nginx/**/*`, smoke override, 스모크/기준 SHA 선택/배포 스크립트. 해당 경로의 README 포함. 그 외 문서 변경은 생략. MR과 develop push에 동일한 경로를 적용합니다.
 
 ### Git 버전
 
-- 기준 SHA: job 시작 시 가져온 대상 브랜치 SHA
-- Merged results pipeline: GitLab 제공 대상 SHA 사용
-- 통과 조건: 기준 SHA가 검사 대상 커밋의 조상
-- MR 갱신: 최신 `develop` rebase 후 재실행
-- Merge 직전: 대상 브랜치 변경 여부 확인, 변경 시 동기화 후 재실행
-- Merged results pipelines: GitLab 지원 시 Merge options에서 활성화
+`scripts/smoke-base.sh`가 pipeline의 고정된 커밋 정보를 선택합니다. CI에서 최신 대상 브랜치를 fetch하거나 `FETCH_HEAD`를 기준으로 사용하지 않습니다.
+
+| 실행 | 기준 SHA | 후보 SHA |
+| --- | --- | --- |
+| 일반 MR (`detached`) | `CI_MERGE_REQUEST_DIFF_BASE_SHA` | `CI_COMMIT_SHA` |
+| Merged results / Merge train | `CI_MERGE_REQUEST_TARGET_BRANCH_SHA` | `CI_COMMIT_SHA` |
+| develop push | `CI_COMMIT_BEFORE_SHA` | `CI_COMMIT_SHA` |
+| 로컬 실행 | `SMOKE_BASE_REF`, 미지정 시 `origin/develop` | 현재 `HEAD` |
+
+- CI에서는 전체 40자리 SHA, 실제 checkout과 후보 SHA 일치, 기준 커밋 존재 및 기준이 후보의 조상인지 확인합니다. 실패하면 Docker 실행 전에 종료합니다.
+- 최초 push의 zero SHA, 누락·잘못된 SHA, 비조상 기준은 실패 처리합니다. 현재 HEAD의 부모나 최신 develop으로 대체하지 않습니다. 원인을 확인하고 올바른 이력을 갖춘 pipeline에서 다시 검증합니다.
+- `GIT_DEPTH=0`으로 고정 기준 커밋의 이력을 확보합니다. CI에서는 로컬용 `SMOKE_BASE_REF` override를 사용하지 않습니다.
+- 동일 pipeline의 Job Retry는 같은 기준·후보를 검사합니다. 다른 MR의 develop 머지만으로 rebase할 필요는 없습니다. MR 코드 수정·실제 merge conflict 해결 후에는 새 커밋으로 검증합니다.
+- MR의 고정 기준이 오래되어 현재 스모크 구성과 호환되지 않으면 기준 버전 자체의 실패 원인을 확인하고 한 번 동기화합니다. Git 이력 관계와 애플리케이션 호환성은 서로 다른 검사입니다.
+- develop push는 push 직전 커밋에서 해당 push의 최종 커밋으로 교체합니다. 여러 커밋이 포함된 push에서도 `HEAD^`로 축소하지 않습니다. 직전 develop SHA가 실제 EC2의 서비스별 배포 SHA와 같다는 보장은 없습니다.
+
+MR 스모크는 해당 MR 자체를 고정된 기준에서 검증합니다. 다른 MR과 결합했을 때만 발생하는 문제는 develop 병합 후 배포 전 스모크에서 발견될 수 있습니다. 이 경우 배포는 차단되지만 develop 코드에는 후속 수정 또는 revert가 필요합니다. 최신 develop과의 통합을 항상 병합 전에 보장하는 구조는 아닙니다.
+
+2026-09-17 확인한 SSAFY GitLab은 Community Edition v18.11.5이며 Merged results pipelines와 Merge trains를 사용할 수 없습니다. 향후 해당 기능을 사용할 경우에도 위의 고정 대상 SHA 경로를 유지합니다.
 
 ### 실행 환경과 결과
 
@@ -107,7 +124,7 @@ FAIL HTTP source=core-service target=PAY_SERVICE_URL/actuator/health reason=json
 
 ### Merge 차단과 검증 범위
 
-- 필수 설정: `allow_failure: false`, GitLab `Pipelines must succeed`
+- 필수 설정: `allow_failure: false`, GitLab `Pipelines must succeed`. MR 자체 검증 실패는 Merge 차단, develop 스모크 실패는 EC2 배포 차단
 - 실패 주입: 임시 브랜치에서 Dockerfile 빌드 오류, unhealthy 서비스, 잘못된 Nginx upstream별 job 실패와 merge 차단 확인
 - Nginx 검증: 기준 Nginx에서 서비스 교체와 reload 후 MR Nginx 이미지로 재생성
 - Nginx 설정만 변경: 스모크 실행, EC2 반영 별도 확인

@@ -5,8 +5,17 @@ import re
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def fixture_environment():
+    """Keep host/CI configuration and secrets out of synthetic Docker runs."""
+    return {key: os.environ[key] for key in ('PATH', 'HOME', 'LANG', 'LC_ALL', 'TMPDIR')
+            if key in os.environ}
+
+
 DOCKER = r'''#!/usr/bin/env python3
 import os
 from pathlib import Path
@@ -107,7 +116,8 @@ class SmokeDiagnosticsTest(unittest.TestCase):
             docker.chmod(0o755)
             trace = work / 'trace'
             artifacts = work / 'artifacts'
-            env = dict(os.environ, PATH=f'{work}:{os.environ["PATH"]}',
+            env = fixture_environment()
+            env.update(PATH=f'{work}:{os.environ["PATH"]}',
                        TEST_MODE=mode, TEST_TRACE=str(trace),
                        SMOKE_ARTIFACT_DIR=str(artifacts), SMOKE_BASE_REF='HEAD')
             result = subprocess.run(['bash', str(ROOT / 'scripts/deploy-smoke.sh')],
@@ -157,13 +167,13 @@ class SmokeDiagnosticsTest(unittest.TestCase):
                 self.assertNotIn('response-body-secret', str(files))
                 self.assertIn('CLEANUP', output)
 
-    def test_merchant_auth_expectation_changes_when_pay_is_upgraded(self):
+    def test_merchant_auth_is_required_for_baseline_and_candidate(self):
         script = (ROOT / 'scripts/deploy-smoke.sh').read_text(encoding='utf-8')
         calls = re.findall(r'^\s*check_http(?: (.+))?$', script, re.MULTILINE)
 
-        self.assertEqual(calls, ['401', '404', '"$merchant_status"', '401', '401'])
+        self.assertEqual(calls, ['401', '401', '"$merchant_status"', '401', '401'])
         self.assertIn(
-            'merchant_status=404\nfor index in "${!services[@]}"; do',
+            'merchant_status=401\nfor index in "${!services[@]}"; do',
             script,
         )
         self.assertRegex(
@@ -186,7 +196,8 @@ class DeployDiagnosticsTest(unittest.TestCase):
                 original += 'CORE_IMAGE=app:old\n'
             (work / '.env').write_text(original)
             trace = work / 'trace'
-            env = dict(os.environ, PATH=f'{work}:{os.environ["PATH"]}',
+            env = fixture_environment()
+            env.update(PATH=f'{work}:{os.environ["PATH"]}',
                        TEST_MODE=mode, TEST_TRACE=str(trace), TEST_SECRET='environment-secret')
             result = subprocess.run(['sh', str(ROOT / 'scripts/deploy-dev-service.sh'),
                                      'core-service', 'CORE_IMAGE', 'app:new', 'compose.yml', '1'],
@@ -196,7 +207,9 @@ class DeployDiagnosticsTest(unittest.TestCase):
             return result.returncode, result.stdout, (work / '.env').read_text(), original, trace.read_text()
 
     def test_failed_deploy_diagnosed_before_successful_rollback(self):
-        code, output, current, original, trace = self.run_deploy('deploy-startup')
+        # CI values must not mask unrelated fixture text such as OOMKilled=false.
+        with patch.dict(os.environ, {'CI_TEST_TOKEN': 'false', 'HOST_SECRET': 'unhealthy'}):
+            code, output, current, original, trace = self.run_deploy('deploy-startup')
         self.assertEqual(code, 7, output)
         self.assertEqual(current, original)
         self.assertIn('service=core-service image=app:new step=startup-health exit=7', output)

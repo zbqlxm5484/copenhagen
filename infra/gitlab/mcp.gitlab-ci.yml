@@ -70,6 +70,8 @@ mcp-docker-build:
     - .mcp-delivery-rules
   stage: docker-build
   needs:
+    - job: deploy-smoke
+      artifacts: false
     - job: mcp-build
       artifacts: false
   variables:
@@ -82,6 +84,8 @@ mcp-deploy-dev:
     - .mcp-delivery-rules
   stage: deploy-dev
   needs:
+    - job: deploy-smoke
+      artifacts: false
     - job: mcp-docker-build
       artifacts: false
   resource_group: development-ec2

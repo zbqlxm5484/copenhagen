@@ -81,6 +81,8 @@ core-docker-build:
     - .core-delivery-rules
   stage: docker-build
   needs:
+    - job: deploy-smoke
+      artifacts: false
     - job: core-build
       artifacts: false
   variables:
@@ -93,6 +95,8 @@ core-deploy-dev:
     - .core-delivery-rules
   stage: deploy-dev
   needs:
+    - job: deploy-smoke
+      artifacts: false
     - job: core-docker-build
       artifacts: false
   resource_group: development-ec2

@@ -27,7 +27,7 @@
 
 ## `deploy-smoke.sh`
 
-- 범위: 빈 DB 기동, 기준 버전에서 MR 버전으로 갱신, 실패 이미지 복구, 임시 자원 정리
+- 범위: 빈 DB 기동, 고정 기준 버전에서 MR 또는 develop 후보 버전으로 갱신, 실패 이미지 복구, 임시 자원 정리
 - 요구사항: Docker/BuildKit, Compose 2.24.4 이상, Bash, Git, jq
 - 결과 경로: `tmp/deploy-smoke/`
 - 개인 `.env`, 개발 EC2 접근 없음
@@ -40,13 +40,14 @@ SMOKE_BASE_REF=origin/develop bash scripts/deploy-smoke.sh
 
 ## 실패 진단 검증
 
-Docker CLI 대체 테스트. 요구사항: Python 3, Bash, Git, jq. Docker daemon, EC2 불필요.
+기준 SHA·CI 의존 관계 및 Docker CLI 대체 테스트. 요구사항: Python 3, PyYAML, Bash, Git, jq. Docker daemon, EC2 불필요. CI·스크립트 변경 시 `ci-config-test`에서도 실행합니다.
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v
 bash -n scripts/deploy-smoke.sh
+sh -n scripts/smoke-base.sh
 sh -n scripts/deploy-dev-service.sh
-shellcheck scripts/deploy-smoke.sh scripts/deploy-dev-service.sh
+shellcheck scripts/smoke-base.sh scripts/deploy-smoke.sh scripts/deploy-dev-service.sh
 git diff --check
 ```
 
@@ -58,3 +59,15 @@ git diff --check
 | 전체 앱 스모크, GitLab Runner, EC2 | 미검증 |
 
 격리 검증 환경: Podman API, Docker Compose. 테스트 컨테이너, 네트워크, 전용 이미지 정리 완료.
+
+## `smoke-base.sh`
+
+- 용도: `deploy-smoke.sh`가 사용할 고정 기준 SHA 선택과 Git 이력 검증. stdout에는 SHA만 출력
+- 일반 MR: `CI_MERGE_REQUEST_DIFF_BASE_SHA`, 병합 결과 MR: `CI_MERGE_REQUEST_TARGET_BRANCH_SHA`
+- develop push: `CI_COMMIT_BEFORE_SHA`. 최초 push의 zero SHA는 실패 처리
+- CI 후보: checkout `HEAD`가 `CI_COMMIT_SHA`와 일치해야 함
+- 기준 누락·잘못된 SHA·없는 커밋·비조상 커밋: 실패. 이동하는 브랜치나 `HEAD^`로 대체하지 않음
+- 로컬에서만 `SMOKE_BASE_REF` 사용 가능. CI에서는 override를 무시하고 pipeline 기준을 사용
+- 기준 커밋 선택은 DB schema 원복 또는 실제 EC2 배포 버전 일치를 보장하지 않음
+
+2026-09-17 검증: 로컬 회귀 테스트 24개 통과. 실제 Git 이력으로 동시 머지·Retry·다중 커밋 push와 잘못된 기준을 재현했고, 변경 경로별 필수 smoke 및 배포 의존 관계를 검사했습니다. Docker CLI 대체 테스트 결과이며 실제 GitLab·EC2 실행과 구분합니다.
