@@ -18,6 +18,7 @@
         - backend/gradlew.bat
         - .gitlab-ci.yml
         - docker-compose.yml
+        - infra/docker/https.override.yml
         - scripts/deploy-dev-service.sh
         - scripts/ci-jar.sh
         - scripts/build-ci-jar.sh
@@ -46,6 +47,7 @@
         - backend/gradlew.bat
         - .gitlab-ci.yml
         - docker-compose.yml
+        - infra/docker/https.override.yml
         - scripts/deploy-dev-service.sh
         - scripts/ci-jar.sh
         - scripts/build-ci-jar.sh

@@ -31,6 +31,16 @@ def main():
         assert not plain['mcp-server'].get('ports'), 'MCP must remain behind nginx'
         print('PASS default profile remains opt-in and has no public container port')
 
+        # Missing and empty settings must both select the right deployment defaults.
+        for contents in ('', 'AGENT_OAUTH_ISSUER=\nAGENT_OAUTH_MCP_AUDIENCE=\n'):
+            env_file.write_text(contents, encoding='utf-8')
+            for https, issuer in ((False, 'http://localhost:8080'),
+                                  (True, 'https://j15a207.p.ssafy.io')):
+                core = resolve(env_file, https)['core-service']['environment']
+                assert core['AGENT_OAUTH_ISSUER'] == issuer
+                assert core['AGENT_OAUTH_MCP_AUDIENCE'] == issuer + '/mcp'
+        print('PASS local OAuth defaults stay local and HTTPS deployment defaults use the public origin')
+
         secret_dir = (work / 'secrets').as_posix()
         values = {
             'MCP_SPRING_PROFILES_ACTIVE': 'core-integration',

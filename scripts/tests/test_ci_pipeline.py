@@ -133,8 +133,7 @@ class CiPipelineTest(unittest.TestCase):
 
     def test_nginx_changes_deploy_https_without_rebuilding_service_images(self):
         jobs = load_config()
-        for path in ('infra/nginx/nginx.https.conf', 'infra/docker/https.override.yml',
-                     'scripts/deploy-dev-nginx.sh'):
+        for path in ('infra/nginx/nginx.https.conf', 'scripts/deploy-dev-nginx.sh'):
             with self.subTest(path=path):
                 active = {name for name, job in jobs.items() if selected(job, 'push', path)}
                 self.assertIn('nginx-deploy-dev', active)
@@ -145,6 +144,26 @@ class CiPipelineTest(unittest.TestCase):
                 for need in jobs['nginx-deploy-dev']['needs']:
                     self.assertIn(need['job'], active)
                     self.assertFalse(need.get('optional', False))
+
+    def test_https_oauth_settings_redeploy_core_after_smoke(self):
+        jobs = load_config()
+        path = 'infra/docker/https.override.yml'
+        for source in ('merge_request_event', 'push'):
+            with self.subTest(source=source):
+                active = {name for name, job in jobs.items() if selected(job, source, path)}
+                for required in ('core-test', 'core-build', 'nginx-config-test', 'deploy-smoke'):
+                    self.assertIn(required, active)
+                self.assertEqual(selected_rule(jobs['core-build'], source, path)
+                                 ['variables']['REQUIRE_TEST_ARTIFACT'], 'true')
+                delivery = {name for name in active if name.endswith(('-docker-build', '-deploy-dev'))}
+                self.assertEqual(delivery, {'core-docker-build', 'core-deploy-dev', 'nginx-deploy-dev'}
+                                 if source == 'push' else set())
+                for name in active:
+                    for need in jobs[name].get('needs', []):
+                        if isinstance(need, str):
+                            self.assertIn(need, active)
+                        elif not need.get('optional', False):
+                            self.assertIn(need['job'], active)
 
     def test_service_deploy_syncs_and_applies_https_before_upgrading_application(self):
         job = load_config()['core-deploy-dev']

@@ -31,6 +31,34 @@ App Link는 MCP 연결 주소가 아니다. 구매 요청 ID를 붙여 코펜하
 audience에도 사용하므로 임의로 `http://core-service:8080/oauth/token`으로 바꾸면 Core의
 검증값과 달라진다. MCP 컨테이너에서도 공개 도메인의 DNS/TLS 접근이 가능해야 한다.
 
+### 공개 주소 기본값과 기존 서버 설정
+
+`docker-compose.yml`만 실행하는 로컬 환경은 `http://localhost:8080` issuer와
+`http://localhost:8080/mcp` audience를 기본값으로 사용한다. 개발 EC2에서는
+`infra/docker/https.override.yml`을 함께 적용하여 두 값이 미설정 또는 빈 값이면
+위 표의 공개 HTTPS 주소를 사용한다(S15P21A207-406).
+
+서버 `.env`에 `AGENT_OAUTH_ISSUER`나 `AGENT_OAUTH_MCP_AUDIENCE`를 명시했다면 그 값이
+우선한다. 기존 값이 localhost라면 공개 주소로 수정해야 한다. 배포는 `.env`의 운영자
+설정을 덮어쓰지 않는다. 예제 파일을 변경하거나 Nginx만 재시작해도 실행 중인 Core의
+OAuth 주소는 바뀌지 않으므로 Core 컨테이너 재생성이 필요하다.
+
+HTTPS override 변경은 CI에서 Core 테스트·빌드를 선택하며 develop 병합 후에는 smoke를
+통과한 뒤 Core 이미지와 컨테이너도 갱신한다. Nginx 설정 파일만 변경하면 기존처럼
+Nginx 배포만 수행한다. 작업 브랜치에서는 검증만 실행한다.
+
+배포 후 아래 명령으로 비밀정보 없이 공개 주소 네 항목을 확인한다.
+
+```bash
+curl --fail --silent --show-error \
+  https://j15a207.p.ssafy.io/.well-known/oauth-authorization-server \
+  | jq '{issuer, authorization_endpoint, token_endpoint, jwks_uri}'
+```
+
+모든 주소가 `https://j15a207.p.ssafy.io`를 사용해야 한다. 여전히 localhost라면
+`core-deploy-dev` 성공 여부와 서버 `.env`의 두 OAuth 주소 설정을 확인한다. 주소 수정만으로
+MCP 인증 프로필이나 서비스 키가 활성화되지는 않는다.
+
 ## 1. 서버 전용 설정과 키
 
 기존 `<DEV_DEPLOY_PATH>/.env`에 [ec2.env.example](ec2.env.example)의 OAuth 항목을 반영한다.
