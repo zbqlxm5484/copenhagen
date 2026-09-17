@@ -3,12 +3,15 @@ package com.copenhagen.pay.payment.credential.mandate;
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
 import com.copenhagen.pay.common.idempotency.IdempotencyGuard;
+import com.copenhagen.pay.common.observability.PayLogContext;
 import com.copenhagen.pay.common.validation.RequestValidation;
 import com.copenhagen.pay.payment.authorization.CheckoutHashCodec;
 import com.copenhagen.pay.payment.policy.PaymentStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentCredentialConsumptionService {
 
     private static final String KRW = "KRW";
+    private static final Logger log = LoggerFactory.getLogger(PaymentCredentialConsumptionService.class);
 
     private final PaymentCredentialConsumptionRepository repository;
     private final IdempotencyGuard idempotencyGuard;
@@ -33,6 +37,12 @@ public class PaymentCredentialConsumptionService {
     @Transactional
     public CreatedPayment consume(ConsumeCommand command) {
         validate(command);
+        log.info(
+                "pay.credential.consume.start merchantId={} checkoutId={} amountMinor={} currency={}",
+                command.merchantId(),
+                command.externalCheckoutId(),
+                command.amountMinor(),
+                command.currency());
         CreatedPayment existing = repository.findPaymentByMerchantAndIdempotencyKey(
                         command.merchantAccountId(),
                         command.idempotencyKey())
@@ -42,6 +52,9 @@ public class PaymentCredentialConsumptionService {
                     existing.requestHash(),
                     command.requestHash(),
                     existing.status().name());
+            PayLogContext.put(PayLogContext.PAYMENT_ID, existing.id());
+            PayLogContext.put(PayLogContext.ORDER_ID, existing.purchaseRequestId());
+            log.info("pay.credential.consume.replay status={}", existing.status());
             return existing;
         }
 
@@ -60,6 +73,8 @@ public class PaymentCredentialConsumptionService {
                     concurrentExisting.requestHash(),
                     command.requestHash(),
                     concurrentExisting.status().name());
+            PayLogContext.put(PayLogContext.PAYMENT_ID, concurrentExisting.id());
+            PayLogContext.put(PayLogContext.ORDER_ID, concurrentExisting.purchaseRequestId());
             return concurrentExisting;
         }
 
@@ -78,13 +93,18 @@ public class PaymentCredentialConsumptionService {
                 command.idempotencyKey(),
                 command.requestHash());
         repository.insertPayment(payment);
+        PayLogContext.put(PayLogContext.PAYMENT_ID, payment.id());
+        PayLogContext.put(PayLogContext.ORDER_ID, payment.purchaseRequestId());
+        log.info("pay.credential.consume.payment_created status={}", payment.status());
         if (!repository.consumeCredential(credential.id(), now)) {
+            log.warn("pay.credential.consume.failed reason=CREDENTIAL_ALREADY_CONSUMED");
             throw new PayException(
                     PayErrorCode.CREDENTIAL_ALREADY_CONSUMED,
                     PayErrorCode.CREDENTIAL_ALREADY_CONSUMED.defaultMessage(),
                     credential.status().name(),
                     PayErrorCode.CREDENTIAL_ALREADY_CONSUMED.defaultNextAction());
         }
+        log.info("pay.credential.consume.complete status=CONSUMED");
         return payment;
     }
 

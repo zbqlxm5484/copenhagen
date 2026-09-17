@@ -23,6 +23,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(CoreException.class)
     public ResponseEntity<ApiErrorResponse> handleCoreException(CoreException exception) {
+        log.warn(
+                "core.request.rejected errorCode={} currentState={} nextAction={}",
+                exception.errorCode().code(),
+                exception.currentState(),
+                exception.nextAction());
         return response(
                 exception.errorCode(),
                 exception.getMessage(),
@@ -35,6 +40,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handleValidationException(
             MethodArgumentNotValidException exception) {
+        log.warn("core.request.validation_failed errorCount={}", exception.getErrorCount());
         return response(
                 CoreErrorCode.INVALID_REQUEST,
                 "요청 값이 올바르지 않습니다.",
@@ -45,6 +51,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiErrorResponse> handleUnreadableMessage(
             HttpMessageNotReadableException exception) {
+        log.warn("core.request.body_unreadable");
         return response(
                 CoreErrorCode.INVALID_REQUEST,
                 "요청 본문을 읽을 수 없습니다.",
@@ -55,6 +62,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MissingRequestHeaderException.class)
     public ResponseEntity<ApiErrorResponse> handleMissingHeader(
             MissingRequestHeaderException exception) {
+        log.warn("core.request.missing_header header={}", exception.getHeaderName());
         return response(
                 CoreErrorCode.INVALID_REQUEST,
                 "필수 요청 헤더가 없습니다.",

@@ -2,6 +2,7 @@ package com.copenhagen.pay.payment.authorization;
 
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
+import com.copenhagen.pay.common.observability.PayLogContext;
 import com.copenhagen.pay.payment.credential.biometric.BiometricChallengeService;
 import com.copenhagen.pay.payment.credential.mandate.IssuedPaymentCredential;
 import com.copenhagen.pay.payment.credential.mandate.PaymentCredentialIssuer;
@@ -10,6 +11,8 @@ import com.copenhagen.pay.payment.policy.AuthorizationSessionStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +22,7 @@ public class AuthorizationApprovalService {
 
     private static final String BIOMETRIC = "BIOMETRIC";
     private static final String PIN = "PIN";
+    private static final Logger log = LoggerFactory.getLogger(AuthorizationApprovalService.class);
 
     private final AuthorizationSessionStore sessionStore;
     private final BiometricChallengeService challengeService;
@@ -93,6 +97,9 @@ public class AuthorizationApprovalService {
             String userId,
             String approvalId,
             ApproveCommand command) {
+        PayLogContext.putFingerprint(PayLogContext.USER_ID, userId);
+        PayLogContext.put(PayLogContext.APPROVAL_ID, approvalId);
+        log.info("pay.approval.approve.start");
         AuthorizationSession session = loadCurrent(userId, approvalId);
         ensureApprovable(session);
         if (command == null || command.authentication() == null) {
@@ -118,15 +125,20 @@ public class AuthorizationApprovalService {
                     authentication.assertion());
             if (verification == BiometricChallengeService.VerificationResult.FALLBACK_TO_PIN) {
                 moveToPin(session);
+                log.info("pay.approval.approve.fallback approvalId={} nextAction=PIN", approvalId);
                 return ApprovalResult.pinFallback(session.id());
             }
-            return approveSession(session, BIOMETRIC);
+            ApprovalResult result = approveSession(session, BIOMETRIC);
+            log.info("pay.approval.approve.complete approvalId={} authMethod=BIOMETRIC", approvalId);
+            return result;
         }
 
         if (PIN.equals(authentication.method())) {
             ensureRequiredAction(session, PIN);
             paymentPinService.verify(userId, authentication.pin());
-            return approveSession(session, PIN);
+            ApprovalResult result = approveSession(session, PIN);
+            log.info("pay.approval.approve.complete approvalId={} authMethod=PIN", approvalId);
+            return result;
         }
 
         throw new PayException(
@@ -138,6 +150,9 @@ public class AuthorizationApprovalService {
 
     @Transactional
     public ApprovalResult reject(String userId, String approvalId) {
+        PayLogContext.putFingerprint(PayLogContext.USER_ID, userId);
+        PayLogContext.put(PayLogContext.APPROVAL_ID, approvalId);
+        log.info("pay.approval.reject.start");
         AuthorizationSession session = loadCurrent(userId, approvalId);
         Instant now = clock.instant();
         if (!session.status().isActive()) {
@@ -149,13 +164,16 @@ public class AuthorizationApprovalService {
         if (!sessionStore.reject(approvalId, userId, now)) {
             throw stateConflict(loadCurrent(userId, approvalId));
         }
+        log.info("pay.approval.reject.complete approvalId={}", approvalId);
         return ApprovalResult.rejected(approvalId);
     }
 
     private AuthorizationSession loadCurrent(String userId, String approvalId) {
         sessionStore.expireOverdueByIdAndUser(approvalId, userId, clock.instant());
-        return sessionStore.findByIdAndUserId(approvalId, userId)
+        AuthorizationSession session = sessionStore.findByIdAndUserId(approvalId, userId)
                 .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
+        PayLogContext.put(PayLogContext.ORDER_ID, session.purchaseRequestId());
+        return session;
     }
 
     private void ensureApprovable(AuthorizationSession session) {
@@ -208,6 +226,10 @@ public class AuthorizationApprovalService {
                 .findByIdAndUserId(session.id(), session.userId())
                 .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
         IssuedPaymentCredential credential = credentialIssuer.issue(approvedSession, authMethod);
+        log.info(
+                "pay.approval.transition.success approvalId={} before=PENDING after=APPROVED authMethod={}",
+                session.id(),
+                authMethod);
         return ApprovalResult.approved(session.id(), authMethod, credential);
     }
 

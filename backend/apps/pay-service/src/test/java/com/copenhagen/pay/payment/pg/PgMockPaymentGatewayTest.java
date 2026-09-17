@@ -1,7 +1,10 @@
 package com.copenhagen.pay.payment.pg;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.copenhagen.pay.common.observability.PayLogCapture;
+import com.copenhagen.pay.common.observability.PayLogContext;
 import com.copenhagen.pay.payment.pg.PaymentGateway.ChargeRequest;
 import com.copenhagen.pay.payment.pg.PaymentGateway.ChargeResult.Outcome;
 import com.sun.net.httpserver.HttpServer;
@@ -32,6 +35,7 @@ class PgMockPaymentGatewayTest {
     @AfterEach
     void tearDown() {
         server.stop(0);
+        PayLogContext.clear();
     }
 
     @Test
@@ -66,8 +70,27 @@ class PgMockPaymentGatewayTest {
     }
 
     @Test
+    void charge_doesNotExposeFreeFormPgResponseCode() {
+        String sensitiveResponseCode = "sensitive upstream response text";
+        registerResponse(
+                200,
+                "{\"status\":\"FAILED\",\"pgTransactionId\":null,"
+                        + "\"responseCode\":\"" + sensitiveResponseCode + "\"}");
+
+        try (PayLogCapture logs = new PayLogCapture()) {
+            PaymentGateway.ChargeResult result = gateway(1_000).charge(request());
+
+            assertEquals("PG_RESPONSE_CODE_INVALID", result.responseCode());
+            assertTrue(logs.allText().contains("pgErrorCode=PG_RESPONSE_CODE_INVALID"));
+            assertTrue(!logs.allText().contains(sensitiveResponseCode));
+        }
+    }
+
+    @Test
     void charge_timeoutMapsToUnknownWithoutRetry() {
+        AtomicReference<Integer> requestCount = new AtomicReference<>(0);
         server.createContext("/internal/v1/charges", exchange -> {
+            requestCount.updateAndGet(count -> count + 1);
             try {
                 Thread.sleep(200);
             } catch (InterruptedException exception) {
@@ -78,10 +101,18 @@ class PgMockPaymentGatewayTest {
 
         PaymentGateway gateway = gateway(30);
 
-        PaymentGateway.ChargeResult result = gateway.charge(request());
+        PaymentGateway.ChargeResult result;
+        try (PayLogCapture logs = new PayLogCapture()) {
+            result = gateway.charge(request());
+
+            assertEquals(1, logs.count("pay.pg.charge.timeout"));
+            assertTrue(logs.allText().contains("reason=PG_TIMEOUT"));
+            assertTrue(logs.allText().contains("durationMs="));
+        }
 
         assertEquals(Outcome.UNKNOWN, result.outcome());
         assertEquals("PG_TIMEOUT", result.responseCode());
+        assertEquals(1, requestCount.get());
     }
 
     @Test
@@ -117,6 +148,25 @@ class PgMockPaymentGatewayTest {
         assertEquals(Outcome.SUCCESS, result.outcome());
         assertEquals("GET", method.get());
         assertEquals("pgTransactionId=tx+%2F%2B1", query.get());
+    }
+
+    @Test
+    void chargePropagatesRequestIdToPgAdapter() {
+        AtomicReference<String> requestId = new AtomicReference<>();
+        server.createContext("/internal/v1/charges", exchange -> {
+            requestId.set(exchange.getRequestHeaders().getFirst("X-Request-Id"));
+            byte[] body = "{\"status\":\"SUCCESS\",\"pgTransactionId\":\"pg-tx-1\"}"
+                    .getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream output = exchange.getResponseBody()) {
+                output.write(body);
+            }
+        });
+        PayLogContext.put(PayLogContext.REQUEST_ID, "request-123");
+
+        gateway(1_000).charge(request());
+
+        assertEquals("request-123", requestId.get());
     }
 
     @ParameterizedTest

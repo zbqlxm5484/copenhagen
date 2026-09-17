@@ -3,12 +3,15 @@ package com.copenhagen.pay.payment.payment;
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
 import com.copenhagen.pay.common.idempotency.IdempotencyGuard;
+import com.copenhagen.pay.common.observability.PayLogContext;
 import com.copenhagen.pay.common.validation.RequestValidation;
 import com.copenhagen.pay.payment.pg.PaymentGateway.ChargeRequest;
 import com.copenhagen.pay.payment.policy.PaymentStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentExecutionPreparationService {
 
     private static final String CONSUMED = "CONSUMED";
+    private static final Logger log = LoggerFactory.getLogger(PaymentExecutionPreparationService.class);
 
     private final PaymentExecutionRepository repository;
     private final PaymentLifecycleService lifecycleService;
@@ -39,9 +43,17 @@ public class PaymentExecutionPreparationService {
         validate(command);
         PaymentExecutionRecord payment = repository.findByIdForUpdate(command.paymentId())
                 .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
+        PayLogContext.put(PayLogContext.PAYMENT_ID, payment.id());
+        PayLogContext.put(PayLogContext.ORDER_ID, payment.purchaseRequestId());
+        log.info(
+                "pay.payment.execution.prepare.start status={}",
+                payment.status());
 
         ensureIdempotency(payment, command);
         if (payment.status() != PaymentStatus.READY) {
+            log.info(
+                    "pay.payment.execution.prepare.replay status={}",
+                    payment.status());
             return PreparedPaymentExecution.existing(payment);
         }
         if (!CONSUMED.equals(payment.credentialStatus())) {
@@ -75,6 +87,11 @@ public class PaymentExecutionPreparationService {
                 pgTransactionRecordId,
                 attemptId,
                 now);
+
+        log.info(
+                "pay.payment.execution.prepare.complete attemptId={} pgRequestId={} status=PROCESSING",
+                attemptId,
+                pgRequestId);
 
         return PreparedPaymentExecution.readyForGateway(
                 payment.id(),

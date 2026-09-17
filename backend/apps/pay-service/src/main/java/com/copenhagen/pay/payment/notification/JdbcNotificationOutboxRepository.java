@@ -2,6 +2,7 @@ package com.copenhagen.pay.payment.notification;
 
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
+import com.copenhagen.pay.common.observability.PayLogContext;
 import com.copenhagen.pay.payment.policy.PaymentStatus;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -62,6 +63,7 @@ public class JdbcNotificationOutboxRepository implements NotificationOutboxRepos
             WHERE event.id = candidate.id
             RETURNING event.id, event.event_id, event.event_type, event.user_id,
                       event.approval_id, event.payment_id, event.payment_status,
+                      event.payload ->> 'requestId' AS request_id,
                       event.payload::text AS payload_json, event.status,
                       event.attempt_count, event.next_run_at, event.lease_expires_at,
                       event.sent_at, event.last_error, event.created_at
@@ -353,6 +355,7 @@ public class JdbcNotificationOutboxRepository implements NotificationOutboxRepos
             values.put("eventId", message.eventId());
             values.put("type", message.type().name());
             values.put("approvalId", message.approvalId());
+            putIfPresent(values, "requestId", PayLogContext.get(PayLogContext.REQUEST_ID));
             putIfPresent(values, "paymentId", message.paymentId());
             putIfPresent(values, "status", message.status());
             values.put("nextAction", message.nextAction());
@@ -382,6 +385,7 @@ public class JdbcNotificationOutboxRepository implements NotificationOutboxRepos
                 resultSet.getString("event_id"),
                 NotificationEventType.valueOf(resultSet.getString("event_type")),
                 resultSet.getString("user_id"),
+                resultSet.getString("request_id"),
                 resultSet.getString("approval_id"),
                 resultSet.getString("payment_id"),
                 paymentStatus == null ? null : PaymentStatus.valueOf(paymentStatus),

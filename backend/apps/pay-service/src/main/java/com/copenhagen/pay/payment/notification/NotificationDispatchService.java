@@ -1,10 +1,14 @@
 package com.copenhagen.pay.payment.notification;
 
+import com.copenhagen.pay.common.observability.PayLogContext;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -12,6 +16,7 @@ public class NotificationDispatchService {
 
     private static final int MAX_DELIVERY_ATTEMPTS = 5;
     private static final String DELIVERY_FAILED = "FCM_DELIVERY_FAILED";
+    private static final Logger log = LoggerFactory.getLogger(NotificationDispatchService.class);
 
     private final NotificationOutboxRepository outboxRepository;
     private final NotificationInstallationRepository installationRepository;
@@ -38,16 +43,39 @@ public class NotificationDispatchService {
                 now,
                 now.plus(Duration.ofSeconds(properties.worker().leaseDurationSeconds())));
         if (claimed.isEmpty()) {
+            log.debug("notification.outbox.poll.empty");
             return false;
         }
 
         NotificationOutboxEvent event = claimed.orElseThrow();
-        List<String> fids = installationRepository.findActiveFidsByUserId(event.userId());
-        outboxRepository.ensureDeliveries(event.eventId(), fids, now);
-        outboxRepository.pruneInactiveDeliveries(event.eventId());
-        dispatchDeliveries(event);
-        completeEvent(event);
-        return true;
+        String requestId = event.requestId();
+        if (requestId == null || requestId.isBlank()) {
+            requestId = PayLogContext.get(PayLogContext.REQUEST_ID);
+            if (requestId == null || requestId.isBlank()) {
+                requestId = "notification-" + UUID.randomUUID();
+            }
+        }
+        try (PayLogContext.Scope ignored = PayLogContext.open(
+                PayLogContext.REQUEST_ID, requestId,
+                PayLogContext.USER_ID, PayLogContext.fingerprint(event.userId()),
+                PayLogContext.APPROVAL_ID, event.approvalId(),
+                PayLogContext.PAYMENT_ID, event.paymentId(),
+                PayLogContext.EVENT_ID, event.eventId(),
+                PayLogContext.PUSH_ID, event.eventId())) {
+            List<String> fids = installationRepository.findActiveFidsByUserId(event.userId());
+            log.info(
+                    "notification.dispatch.start eventId={} eventType={} attempt={} "
+                            + "installationCount={}",
+                    event.eventId(),
+                    event.eventType(),
+                    event.attemptCount(),
+                    fids.size());
+            outboxRepository.ensureDeliveries(event.eventId(), fids, now);
+            outboxRepository.pruneInactiveDeliveries(event.eventId());
+            dispatchDeliveries(event);
+            completeEvent(event);
+            return true;
+        }
     }
 
     private void dispatchDeliveries(NotificationOutboxEvent event) {
@@ -62,15 +90,30 @@ public class NotificationDispatchService {
             }
 
             NotificationDelivery delivery = claimed.orElseThrow();
-            try {
-                sender.send(delivery.fid(), toMessage(event));
-                if (!outboxRepository.markDeliverySent(delivery, clock.instant())) {
-                    return;
+            try (PayLogContext.Scope ignored = PayLogContext.open(
+                PayLogContext.FID_HASH, PayLogContext.fingerprint(delivery.fid()))) {
+                log.info(
+                        "notification.delivery.start eventId={} attempt={}",
+                        event.eventId(),
+                        delivery.attemptCount());
+                try {
+                    sender.send(delivery.fid(), toMessage(event));
+                    if (!outboxRepository.markDeliverySent(delivery, clock.instant())) {
+                        log.warn("notification.delivery.finish_conflict");
+                        return;
+                    }
+                    log.info(
+                            "notification.delivery.success eventId={} attempt={}",
+                            event.eventId(),
+                            delivery.attemptCount());
+                } catch (NotificationDeliveryException exception) {
+                    handleFailure(event, delivery, exception.errorCode(), exception.invalidInstallation());
+                } catch (RuntimeException exception) {
+                    log.error(
+                            "notification.delivery.runtime_failed exceptionType={}",
+                            exception.getClass().getSimpleName());
+                    handleFailure(event, delivery, DELIVERY_FAILED, false);
                 }
-            } catch (NotificationDeliveryException exception) {
-                handleFailure(event, delivery, exception.errorCode(), exception.invalidInstallation());
-            } catch (RuntimeException exception) {
-                handleFailure(event, delivery, DELIVERY_FAILED, false);
             }
         }
     }
@@ -80,25 +123,47 @@ public class NotificationDispatchService {
             NotificationDelivery delivery,
             String errorCode,
             boolean invalidInstallation) {
+        log.warn(
+                "notification.delivery.failed eventId={} attempt={} errorCode={} "
+                        + "invalidInstallation={}",
+                event.eventId(),
+                delivery.attemptCount(),
+                errorCode,
+                invalidInstallation);
         if (invalidInstallation) {
             installationRepository.deactivate(event.userId(), delivery.fid(), clock.instant());
         }
         boolean exhausted = invalidInstallation || delivery.attemptCount() >= MAX_DELIVERY_ATTEMPTS;
         Instant nextRunAt = clock.instant().plusSeconds(properties.worker().retryDelaySeconds());
-        outboxRepository.markDeliveryFailed(delivery, nextRunAt, errorCode, exhausted);
+        boolean updated = outboxRepository.markDeliveryFailed(delivery, nextRunAt, errorCode, exhausted);
+        log.info(
+                "notification.delivery.failure_recorded eventId={} exhausted={} updated={}",
+                event.eventId(),
+                exhausted,
+                updated);
     }
 
     private void completeEvent(NotificationOutboxEvent event) {
         NotificationOutboxRepository.DeliverySummary summary =
                 outboxRepository.summarizeDeliveries(event.eventId());
         if (!summary.hasRetryableDeliveries()) {
-            outboxRepository.markEventSent(event, clock.instant());
+            boolean updated = outboxRepository.markEventSent(event, clock.instant());
+            log.info(
+                    "notification.dispatch.complete eventId={} status=SENT exhausted={} updated={}",
+                    event.eventId(),
+                    summary.hasExhaustedDeliveries(),
+                    updated);
             return;
         }
         Instant nextRunAt = summary.nextRunAt() == null
                 ? clock.instant().plusSeconds(properties.worker().retryDelaySeconds())
                 : summary.nextRunAt();
-        outboxRepository.markEventRetry(event, nextRunAt, DELIVERY_FAILED);
+        boolean updated = outboxRepository.markEventRetry(event, nextRunAt, DELIVERY_FAILED);
+        log.info(
+                "notification.dispatch.complete eventId={} status=RETRY nextRunAt={} updated={}",
+                event.eventId(),
+                nextRunAt,
+                updated);
     }
 
     private NotificationMessage toMessage(NotificationOutboxEvent event) {

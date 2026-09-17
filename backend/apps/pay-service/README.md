@@ -28,6 +28,61 @@ Dockerfile              독립 이미지 빌드 정의
 ./gradlew :apps:pay-service:build
 ```
 
+## Pay 흐름 로그 추적
+
+Pay는 모든 HTTP 요청에 `X-Request-Id`를 부여합니다. 요청에 헤더가 없거나 형식이 올바르지 않으면 Pay가 UUID를 생성하고, 같은 값을 응답 헤더와 로그에 기록합니다. 이 저장소에서 사용하는 `requestId`가 Jira에서 말하는 `traceId` 역할을 합니다.
+
+로그에는 다음 업무 키가 MDC 필드로 함께 출력됩니다.
+
+| 로그 필드 | 용도 |
+| --- | --- |
+| `req` | API 요청·외부 호출 추적용 `requestId` |
+| `user` / `principal` | 사용자·호출 주체 식별자의 SHA-256 앞 16자리 |
+| `approval` | 승인 세션 식별자 |
+| `payment` | 결제 식별자 |
+| `order` | Pay의 구매 요청 식별자(`purchaseRequestId`) |
+| `event` / `push` | Outbox 이벤트 및 앱 수신 연결용 `pushId` |
+| `fid` | FCM 설치 토큰의 SHA-256 앞 16자리 |
+| `app` / `os` / `platform` | `X-App-Version`, `X-OS-Version`, `X-Platform` 헤더 값 |
+
+주요 이벤트는 `pay.request.*`, `pay.auth.*`, `pay.payment.*`, `pay.reconciliation.*`,
+`notification.installation.*`, `notification.event.*`, `notification.dispatch.*`,
+`notification.delivery.*`, `notification.fcm.send.*` 이름으로 남습니다. 결제 요청·PG 호출·DB 상태 변경·Outbox·FCM 발송 결과와 처리 시간이 같은 흐름 안에서 확인됩니다.
+
+예를 들어 운영 로그에서 다음처럼 검색할 수 있습니다.
+
+```bash
+docker compose logs -f pay-service | grep 'req=request-123'
+docker compose logs -f pay-service | grep 'payment=payment-123'
+docker compose logs -f pay-service | grep 'push=approval-requested-123'
+```
+
+FCM 발송 데이터의 `pushId`는 재시도에도 유지되는 Outbox `eventId`입니다. 따라서 Pay 로그의
+`notification.fcm.send.success`와 앱의 `onMessageReceived`/iOS 수신 콜백 로그를 같은 `pushId`로 연결할 수 있습니다.
+Firebase가 메시지를 수락했다는 로그만으로 단말 도착을 보장할 수는 없으므로, 앱 팀은 토큰 생성·등록 API 응답·알림 권한·포그라운드/백그라운드 수신 로그를 별도로 남겨야 합니다.
+
+FCM Worker와 실제 Firebase 발송은 기본적으로 꺼져 있습니다. 테스트 환경에서는 다음 설정을 주입합니다.
+
+```text
+PAY_FCM_ENABLED=true
+PAY_NOTIFICATION_WORKER_ENABLED=true
+PAY_FCM_PROJECT_ID=<firebase-project-id>
+PAY_FCM_SERVICE_ACCOUNT_JSON=<secret-manager에서 주입>
+```
+
+PG 타임아웃으로 생성되는 대사 Job과 FCM Outbox에는 원 요청 `requestId`가 저장됩니다. Worker 로그는
+이를 복원하며, 원 요청 ID가 없는 기존 Job은 `reconciliation-*` Worker ID를 사용합니다. 후속 Pay
+검증 시나리오와 미검증 외부 연동 항목은 [Pay 관측성 검증 결과](docs/pay-observability-validation.md)에
+기록합니다.
+
+앱은 로그인·FCM 토큰 등록·결제 요청에 `X-App-Version`, `X-OS-Version`, `X-Platform` 헤더를 함께 보내야 앱 환경별 실패율을 구분할 수 있습니다. 헤더가 없으면 해당 로그 필드는 비어 있으며, 비정상적으로 긴 값은 `INVALID`로 기록됩니다.
+
+비밀번호·Access Token·카드 정보·FCM 원문 토큰·PG/Firebase 전문은 로그에 기록하지 않습니다.
+PG 응답 코드가 허용된 코드 형식이 아니면 `PG_RESPONSE_CODE_INVALID`로 치환합니다.
+로그 수집 시스템에서는 운영 보관 기간과 Pay 로그 접근 권한을 별도로 적용해야 합니다.
+
+로그인 API는 `core-service`, FCM 토큰 생성 및 단말 수신은 모바일 앱의 책임 범위입니다. Pay에서 확인 가능한 시작점은 인증된 Pay 요청과 FCM 토큰 등록이며, 전체 흐름 검증에는 Core·앱 로그가 함께 필요합니다.
+
 실행은 레포 루트에서 `docker compose up --build pay-service` 또는 전체 `docker compose up --build`를 권장합니다. `bootRun`을 직접 사용할 때는 개발 PC에서 접근 가능한 PostgreSQL과 PG URL을 환경변수로 별도 지정해야 합니다.
 
 Docker Compose에서는 `PAY_DB_URL`, `PG_SERVICE_URL` 등의 환경변수로 연결 대상을 주입합니다. PG 주소는 Docker DNS 이름을 사용합니다.

@@ -2,15 +2,20 @@ package com.copenhagen.pay.payment.payment;
 
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
+import com.copenhagen.pay.common.observability.PayLogContext;
 import com.copenhagen.pay.payment.authorization.AuthorizationSessionLifecycleService;
 import com.copenhagen.pay.payment.notification.NotificationEventPublisher;
 import com.copenhagen.pay.payment.policy.PayStateTransitionPolicy;
 import com.copenhagen.pay.payment.policy.PaymentStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PaymentLifecycleService {
+
+    private static final Logger log = LoggerFactory.getLogger(PaymentLifecycleService.class);
 
     private final PaymentRepository paymentRepository;
     private final AuthorizationSessionLifecycleService authorizationSessionService;
@@ -93,12 +98,28 @@ public class PaymentLifecycleService {
     }
 
     private void transition(String paymentId, PaymentStatus expectedStatus, PaymentStatus targetStatus) {
+        PayLogContext.put(PayLogContext.PAYMENT_ID, paymentId);
         if (!PayStateTransitionPolicy.canTransition(expectedStatus, targetStatus)) {
+            log.warn(
+                    "pay.payment.transition.rejected paymentId={} expectedStatus={} targetStatus={} reason=POLICY",
+                    paymentId,
+                    expectedStatus,
+                    targetStatus);
             throw stateConflict(expectedStatus);
         }
         if (!paymentRepository.transitionStatus(paymentId, expectedStatus, targetStatus)) {
+            log.warn(
+                    "pay.payment.transition.conflict paymentId={} expectedStatus={} targetStatus={}",
+                    paymentId,
+                    expectedStatus,
+                    targetStatus);
             throw stateConflict(findRequiredStatus(paymentId));
         }
+        log.info(
+                "pay.payment.transition.success paymentId={} before={} after={}",
+                paymentId,
+                expectedStatus,
+                targetStatus);
     }
 
     private PaymentStatus findRequiredStatus(String paymentId) {

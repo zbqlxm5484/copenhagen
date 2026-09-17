@@ -21,7 +21,7 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 @Component
-public class JwtBearerTokenVerifier {
+public class JwtBearerTokenVerifier implements PayTokenVerifier {
 
     private static final Set<JWSAlgorithm> SUPPORTED_ALGORITHMS = Set.of(
             JWSAlgorithm.RS256,
@@ -41,6 +41,7 @@ public class JwtBearerTokenVerifier {
         this.jwkSet = loadJwkSet(properties);
     }
 
+    @Override
     public Optional<PayPrincipal> verify(String bearerToken) {
         if (!enabled() || bearerToken == null || bearerToken.isBlank()) {
             return Optional.empty();

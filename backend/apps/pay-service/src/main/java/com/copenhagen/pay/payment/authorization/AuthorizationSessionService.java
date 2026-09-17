@@ -3,6 +3,7 @@ package com.copenhagen.pay.payment.authorization;
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
 import com.copenhagen.pay.common.idempotency.IdempotencyGuard;
+import com.copenhagen.pay.common.observability.PayLogContext;
 import com.copenhagen.pay.common.validation.RequestValidation;
 import com.copenhagen.pay.payment.merchant.MerchantAccount;
 import com.copenhagen.pay.payment.merchant.MerchantAccountRepository;
@@ -16,6 +17,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +33,7 @@ public class AuthorizationSessionService {
     private static final int MAX_SUMMARY_ITEMS = 100;
     private static final int MAX_ITEM_NAME_LENGTH = 200;
     private static final int MAX_OPTION_LENGTH = 200;
+    private static final Logger log = LoggerFactory.getLogger(AuthorizationSessionService.class);
 
     private final AuthorizationSessionStore store;
     private final MerchantAccountRepository merchantAccountRepository;
@@ -76,6 +80,14 @@ public class AuthorizationSessionService {
             String idempotencyKey,
             String requestHash) {
         validate(command, idempotencyKey, requestHash);
+        PayLogContext.putFingerprint(PayLogContext.USER_ID, command.userId());
+        PayLogContext.put(PayLogContext.ORDER_ID, command.purchaseRequestId());
+        log.info(
+                "pay.approval.create.start merchantId={} checkoutId={} amountMinor={} currency={}",
+                command.merchantId(),
+                command.checkoutId(),
+                command.amountMinor(),
+                command.currency());
 
         MerchantAccount merchantAccount = merchantAccountRepository
                 .findActiveByMerchantId(command.merchantId())
@@ -90,6 +102,11 @@ public class AuthorizationSessionService {
                     requestHash,
                     existing.get().status().name());
             if (decision == IdempotencyGuard.Decision.REPLAY) {
+                PayLogContext.put(PayLogContext.APPROVAL_ID, existing.get().id());
+                log.info(
+                        "pay.approval.create.replay approvalId={} status={}",
+                        existing.get().id(),
+                        existing.get().status());
                 return new CreateResult(existing.get(), true);
             }
         }
@@ -132,6 +149,7 @@ public class AuthorizationSessionService {
                 now,
                 now,
                 0);
+        PayLogContext.put(PayLogContext.APPROVAL_ID, session.id());
 
         if (store.insert(session)) {
             VerifiedCheckoutEvidence evidence = VerifiedCheckoutEvidence.from(
@@ -147,14 +165,24 @@ public class AuthorizationSessionService {
             if (status == AuthorizationSessionStatus.PENDING) {
                 notificationEventPublisher.publishApprovalRequested(session);
             }
+            log.info(
+                    "pay.approval.create.complete approvalId={} status={}",
+                    session.id(),
+                    session.status());
             return new CreateResult(session, false);
         }
 
-        return resolveConcurrentInsert(
+        CreateResult concurrentResult = resolveConcurrentInsert(
                 merchantAccount.id(),
                 command.purchaseRequestId(),
                 idempotencyKey,
                 requestHash);
+        PayLogContext.put(PayLogContext.APPROVAL_ID, concurrentResult.session().id());
+        log.info(
+                "pay.approval.create.concurrent_result approvalId={} replay={}",
+                concurrentResult.session().id(),
+                concurrentResult.replay());
+        return concurrentResult;
     }
 
     @Transactional
@@ -162,9 +190,13 @@ public class AuthorizationSessionService {
             String userId,
             AuthorizationSessionStatus status) {
         RequestValidation.requireLengthAtMost(userId, "userId", 36);
+        PayLogContext.putFingerprint(PayLogContext.USER_ID, userId);
+        log.debug("pay.approval.list.start status={}", status);
         Instant now = clock.instant();
         store.expireOverdueForUser(userId, now);
-        return store.findByUserId(userId, status);
+        List<AuthorizationSession> sessions = store.findByUserId(userId, status);
+        log.debug("pay.approval.list.complete count={}", sessions.size());
+        return sessions;
     }
 
     @Transactional
@@ -174,10 +206,16 @@ public class AuthorizationSessionService {
                 authorizationSessionId,
                 "approvalId",
                 36);
+        PayLogContext.putFingerprint(PayLogContext.USER_ID, userId);
+        PayLogContext.put(PayLogContext.APPROVAL_ID, authorizationSessionId);
+        log.debug("pay.approval.detail.start");
         Instant now = clock.instant();
         store.expireOverdueByIdAndUser(authorizationSessionId, userId, now);
-        return store.findByIdAndUserId(authorizationSessionId, userId)
+        AuthorizationSession session = store.findByIdAndUserId(authorizationSessionId, userId)
                 .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
+        PayLogContext.put(PayLogContext.ORDER_ID, session.purchaseRequestId());
+        log.debug("pay.approval.detail.complete status={}", session.status());
+        return session;
     }
 
     @Transactional
@@ -194,6 +232,9 @@ public class AuthorizationSessionService {
                 paymentMethodId,
                 "paymentMethodId",
                 36);
+        PayLogContext.putFingerprint(PayLogContext.USER_ID, userId);
+        PayLogContext.put(PayLogContext.APPROVAL_ID, authorizationSessionId);
+        log.info("pay.approval.payment_method.select.start");
 
         Instant now = clock.instant();
         store.expireOverdueByIdAndUser(authorizationSessionId, userId, now);
@@ -224,6 +265,9 @@ public class AuthorizationSessionService {
                 && updated.status() == AuthorizationSessionStatus.PENDING) {
             notificationEventPublisher.publishApprovalRequested(updated);
         }
+        log.info(
+                "pay.approval.payment_method.select.complete status={}",
+                updated.status());
         return updated;
     }
 

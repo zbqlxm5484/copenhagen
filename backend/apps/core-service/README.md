@@ -28,6 +28,12 @@ Dockerfile              독립 이미지 빌드 정의
 ./gradlew :apps:core-service:build
 ```
 
+## 로그인 흐름 로그 추적
+
+Core 로그인 API도 `X-Request-Id`를 응답 헤더와 로그에 남깁니다. 로그인 ID·Device ID·사용자 ID는 SHA-256 앞 16자리만 기록하고, 비밀번호·Access Token·Refresh Token은 기록하지 않습니다. `X-App-Version`, `X-OS-Version`, `X-Platform` 헤더를 보내면 해당 앱 환경도 로그인 로그에 함께 남습니다.
+
+로그인 시작·성공·실패는 `core.login.*`, 요청 공통 로그는 `core.request.*` 이벤트로 검색할 수 있습니다. 같은 헤더를 이후 Pay 요청에도 전달하면 Core와 Pay 로그를 `requestId`로 연결할 수 있습니다.
+
 실행은 레포 루트에서 `docker compose up --build core-service` 또는 전체 `docker compose up --build`를 권장합니다. `bootRun`을 직접 사용할 때는 개발 PC에서 접근 가능한 PostgreSQL과 의존 서비스 URL을 환경변수로 별도 지정해야 합니다.
 
 Docker Compose에서는 `CORE_DB_URL`, `PAY_SERVICE_URL`, `MERCHANT_SERVICE_URL` 등의 환경변수로 연결 대상을 주입합니다. 서비스 주소는 Nginx가 아니라 Docker DNS 이름을 사용합니다.

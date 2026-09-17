@@ -2,11 +2,14 @@ package com.copenhagen.pay.payment.payment;
 
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
+import com.copenhagen.pay.common.observability.PayLogContext;
 import com.copenhagen.pay.payment.pg.PaymentGateway.ChargeResult;
 import com.copenhagen.pay.payment.pg.PaymentGateway.ChargeResult.Outcome;
 import com.copenhagen.pay.payment.policy.PaymentStatus;
 import java.time.Clock;
 import java.time.Instant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +19,7 @@ public class PaymentExecutionSettlementService {
 
     private static final String DEFAULT_RECONCILIATION_REASON = "PG_TIMEOUT";
     private static final long RECONCILIATION_DELAY_SECONDS = 60;
+    private static final Logger log = LoggerFactory.getLogger(PaymentExecutionSettlementService.class);
 
     private final PaymentExecutionRepository repository;
     private final PaymentLifecycleService lifecycleService;
@@ -37,9 +41,20 @@ public class PaymentExecutionSettlementService {
     public PaymentExecutionResult settle(
             PreparedPaymentExecution prepared,
             ChargeResult chargeResult) {
+        PayLogContext.put(PayLogContext.PAYMENT_ID, prepared.paymentId());
+        log.info(
+                "pay.payment.settlement.start paymentId={} attemptId={} outcome={}",
+                prepared.paymentId(),
+                prepared.attemptId(),
+                chargeResult == null ? null : chargeResult.outcome());
         PaymentExecutionRecord current = repository.findByIdForUpdate(prepared.paymentId())
                 .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
+        PayLogContext.put(PayLogContext.ORDER_ID, current.purchaseRequestId());
         if (current.status() != PaymentStatus.PROCESSING) {
+            log.info(
+                    "pay.payment.settlement.skipped paymentId={} status={}",
+                    prepared.paymentId(),
+                    current.status());
             return PaymentExecutionResult.from(current);
         }
         if (!prepared.attemptId().equals(current.attemptId())) {
@@ -84,12 +99,22 @@ public class PaymentExecutionSettlementService {
             repository.insertReconciliationJob(
                     prepared.attemptId(),
                     reconciliationReason(normalized),
-                    now.plusSeconds(RECONCILIATION_DELAY_SECONDS));
+                    now.plusSeconds(RECONCILIATION_DELAY_SECONDS),
+                    PayLogContext.get(PayLogContext.REQUEST_ID));
+            log.warn(
+                    "pay.payment.settlement.reconciliation_scheduled paymentId={} attemptId={}",
+                    current.id(),
+                    prepared.attemptId());
         }
 
-        return repository.findById(current.id())
+        PaymentExecutionResult settled = repository.findById(current.id())
                 .map(PaymentExecutionResult::from)
                 .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
+        log.info(
+                "pay.payment.settlement.complete paymentId={} status={}",
+                current.id(),
+                settled.status());
+        return settled;
     }
 
     private ChargeResult normalize(ChargeResult result) {

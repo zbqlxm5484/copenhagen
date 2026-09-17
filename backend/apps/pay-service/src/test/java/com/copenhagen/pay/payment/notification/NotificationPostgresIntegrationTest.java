@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.copenhagen.pay.common.observability.PayLogContext;
 import com.copenhagen.pay.payment.policy.PaymentStatus;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import java.io.IOException;
@@ -75,6 +76,7 @@ class NotificationPostgresIntegrationTest {
 
     @AfterEach
     void tearDown() {
+        PayLogContext.clear();
         if (flyway != null) {
             flyway.clean();
         }
@@ -127,6 +129,21 @@ class NotificationPostgresIntegrationTest {
         assertTrue(event.payloadJson().contains("WAIT_FOR_PAYMENT_STATUS"));
         assertFalse(event.payloadJson().contains("credential"));
         assertFalse(event.payloadJson().contains("mandate"));
+    }
+
+    @Test
+    void preservesRequestIdInOutboxForWorkerTracing() {
+        PayLogContext.put(PayLogContext.REQUEST_ID, "request-123");
+
+        outbox.insertApprovalRequested("approval-1", USER_ID, NOW);
+
+        NotificationOutboxEvent event = outbox.claimNext(
+                        NOW,
+                        NOW.plusSeconds(60))
+                .orElseThrow();
+
+        assertEquals("request-123", event.requestId());
+        assertTrue(event.payloadJson().contains("request-123"));
     }
 
     private void insertMerchant() {
