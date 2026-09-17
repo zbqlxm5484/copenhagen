@@ -22,7 +22,18 @@
 
 ```bash
 ./scripts/deploy-dev-service.sh \
-  <compose-service> <image-variable> <image> [compose-file] [wait-timeout]
+  <compose-service> <image-variable> <image> [compose-file] [wait-timeout] [compose-override]
+```
+
+CI 개발 서버 배포는 마지막 인자로 `infra/docker/https.override.yml`을 전달합니다. 동일 override가 신규 배포, 진단, 이전 이미지 복구와 nginx reload에 적용됩니다. 마지막 인자를 생략하는 로컬·기존 스모크 호출은 이전과 동일합니다.
+
+## `deploy-dev-nginx.sh`
+
+개발 서버에서 HTTPS Compose 구성을 적용합니다. 기본 인자는 `docker-compose.yml`, `infra/docker/https.override.yml`, `.env`입니다. 별도 임시 컨테이너에서 인증서와 nginx 설정을 검사한 후 nginx만 기동/재생성하고 reload합니다. 백엔드 컨테이너는 교체하지 않습니다. 서버 최초 인증서 발급과 자동 갱신 준비는 [nginx 문서](../infra/nginx/README.md)를 따릅니다.
+
+```bash
+sh scripts/deploy-dev-nginx.sh [compose-file] [https-override] [env-file]
+python3 scripts/test-nginx-config.py
 ```
 
 ## `deploy-smoke.sh`
@@ -72,7 +83,9 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v
 bash -n scripts/deploy-smoke.sh
 sh -n scripts/smoke-base.sh
 sh -n scripts/deploy-dev-service.sh
+sh -n scripts/deploy-dev-nginx.sh
 shellcheck scripts/smoke-base.sh scripts/deploy-smoke.sh scripts/deploy-dev-service.sh
+shellcheck scripts/deploy-dev-nginx.sh
 shellcheck scripts/ci-jar.sh scripts/build-ci-jar.sh scripts/build-ci-image.sh scripts/run-ci-gradle.sh
 git diff --check
 ```

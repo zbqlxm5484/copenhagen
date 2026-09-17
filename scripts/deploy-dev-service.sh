@@ -2,8 +2,8 @@
 
 set -eu
 
-if [ "$#" -lt 3 ] || [ "$#" -gt 5 ]; then
-    echo "Usage: $0 <compose-service> <image-variable> <image> [compose-file] [wait-timeout]" >&2
+if [ "$#" -lt 3 ] || [ "$#" -gt 6 ]; then
+    echo "Usage: $0 <compose-service> <image-variable> <image> [compose-file] [wait-timeout] [compose-override]" >&2
     exit 2
 fi
 
@@ -12,6 +12,7 @@ image_variable=$2
 container_image=$3
 compose_file=${4:-docker-compose.yml}
 wait_timeout=${5:-120}
+compose_override=${6:-}
 
 case "$compose_service:$image_variable" in
     core-service:CORE_IMAGE|mcp-server:MCP_IMAGE|pay-service:PAY_IMAGE|ucp-merchant-mock:MERCHANT_MOCK_IMAGE|pg-mock:PG_MOCK_IMAGE)
@@ -33,6 +34,21 @@ if [ ! -f "$compose_file" ]; then
     echo "Compose file not found: $compose_file" >&2
     exit 1
 fi
+
+if [ -n "$compose_override" ] && [ ! -f "$compose_override" ]; then
+    echo "Compose override not found: $compose_override" >&2
+    exit 1
+fi
+
+compose() {
+    deployment_env=$1
+    shift
+    if [ -n "$compose_override" ]; then
+        docker compose --env-file "$deployment_env" --file "$compose_file" --file "$compose_override" "$@"
+    else
+        docker compose --env-file "$deployment_env" --file "$compose_file" "$@"
+    fi
+}
 
 env_file=.env
 temporary_env="${env_file}.tmp.$$"
@@ -106,20 +122,20 @@ redact() {
 
 diagnostics() {
     # 호출자는 실패를 무시합니다. inspect는 환경/설정 전체를 출력하지 않습니다.
-    docker compose --env-file "$1" --file "$compose_file" ps --all "$compose_service" nginx || true
-    diagnostic_containers=$(docker compose --env-file "$1" --file "$compose_file" \
+    compose "$1" ps --all "$compose_service" nginx || true
+    diagnostic_containers=$(compose "$1" \
         ps --all --quiet "$compose_service" nginx) || true
     for diagnostic_container in $diagnostic_containers; do
         docker inspect --format '{{.Name}} image={{.Config.Image}} status={{.State.Status}} ExitCode={{.State.ExitCode}} OOMKilled={{.State.OOMKilled}} error={{.State.Error}}{{if .State.Health}} health={{.State.Health.Status}}{{range .State.Health.Log}}{{println}}{{.End}} exit={{.ExitCode}} {{.Output}}{{end}}{{end}}' \
             "$diagnostic_container" || true
     done
-    docker compose --env-file "$1" --file "$compose_file" \
+    compose "$1" \
         logs --no-color --tail 100 "$compose_service" nginx || true
 }
 
 deploy_with_env() {
     deploy_step=startup-health
-    docker compose --env-file "$1" --file "$compose_file" up \
+    compose "$1" up \
         -d \
         --no-deps \
         --no-build \
@@ -129,21 +145,21 @@ deploy_with_env() {
         "$compose_service" || return "$?"
 
     deploy_step=nginx-status
-    running_nginx=$(docker compose --env-file "$1" --file "$compose_file" \
+    running_nginx=$(compose "$1" \
         ps --status running --quiet nginx) || return "$?"
     if [ -n "$running_nginx" ]; then
         # 컨테이너 교체로 바뀐 upstream IP를 다시 읽습니다. 최초 배포는 Nginx 없이도 가능합니다.
         deploy_step=nginx-check
-        docker compose --env-file "$1" --file "$compose_file" exec -T nginx nginx -t || return "$?"
+        compose "$1" exec -T nginx nginx -t || return "$?"
         deploy_step=nginx-reload
-        docker compose --env-file "$1" --file "$compose_file" exec -T nginx nginx -s reload || return "$?"
+        compose "$1" exec -T nginx nginx -s reload || return "$?"
     fi
     return 0
 }
 
 if deploy_with_env "$temporary_env"; then
     mv "$temporary_env" "$env_file"
-    docker compose --env-file "$env_file" --file "$compose_file" ps "$compose_service"
+    compose "$env_file" ps "$compose_service"
 else
     deploy_status=$?
     printf 'FAIL deploy service=%s image=%s step=%s exit=%s\n' \

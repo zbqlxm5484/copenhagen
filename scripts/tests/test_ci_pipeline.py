@@ -89,6 +89,7 @@ class CiPipelineTest(unittest.TestCase):
         for path in ('backend/apps/core-service/src/main/java/App.java',
                      'backend/gradle.properties', 'backend/libs/internal-api-contract/build.gradle',
                      'infra/nginx/nginx.conf', 'infra/gitlab/README.md',
+                     'infra/docker/https.override.yml', 'scripts/deploy-dev-nginx.sh',
                      'scripts/deploy-smoke.sh', 'scripts/smoke-base.sh', 'scripts/build-ci-image.sh',
                      'scripts/ci-jar.sh', 'scripts/build-ci-jar.sh', 'scripts/run-ci-gradle.sh',
                      'docker-compose.yml', '.gitlab-ci.yml'):
@@ -129,6 +130,30 @@ class CiPipelineTest(unittest.TestCase):
         self.assertIn('deploy-smoke', active)
         for dependency in jobs['deploy-smoke']['dependencies']:
             self.assertIn(dependency, active)
+
+    def test_nginx_changes_deploy_https_without_rebuilding_service_images(self):
+        jobs = load_config()
+        for path in ('infra/nginx/nginx.https.conf', 'infra/docker/https.override.yml',
+                     'scripts/deploy-dev-nginx.sh'):
+            with self.subTest(path=path):
+                active = {name for name, job in jobs.items() if selected(job, 'push', path)}
+                self.assertIn('nginx-deploy-dev', active)
+                self.assertIn('nginx-config-test', active)
+                self.assertIn('deploy-smoke', active)
+                self.assertFalse(any(name.endswith('-docker-build') for name in active))
+                self.assertEqual(jobs['nginx-deploy-dev']['resource_group'], 'development-ec2')
+                for need in jobs['nginx-deploy-dev']['needs']:
+                    self.assertIn(need['job'], active)
+                    self.assertFalse(need.get('optional', False))
+
+    def test_service_deploy_syncs_and_applies_https_before_upgrading_application(self):
+        job = load_config()['core-deploy-dev']
+        script = '\n'.join(job['script'])
+        self.assertIn('nginx.https.conf', script)
+        self.assertIn('https.override.yml', script)
+        self.assertLess(script.index('sh scripts/deploy-dev-nginx.sh'),
+                        script.index('./scripts/deploy-dev-service.sh'))
+        self.assertIn("'$DEV_DEPLOY_WAIT_TIMEOUT' 'infra/docker/https.override.yml'", script)
 
 
 if __name__ == '__main__':
