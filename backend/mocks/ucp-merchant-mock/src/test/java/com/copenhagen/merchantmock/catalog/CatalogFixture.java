@@ -38,7 +38,7 @@ public final class CatalogFixture {
             String externalId, String title, long basePrice,
             Product.ProductStatus status, List<Product.Variant> variants) {
         return new Product(
-                externalId + "-uuid", externalId, title, null,
+                externalId + "-uuid", "merchant-a", externalId, title, null,
                 "https://cdn.example.test/" + externalId + ".jpg",
                 basePrice, "KRW", status, variants);
     }

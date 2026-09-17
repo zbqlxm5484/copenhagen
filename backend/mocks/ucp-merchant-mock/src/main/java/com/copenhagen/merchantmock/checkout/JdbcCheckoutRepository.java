@@ -16,13 +16,13 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
 
     private static final String INSERT = """
             INSERT INTO checkout_sessions
-                (id, status, currency, total_amount, fulfillment_address, messages_json,
+                (id, merchant_id, status, currency, total_amount, fulfillment_address, messages_json,
                  line_skus_json, canonical_checkout, merchant_authorization_jws, expires_at)
-            VALUES (?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?, ?)
             """;
 
     private static final String SELECT = """
-            SELECT id, status, currency, total_amount, fulfillment_address::text, messages_json::text,
+            SELECT id, merchant_id, status, currency, total_amount, fulfillment_address::text, messages_json::text,
                    line_skus_json::text, canonical_checkout, merchant_authorization_jws, expires_at,
                    completion_response_json::text, payment_status, pay_payment_id, version
               FROM checkout_sessions
@@ -88,7 +88,7 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
                            ORDER BY payment_next_attempt_at
                            LIMIT ?)
                AND payment_status = 'UNKNOWN'
-            RETURNING id, pay_payment_id, payment_credential_id, merchant_authorization_jws,
+            RETURNING id, merchant_id, pay_payment_id, payment_credential_id, merchant_authorization_jws,
                       total_amount, currency, payment_attempt_count
             """;
 
@@ -122,6 +122,7 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
 
     private static final RowMapper<PaymentRecheck> RECHECK_MAPPER = (rs, rowNum) -> new PaymentRecheck(
             rs.getString("id"),
+            rs.getString("merchant_id"),
             rs.getString("pay_payment_id"),
             rs.getString("payment_credential_id"),
             rs.getString("merchant_authorization_jws"),
@@ -131,6 +132,7 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
 
     private static final RowMapper<CheckoutSession> ROW_MAPPER = (rs, rowNum) -> new CheckoutSession(
             rs.getString("id"),
+            rs.getString("merchant_id"),
             CheckoutStatus.valueOf(rs.getString("status")),
             rs.getString("currency"),
             rs.getObject("total_amount", Long.class),
@@ -159,7 +161,7 @@ public class JdbcCheckoutRepository implements CheckoutRepository {
     public boolean insert(CheckoutSession s) {
         try {
             jdbcTemplate.update(INSERT,
-                    s.id(), s.status().name(), s.currency(), s.totalAmount(),
+                    s.id(), s.merchantId(), s.status().name(), s.currency(), s.totalAmount(),
                     s.fulfillmentAddressJson(), s.messagesJson(), s.lineSkusJson(),
                     s.canonicalCheckout(), s.merchantAuthorizationJws(), s.expiresAt());
             return true;

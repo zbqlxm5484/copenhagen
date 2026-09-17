@@ -6,6 +6,15 @@ import java.util.List;
 /** 테스트에서 쓰는 merchant.* 설정 기본값. 실제 application.yml 과 같은 모양으로 맞춘다. */
 public final class MerchantPropertiesFixture {
 
+    /** 몰 셋(393). 첫 몰 merchant-a 가 V3 fixture 5건의 몰이고 옛 경로의 별칭이다. */
+    public static final String MERCHANT_A = "merchant-a";
+    public static final String MERCHANT_B = "merchant-b";
+    public static final String MERCHANT_C = "merchant-c";
+    public static final List<MerchantProperties.Mall> MALLS = List.of(
+            new MerchantProperties.Mall(MERCHANT_A, "한강마켓"),
+            new MerchantProperties.Mall(MERCHANT_B, "노을상점"),
+            new MerchantProperties.Mall(MERCHANT_C, "별빛몰"));
+
     public static final String PUBLIC_JWK = """
             {"kty":"EC","crv":"P-256",\
             "x":"Kv4fWw_TEzEQ2EOMOgsbIyH9314FhRdQknrvaPY5Q3Q",\
@@ -22,12 +31,11 @@ public final class MerchantPropertiesFixture {
 
     public static MerchantProperties withSigning(MerchantProperties.Signing signing) {
         return new MerchantProperties(
-                "merchant-a",
+                MALLS,
                 "2026-08-25",
                 "KRW",
                 "http://ucp-merchant-mock:8080",
-                "Copenhagen Demo Store",
-                new MerchantProperties.Catalog(""),
+                new MerchantProperties.Catalog(List.of()),
                 new MerchantProperties.Checkout(Duration.ofMinutes(5), Duration.ofSeconds(5)),
                 new MerchantProperties.Fulfillment(3000L),
                 signing,
@@ -42,14 +50,17 @@ public final class MerchantPropertiesFixture {
 
     /** 시연 카탈로그 시드 경로만 바꾼 설정. 로더 테스트가 쓴다(DESIGN.md 5.7절). */
     public static MerchantProperties withCatalogSeedFile(String seedFile) {
+        return withCatalogSeedFiles(List.of(seedFile));
+    }
+
+    public static MerchantProperties withCatalogSeedFiles(List<String> seedFiles) {
         MerchantProperties base = defaults();
         return new MerchantProperties(
-                base.id(),
+                base.malls(),
                 base.ucpVersion(),
                 base.currency(),
                 base.publicBaseUrl(),
-                base.sellerName(),
-                new MerchantProperties.Catalog(seedFile),
+                new MerchantProperties.Catalog(seedFiles),
                 base.checkout(),
                 base.fulfillment(),
                 base.signing(),
@@ -63,11 +74,10 @@ public final class MerchantPropertiesFixture {
     public static MerchantProperties withAp2LikeEnabled() {
         MerchantProperties base = defaults();
         return new MerchantProperties(
-                base.id(),
+                base.malls(),
                 base.ucpVersion(),
                 base.currency(),
                 base.publicBaseUrl(),
-                base.sellerName(),
                 base.catalog(),
                 base.checkout(),
                 base.fulfillment(),

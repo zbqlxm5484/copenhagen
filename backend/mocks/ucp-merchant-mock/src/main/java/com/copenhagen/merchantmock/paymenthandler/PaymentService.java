@@ -43,6 +43,7 @@ public class PaymentService {
 
     /** 청구 입력. {@code checkoutHash} 는 6.3절 다이제스트를 부르는 쪽이 계산해 넘긴다. */
     public record Charge(
+            String merchantId,
             String checkoutId,
             String checkoutHash,
             long amountMinor,
@@ -67,7 +68,7 @@ public class PaymentService {
         }
         Audit.event("payment.started").after(PaymentStatus.PROCESSING).log();
 
-        PaymentRequest request = new PaymentRequest(merchant.id(), charge.checkoutId(), charge.checkoutHash(),
+        PaymentRequest request = new PaymentRequest(charge.merchantId(), charge.checkoutId(), charge.checkoutHash(),
                 charge.amountMinor(), charge.currency(), charge.credentialId());
         PaymentResult result;
         try {

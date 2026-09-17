@@ -112,7 +112,7 @@ public class PaymentRecheckWorker {
     /** 두 경로. {@code paymentId} 를 알면 GET, 모르면 같은 멱등 키로 재POST. */
     private PaymentResult ask(PaymentRecheck row) {
         if (row.payPaymentId() != null && !row.payPaymentId().isBlank()) {
-            return client.lookup(row.payPaymentId());
+            return client.lookup(row.merchantId(), row.payPaymentId());
         }
         if (!row.canRepost()) {
             // 청구 전에 죽었거나 175 이전에 만들어진 행이다. 물어볼 방법이 없다.
@@ -121,7 +121,7 @@ public class PaymentRecheckWorker {
             return PaymentResult.unknown(HttpPayClient.ERROR_UNREACHABLE);
         }
         return client.charge(new PaymentRequest(
-                merchant.id(),
+                row.merchantId(),
                 row.checkoutId(),
                 CheckoutDigest.of(row.merchantAuthorizationJws()),
                 row.totalAmount(),

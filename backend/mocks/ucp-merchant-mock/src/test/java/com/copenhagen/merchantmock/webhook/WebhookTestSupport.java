@@ -29,7 +29,7 @@ final class WebhookTestSupport {
     }
 
     static Order order() {
-        return new Order(ORDER_ID, CHECKOUT_ID, OrderStatus.CREATED, 92000L, "KRW", RAW_ORDER_JSON,
+        return new Order(ORDER_ID, "merchant-a", CHECKOUT_ID, OrderStatus.CREATED, 92000L, "KRW", RAW_ORDER_JSON,
                 "홍길동", null, "06236", "서울특별시 강남구 테헤란로 1", "101호", 0L, NOW_SEOUL);
     }
 

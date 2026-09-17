@@ -90,7 +90,7 @@ public class OrderService {
         Optional<Order> existing = repository.findByCheckoutSessionId(session.id());
         if (existing.isPresent()) {
             LOG.info("주문 생성 재시도. 기존 주문 반환. checkoutId={} orderId={}", session.id(), existing.get().id());
-            return created(existing.get().id());
+            return created(session.merchantId(), existing.get().id());
         }
 
         Checkout snapshot = objectMapper.readValue(session.canonicalCheckout(), Checkout.class);
@@ -103,19 +103,22 @@ public class OrderService {
                     .orElseThrow(() -> new IllegalStateException(
                             "주문 INSERT 가 막혔는데 기존 주문이 없다: " + session.id()));
             LOG.info("주문 생성 경합. 기존 주문 반환. checkoutId={} orderId={}", session.id(), winner.id());
-            return created(winner.id());
+            return created(session.merchantId(), winner.id());
         }
         LOG.info("주문 생성. orderId={} checkoutId={} items={}", orderId, session.id(), items.size());
         LogContext.put(LogContext.ORDER_ID, orderId);
         Audit.event("order.created").after("CREATED").reason("payment_" + paymentStatus.name().toLowerCase(Locale.ROOT))
                 .with("items", items.size()).log();
         events.orderCreated(order);
-        return created(orderId);
+        return created(session.merchantId(), orderId);
     }
 
     /** Core 가 웹훅 유실을 의심할 때 부르는 자리다. 여기가 진실이다(docs/API_SPEC.md). */
-    public OrderView get(String orderId) {
+    public OrderView get(String merchantId, String orderId) {
+        properties.requireMall(merchantId);
         return repository.findById(orderId)
+                // 다른 몰의 주문은 없는 것으로 답한다(393). 존재를 드러내지 않는다.
+                .filter(order -> merchantId.equals(order.merchantId()))
                 .map(this::toView)
                 .orElseThrow(() -> ApiException.orderNotFound(orderId));
     }
@@ -146,8 +149,9 @@ public class OrderService {
                 .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
     }
 
-    private Created created(String orderId) {
-        return new Created(orderId, properties.publicBaseUrl() + "/orders/" + orderId);
+    /** permalink 는 그 몰의 주문 조회 경로다(393, DESIGN.md 3.3절). */
+    private Created created(String merchantId, String orderId) {
+        return new Created(orderId, properties.restEndpoint(merchantId) + "/orders/" + orderId);
     }
 
     private Order toOrder(String orderId, CheckoutSession session, Checkout snapshot) {
@@ -160,6 +164,7 @@ public class OrderService {
                 now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
         return new Order(
                 orderId,
+                session.merchantId(),
                 session.id(),
                 OrderStatus.CREATED,
                 totalOf(session, snapshot),
@@ -195,7 +200,7 @@ public class OrderService {
         List<OrderItem> items = new ArrayList<>();
         for (int i = 0; i < lines.size(); i++) {
             LineItem line = lines.get(i);
-            Product product = catalog.byExternalId(line.item().id())
+            Product product = catalog.byExternalId(session.merchantId(), line.item().id())
                     .orElseThrow(() -> new IllegalStateException(
                             "주문할 상품이 카탈로그에 없다: " + line.item().id()));
             items.add(OrderItem.of(

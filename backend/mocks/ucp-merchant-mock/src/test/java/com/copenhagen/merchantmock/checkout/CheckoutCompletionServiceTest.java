@@ -71,7 +71,7 @@ class CheckoutCompletionServiceTest {
         CatalogStore catalog = new CatalogStore(CatalogFixture::seed);
         catalog.load();
         PaymentService payments = new PaymentService(checkout.repository(), pay, checkout.properties(),
-                new PayProperties("http://pay-service:8080", "test-token", null, null, null, 0), clock);
+                new PayProperties("http://pay-service:8080", "test-token", "", null, null, null, 0), clock);
         OrderService orderService = new OrderService(orders, catalog, checkout.objectMapper(),
                 checkout.properties(), clock, events);
         return new CheckoutCompletionService(checkout.repository(), payments, orderService,
@@ -80,7 +80,7 @@ class CheckoutCompletionServiceTest {
     }
 
     private String readyCheckout() {
-        return checkout.service().create(runningShoesToSeoul(), "checkout-create-complete").id();
+        return checkout.service().create("merchant-a", runningShoesToSeoul(), "checkout-create-complete").id();
     }
 
     private static PaymentResult success(String paymentId) {
@@ -95,13 +95,14 @@ class CheckoutCompletionServiceTest {
         pay.result = success("pay-1");
 
         // when
-        CompleteResult result = service.complete(id, CREDENTIAL);
+        CompleteResult result = service.complete("merchant-a", id, CREDENTIAL);
 
         // then
         assertEquals(id, result.id());
         assertEquals("completed", result.status());
         assertNotNull(result.order().id());
-        assertEquals("http://ucp-merchant-mock:8080/orders/" + result.order().id(), result.order().permalinkUrl());
+        assertEquals("http://ucp-merchant-mock:8080/api/ucp/v1/merchant-a/orders/" + result.order().id(),
+                result.order().permalinkUrl());
         assertEquals("pay-1", result.payment().paymentId());
         assertEquals("SUCCESS", result.payment().status());
         assertNull(result.payment().errorCode());
@@ -123,7 +124,7 @@ class CheckoutCompletionServiceTest {
         pay.result = success("pay-1");
 
         // when
-        service.complete(id, CREDENTIAL);
+        service.complete("merchant-a", id, CREDENTIAL);
 
         // then
         PaymentRequest sent = pay.requests.get(0);
@@ -142,10 +143,10 @@ class CheckoutCompletionServiceTest {
         // given
         String id = readyCheckout();
         pay.result = success("pay-1");
-        CompleteResult first = service.complete(id, CREDENTIAL);
+        CompleteResult first = service.complete("merchant-a", id, CREDENTIAL);
 
         // when
-        CompleteResult second = service.complete(id, CREDENTIAL);
+        CompleteResult second = service.complete("merchant-a", id, CREDENTIAL);
 
         // then
         assertEquals(first, second);
@@ -161,7 +162,7 @@ class CheckoutCompletionServiceTest {
         pay.result = new PaymentResult(PaymentStatus.FAILED, "pay-1", null, "PG_DECLINED", "SHOW_PAYMENT_FAILURE");
 
         // when
-        CompleteResult result = service.complete(id, CREDENTIAL);
+        CompleteResult result = service.complete("merchant-a", id, CREDENTIAL);
 
         // then
         assertEquals("ready_for_complete", result.status());
@@ -179,11 +180,11 @@ class CheckoutCompletionServiceTest {
         // given
         String id = readyCheckout();
         pay.result = new PaymentResult(PaymentStatus.FAILED, null, null, "PG_DECLINED", null);
-        service.complete(id, CREDENTIAL);
+        service.complete("merchant-a", id, CREDENTIAL);
         pay.result = success("pay-2");
 
         // when
-        CompleteResult retry = service.complete(id, "credential-0002");
+        CompleteResult retry = service.complete("merchant-a", id, "credential-0002");
 
         // then
         assertEquals("completed", retry.status());
@@ -199,7 +200,7 @@ class CheckoutCompletionServiceTest {
         pay.result = new PaymentResult(PaymentStatus.UNKNOWN, null, null, "PAY_UNREACHABLE", null);
 
         // when
-        CompleteResult result = service.complete(id, CREDENTIAL);
+        CompleteResult result = service.complete("merchant-a", id, CREDENTIAL);
 
         // then
         assertEquals("complete_in_progress", result.status());
@@ -216,10 +217,10 @@ class CheckoutCompletionServiceTest {
         // given
         String id = readyCheckout();
         pay.result = new PaymentResult(PaymentStatus.UNKNOWN, null, null, "PAY_UNREACHABLE", null);
-        service.complete(id, CREDENTIAL);
+        service.complete("merchant-a", id, CREDENTIAL);
 
         // when
-        CompleteResult again = service.complete(id, CREDENTIAL);
+        CompleteResult again = service.complete("merchant-a", id, CREDENTIAL);
 
         // then
         assertEquals("complete_in_progress", again.status());
@@ -233,7 +234,7 @@ class CheckoutCompletionServiceTest {
         // given
         String id = readyCheckout();
         pay.result = new PaymentResult(PaymentStatus.UNKNOWN, null, null, "PAY_UNREACHABLE", null);
-        service.complete(id, CREDENTIAL);
+        service.complete("merchant-a", id, CREDENTIAL);
 
         // when
         checkout.repository().resolvePayment(id, PaymentStatus.SUCCESS, "pay-late");
@@ -246,7 +247,7 @@ class CheckoutCompletionServiceTest {
         assertTrue(orders.findByCheckoutSessionId(id).isPresent());
         assertEquals(1, events.created.size());
 
-        CompleteResult replay = service.complete(id, CREDENTIAL);
+        CompleteResult replay = service.complete("merchant-a", id, CREDENTIAL);
         assertEquals("completed", replay.status());
         assertEquals("pay-late", replay.payment().paymentId());
         assertEquals(1, pay.requests.size(), "확정 뒤 재요청도 재청구가 아니다");
@@ -258,7 +259,7 @@ class CheckoutCompletionServiceTest {
         // given
         String id = readyCheckout();
         pay.result = new PaymentResult(PaymentStatus.UNKNOWN, null, null, "PAY_UNREACHABLE", null);
-        service.complete(id, CREDENTIAL);
+        service.complete("merchant-a", id, CREDENTIAL);
 
         // when
         checkout.repository().resolvePayment(id, PaymentStatus.FAILED, "pay-late");
@@ -275,10 +276,10 @@ class CheckoutCompletionServiceTest {
         // given
         String id = readyCheckout();
         pay.result = success("pay-1");
-        CompleteResult completed = service.complete(id, CREDENTIAL);
+        CompleteResult completed = service.complete("merchant-a", id, CREDENTIAL);
 
         // when
-        Checkout fetched = checkout.service().get(id);
+        Checkout fetched = checkout.service().get("merchant-a", id);
 
         // then
         assertEquals("completed", fetched.status());
@@ -293,10 +294,10 @@ class CheckoutCompletionServiceTest {
         // given
         String id = readyCheckout();
         pay.result = new PaymentResult(PaymentStatus.UNKNOWN, null, null, "PAY_UNREACHABLE", null);
-        service.complete(id, CREDENTIAL);
+        service.complete("merchant-a", id, CREDENTIAL);
 
         // when
-        Checkout fetched = checkout.service().get(id);
+        Checkout fetched = checkout.service().get("merchant-a", id);
 
         // then
         assertEquals("complete_in_progress", fetched.status());
@@ -308,11 +309,11 @@ class CheckoutCompletionServiceTest {
     @DisplayName("incomplete 체크아웃은 409 CHECKOUT_INCOMPLETE 이고 Pay 를 부르지 않는다")
     void complete_incompleteCheckout_rejectedBeforePay() {
         // given
-        String id = checkout.service().create(request(null, line("product-101", "product-101-270", 1)),
+        String id = checkout.service().create("merchant-a", request(null, line("product-101", "product-101-270", 1)),
                 "checkout-create-incomplete").id();
 
         // when
-        ApiException thrown = assertThrows(ApiException.class, () -> service.complete(id, CREDENTIAL));
+        ApiException thrown = assertThrows(ApiException.class, () -> service.complete("merchant-a", id, CREDENTIAL));
 
         // then
         assertEquals("CHECKOUT_INCOMPLETE", thrown.errorCode());
@@ -326,12 +327,12 @@ class CheckoutCompletionServiceTest {
     @DisplayName("purchase_request_id 없이 만든 체크아웃은 incomplete 라 Complete 도 막힌다(6.4절)")
     void complete_withoutPurchaseRequestId_rejectedBeforePay() {
         // given
-        String id = checkout.service().create(
+        String id = checkout.service().create("merchant-a",
                 requestFor(CheckoutTestSupport.SEOUL, null, line("product-101", "product-101-270", 1)),
                 "checkout-create-no-pr").id();
 
         // when
-        ApiException thrown = assertThrows(ApiException.class, () -> service.complete(id, CREDENTIAL));
+        ApiException thrown = assertThrows(ApiException.class, () -> service.complete("merchant-a", id, CREDENTIAL));
 
         // then
         assertEquals("CHECKOUT_INCOMPLETE", thrown.errorCode());
@@ -343,10 +344,10 @@ class CheckoutCompletionServiceTest {
     void complete_canceledCheckout_rejected() {
         // given
         String id = readyCheckout();
-        checkout.service().cancel(id);
+        checkout.service().cancel("merchant-a", id);
 
         // when
-        ApiException thrown = assertThrows(ApiException.class, () -> service.complete(id, CREDENTIAL));
+        ApiException thrown = assertThrows(ApiException.class, () -> service.complete("merchant-a", id, CREDENTIAL));
 
         // then
         assertEquals("CHECKOUT_NOT_MODIFIABLE", thrown.errorCode());
@@ -363,7 +364,7 @@ class CheckoutCompletionServiceTest {
                 Instant.parse("2026-09-10T04:05:00Z"), ZoneId.of("Asia/Seoul")));
 
         // when
-        ApiException thrown = assertThrows(ApiException.class, () -> later.complete(id, CREDENTIAL));
+        ApiException thrown = assertThrows(ApiException.class, () -> later.complete("merchant-a", id, CREDENTIAL));
 
         // then
         assertEquals("CHECKOUT_EXPIRED", thrown.errorCode());
@@ -377,7 +378,8 @@ class CheckoutCompletionServiceTest {
     @Test
     @DisplayName("없는 체크아웃은 404 다")
     void complete_unknownCheckout_notFound() {
-        ApiException thrown = assertThrows(ApiException.class, () -> service.complete("nope", CREDENTIAL));
+        ApiException thrown = assertThrows(ApiException.class,
+                () -> service.complete("merchant-a", "nope", CREDENTIAL));
 
         assertEquals("CHECKOUT_NOT_FOUND", thrown.errorCode());
         assertTrue(pay.requests.isEmpty());
@@ -390,11 +392,12 @@ class CheckoutCompletionServiceTest {
         String id = readyCheckout();
 
         // when & then
-        ApiException blank = assertThrows(ApiException.class, () -> service.complete(id, " "));
+        ApiException blank = assertThrows(ApiException.class, () -> service.complete("merchant-a", id, " "));
         assertEquals("INVALID_REQUEST", blank.errorCode());
         assertEquals(400, blank.status().value());
 
-        ApiException tooLong = assertThrows(ApiException.class, () -> service.complete(id, "c".repeat(101)));
+        ApiException tooLong = assertThrows(ApiException.class,
+                () -> service.complete("merchant-a", id, "c".repeat(101)));
         assertEquals("INVALID_REQUEST", tooLong.errorCode());
         assertTrue(pay.requests.isEmpty());
         assertEquals(CheckoutStatus.READY_FOR_COMPLETE, checkout.repository().findById(id).orElseThrow().status());
@@ -409,7 +412,7 @@ class CheckoutCompletionServiceTest {
         pay.result = success("pay-1");
 
         // when
-        CompleteResult result = service.complete(id, CREDENTIAL);
+        CompleteResult result = service.complete("merchant-a", id, CREDENTIAL);
 
         // then
         assertEquals("completed", result.status());
@@ -425,7 +428,7 @@ class CheckoutCompletionServiceTest {
         pay.result = success("pay-1");
 
         // when
-        CompleteResult result = service.complete(id, CREDENTIAL);
+        CompleteResult result = service.complete("merchant-a", id, CREDENTIAL);
 
         // then
         assertEquals("completed", result.status());
@@ -441,7 +444,7 @@ class CheckoutCompletionServiceTest {
         pay.result = success("pay-1");
 
         // when
-        service.complete(id, CREDENTIAL);
+        service.complete("merchant-a", id, CREDENTIAL);
 
         // then
         assertTrue(slept.isEmpty());
@@ -459,7 +462,7 @@ class CheckoutCompletionServiceTest {
         }
 
         @Override
-        public PaymentResult lookup(String paymentId) {
+        public PaymentResult lookup(String merchantId, String paymentId) {
             throw new UnsupportedOperationException();
         }
     }

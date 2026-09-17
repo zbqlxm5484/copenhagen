@@ -35,7 +35,16 @@ public class ApiException extends RuntimeException {
                 "상품을 찾을 수 없다: " + productId, null, "RETURN_TO_CART");
     }
 
-    /** 없는 체크아웃. 이어갈 대상이 없으니 처음부터 다시 시작한다. */
+    /**
+     * 경로의 몰이 {@code merchant.malls[]} 에 없다(393, DESIGN.md 3.3절). 부르는 코드의 설정 문제라 {@code nextAction} 은
+     * null 이다 — Core 의 {@code services.merchants[].id} 와 내 몰 id 가 어긋난 것이고 사용자가 할 일이 없다.
+     */
+    public static ApiException merchantNotFound(String merchantId) {
+        return new ApiException("MERCHANT_NOT_FOUND", HttpStatus.NOT_FOUND,
+                "몰을 찾을 수 없다: " + merchantId, null, null);
+    }
+
+    /** 없는 체크아웃. 이어갈 대상이 없으니 처음부터 다시 시작한다. 다른 몰의 체크아웃도 없는 것으로 답한다(393). */
     public static ApiException checkoutNotFound(String checkoutId) {
         return new ApiException("CHECKOUT_NOT_FOUND", HttpStatus.NOT_FOUND,
                 "체크아웃을 찾을 수 없다: " + checkoutId, null, "RETURN_TO_CART");

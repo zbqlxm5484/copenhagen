@@ -73,7 +73,9 @@ class OrderWebhookPublisherTest {
         assertNull(row.signed(), "아직 보내지 않았으니 서명 기록이 없다");
 
         Map<String, Object> payload = objectMapper.readValue(row.payloadJson(), JSON_OBJECT);
-        assertEquals(1, payload.size(), "최상위는 order 하나다");
+        // 393: 어느 몰의 주문인지 merchant_id 가 order 옆에 붙는다.
+        assertEquals(2, payload.size(), "최상위는 merchant_id 와 order 둘이다");
+        assertEquals("merchant-a", payload.get("merchant_id"));
         Map<String, Object> order = objectMapper.readValue(
                 objectMapper.writeValueAsString(payload.get("order")), JSON_OBJECT);
         assertEquals(WebhookTestSupport.ORDER_ID, order.get("id"));

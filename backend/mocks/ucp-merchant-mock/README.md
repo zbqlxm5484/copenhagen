@@ -18,9 +18,22 @@ Core가 UCP REST로 이 모듈을 호출하고, 결제가 필요하면 이 모�
 ./gradlew :mocks:ucp-merchant-mock:build
 ```
 
+## 경로와 몰 세그먼트
+
+컨테이너 하나가 가상 몰 셋을 서빙합니다. 어느 몰인지는 경로의 두 번째 세그먼트가 말합니다. 값은 `application.yml` 의 `merchant.malls[].id` 와 같고, Core 의 `services.merchants[].id`·Pay 토큰 JSON 의 키와 한 문자열이어야 합니다. 모르는 값은 `404 MERCHANT_NOT_FOUND` 입니다.
+
+```
+GET   /api/ucp/v1/{merchantId}/.well-known/ucp
+POST  /api/ucp/v1/{merchantId}/catalog/search | lookup | product
+POST  /api/ucp/v1/{merchantId}/checkout-sessions            GET · PUT · /complete · /cancel
+GET   /api/ucp/v1/{merchantId}/orders/{orderId}
+```
+
+옛 경로 `/.well-known/ucp` 와 `/ucp/v1/**` 는 첫 몰(`merchant-a`)의 별칭으로 살아 있습니다. Core 가 `/ucp/v1/catalog/*` 를 base-url 뒤에 하드코딩하고 Pay 가 `/.well-known/ucp` 를 붙이기 때문이며, 둘이 몰별 주소로 옮기면 지웁니다. `/api/ucp/` 를 Nginx 가 이 컨테이너로 보내는 것은 인프라 몫입니다.
+
 ## 시연 카탈로그와 가상 몰 셋
 
-이 모듈은 플랫폼 바깥의 독립 쇼핑몰을 흉내 냅니다. 시연에서는 같은 이미지를 환경변수만 다르게 셋 띄워 가상 몰 셋(한강마켓 `merchant-a`, 노을상점 `merchant-b`, 별빛몰 `merchant-c`)을 만듭니다. 세 몰이 상품 1,408건 풀을 나눠 갖고, 같은 상품은 몰이 달라도 같은 `productId` 에 몰마다 다른 가격이라 Core 가 가격을 비교할 수 있습니다.
+이 모듈은 플랫폼 바깥의 독립 쇼핑몰을 흉내 냅니다. 시연에서는 컨테이너 하나 안에 가상 몰 셋(한강마켓 `merchant-a`, 노을상점 `merchant-b`, 별빛몰 `merchant-c`)이 들어가고 상품·체크아웃·주문이 `merchant_id` 컬럼으로 갈립니다. 세 몰이 상품 1,408건 풀을 나눠 갖고, 같은 상품은 몰이 달라도 같은 `productId` 에 몰마다 다른 가격이라 Core 가 가격을 비교할 수 있습니다.
 
 몰마다 다른 것은 셋이고 전부 결정적 해시로 정합니다. 취급 여부(몰당 약 78%), 가격(원본의 -10%~+10%, 10원·100원 단위 반올림), 품절(약 5%). 난수를 쓰지 않아 스크립트를 다시 돌려도 같은 파일이 나옵니다.
 

@@ -63,7 +63,8 @@ class JdbcOrderRepositoryPostgresTest {
         postgres.flywayFor(dataSource, schema, null).migrate();
         this.jdbc = postgres.jdbcFor(dataSource);
         this.repository = new JdbcOrderRepository(jdbc);
-        jdbc.update("INSERT INTO checkout_sessions (id, status) VALUES (?, 'READY_FOR_COMPLETE')", CHECKOUT_ID);
+        jdbc.update("INSERT INTO checkout_sessions (id, merchant_id, status) "
+                + "VALUES (?, 'merchant-a', 'READY_FOR_COMPLETE')", CHECKOUT_ID);
     }
 
     @Test
@@ -168,7 +169,7 @@ class JdbcOrderRepositoryPostgresTest {
     }
 
     private static Order order(String id, String checkoutId) {
-        return new Order(id, checkoutId, OrderStatus.CREATED, 92000L, "KRW",
+        return new Order(id, "merchant-a", checkoutId, OrderStatus.CREATED, 92000L, "KRW",
                 "{\"id\":\"" + id + "\",\"status\":\"CREATED\"}",
                 "홍길동", null, "06236", "서울특별시 강남구 테헤란로 1", "101호", 0L, NOW);
     }

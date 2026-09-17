@@ -56,12 +56,12 @@ class PaymentRecheckWorkerTest {
     }
 
     private static PayProperties payProperties() {
-        return new PayProperties("http://pay-service:8080", "test-token", null, null,
+        return new PayProperties("http://pay-service:8080", "test-token", "", null, null,
                 Duration.ofSeconds(30), MAX_ATTEMPTS);
     }
 
     private static PaymentRecheck row(String payPaymentId, int attemptCount) {
-        return new PaymentRecheck("checkout-1", payPaymentId, "cred-1", JWS, 92000L, "KRW", attemptCount);
+        return new PaymentRecheck("checkout-1", "merchant-a", payPaymentId, "cred-1", JWS, 92000L, "KRW", attemptCount);
     }
 
     @Test
@@ -227,7 +227,7 @@ class PaymentRecheckWorkerTest {
     void recheck_noPaymentIdAndNoCredential_cannotAsk() {
         // given. 청구 직전에 죽어 credentialId 가 안 적힌 행
         repository.claimed = List.of(
-                new PaymentRecheck("checkout-1", null, null, JWS, 92000L, "KRW", 1));
+                new PaymentRecheck("checkout-1", "merchant-a", null, null, JWS, 92000L, "KRW", 1));
 
         // when
         worker().recheck();
@@ -255,7 +255,7 @@ class PaymentRecheckWorkerTest {
     void recheck_oneRowThrows_continuesWithRemaining() {
         // given
         repository.claimed = List.of(
-                new PaymentRecheck("checkout-boom", "pay-boom", "cred-1", JWS, 92000L, "KRW", 1),
+                new PaymentRecheck("checkout-boom", "merchant-a", "pay-boom", "cred-1", JWS, 92000L, "KRW", 1),
                 row("pay-2", 1));
         client.failOn = "pay-boom";
         client.result = new PaymentResult(PaymentStatus.SUCCESS, "pay-2", "pg-2", null, null);
@@ -401,7 +401,7 @@ class PaymentRecheckWorkerTest {
         }
 
         @Override
-        public PaymentResult lookup(String paymentId) {
+        public PaymentResult lookup(String merchantId, String paymentId) {
             calls.add("lookup:" + paymentId);
             if (paymentId.equals(failOn)) {
                 throw new IllegalStateException("클라이언트가 약속을 깼다");

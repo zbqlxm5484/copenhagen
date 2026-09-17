@@ -16,9 +16,9 @@ public class JdbcOrderRepository implements OrderRepository {
 
     private static final String INSERT_ORDER = """
             INSERT INTO orders
-                (id, checkout_session_id, status, total_amount, currency, raw_order_json,
+                (id, merchant_id, checkout_session_id, status, total_amount, currency, raw_order_json,
                  recipient_name, recipient_phone, postal_code, address_line1, address_line2)
-            VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?)
             """;
 
     private static final String INSERT_ITEM = """
@@ -28,7 +28,7 @@ public class JdbcOrderRepository implements OrderRepository {
             """;
 
     private static final String SELECT_ORDER = """
-            SELECT id, checkout_session_id, status, total_amount, currency, raw_order_json::text,
+            SELECT id, merchant_id, checkout_session_id, status, total_amount, currency, raw_order_json::text,
                    recipient_name, recipient_phone, postal_code, address_line1, address_line2,
                    version, updated_at
               FROM orders
@@ -36,7 +36,7 @@ public class JdbcOrderRepository implements OrderRepository {
             """;
 
     private static final String SELECT_BY_CHECKOUT = """
-            SELECT id, checkout_session_id, status, total_amount, currency, raw_order_json::text,
+            SELECT id, merchant_id, checkout_session_id, status, total_amount, currency, raw_order_json::text,
                    recipient_name, recipient_phone, postal_code, address_line1, address_line2,
                    version, updated_at
               FROM orders
@@ -52,6 +52,7 @@ public class JdbcOrderRepository implements OrderRepository {
 
     private static final RowMapper<Order> ORDER_MAPPER = (rs, rowNum) -> new Order(
             rs.getString("id"),
+            rs.getString("merchant_id"),
             rs.getString("checkout_session_id"),
             OrderStatus.valueOf(rs.getString("status")),
             rs.getLong("total_amount"),
@@ -90,7 +91,8 @@ public class JdbcOrderRepository implements OrderRepository {
     public boolean insert(Order order, List<OrderItem> items) {
         try {
             jdbcTemplate.update(INSERT_ORDER,
-                    order.id(), order.checkoutSessionId(), order.status().name(), order.totalAmount(),
+                    order.id(), order.merchantId(), order.checkoutSessionId(), order.status().name(),
+                    order.totalAmount(),
                     order.currency(), order.rawOrderJson(), order.recipientName(), order.recipientPhone(),
                     order.postalCode(), order.addressLine1(), order.addressLine2());
         } catch (DuplicateKeyException exception) {

@@ -34,20 +34,20 @@ class BusinessProfileControllerTest {
     @DisplayName("well-known/ucp 는 Profile 을 돌려준다")
     void getProfile_always_returnsUcpProfile() throws Exception {
         // when & then
-        mockMvc.perform(get("/.well-known/ucp"))
+        mockMvc.perform(get("/api/ucp/v1/merchant-a/.well-known/ucp"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("application/json"))
                 .andExpect(jsonPath("$.ucp.version").value("2026-08-25"))
                 .andExpect(jsonPath("$.ucp.services['dev.ucp.shopping'][0].transport").value("rest"))
                 .andExpect(jsonPath("$.ucp.services['dev.ucp.shopping'][0].endpoint")
-                        .value("http://ucp-merchant-mock:8080/ucp/v1"));
+                        .value("http://ucp-merchant-mock:8080/api/ucp/v1/merchant-a"));
     }
 
     @Test
     @DisplayName("payment_handlers 가 snake_case 로 나간다")
     void getProfile_always_writesPaymentHandlersInSnakeCase() throws Exception {
         // when & then
-        mockMvc.perform(get("/.well-known/ucp"))
+        mockMvc.perform(get("/api/ucp/v1/merchant-a/.well-known/ucp"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ucp.payment_handlers['com.copenhagen.pay'][0].id")
                         .value("copenhagen-pay-handler"))
@@ -58,7 +58,7 @@ class BusinessProfileControllerTest {
     @DisplayName("keys 에 공개키가 실리고 개인키 성분은 없다")
     void getProfile_always_exposesPublicKeyOnly() throws Exception {
         // when & then
-        mockMvc.perform(get("/.well-known/ucp"))
+        mockMvc.perform(get("/api/ucp/v1/merchant-a/.well-known/ucp"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.keys[0].kid").value("merchant-a-es256-1"))
                 .andExpect(jsonPath("$.keys[0].crv").value("P-256"))

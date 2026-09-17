@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class CheckoutCancelTest {
 
     private static String cancelableId(Harness harness, String key) {
-        return harness.service().create(runningShoesToSeoul(), key).id();
+        return harness.service().create("merchant-a", runningShoesToSeoul(), key).id();
     }
 
     @Test
@@ -31,7 +31,7 @@ class CheckoutCancelTest {
         Harness harness = harness();
         String id = cancelableId(harness, "checkout-create-1");
 
-        CancelResult result = harness.service().cancel(id);
+        CancelResult result = harness.service().cancel("merchant-a", id);
 
         // then
         assertEquals(id, result.id());
@@ -44,10 +44,10 @@ class CheckoutCancelTest {
         // given & when
         Harness harness = harness();
         String id = cancelableId(harness, "checkout-create-1");
-        harness.service().cancel(id);
+        harness.service().cancel("merchant-a", id);
 
         // then
-        assertEquals("canceled", harness.service().get(id).status());
+        assertEquals("canceled", harness.service().get("merchant-a", id).status());
     }
 
     @Test
@@ -58,7 +58,7 @@ class CheckoutCancelTest {
         String id = cancelableId(harness, "checkout-create-1");
         String before = harness.repository().findById(id).orElseThrow().canonicalCheckout();
 
-        harness.service().cancel(id);
+        harness.service().cancel("merchant-a", id);
 
         CheckoutSession after = harness.repository().findById(id).orElseThrow();
         // then
@@ -73,8 +73,8 @@ class CheckoutCancelTest {
         Harness harness = harness();
         String id = cancelableId(harness, "checkout-create-1");
 
-        CancelResult first = harness.service().cancel(id);
-        CancelResult second = harness.service().cancel(id);
+        CancelResult first = harness.service().cancel("merchant-a", id);
+        CancelResult second = harness.service().cancel("merchant-a", id);
 
         // then
         assertEquals(first, second);
@@ -86,13 +86,13 @@ class CheckoutCancelTest {
     void cancel_incompleteCheckout_succeeds() {
         // given & when
         Harness harness = harness();
-        Checkout created = harness.service().create(
+        Checkout created = harness.service().create("merchant-a",
                 CheckoutTestSupport.request(null, CheckoutTestSupport.line("product-101", "product-101-270", 1)),
                 "checkout-create-1");
         // then
         assertEquals("incomplete", created.status());
 
-        assertEquals("canceled", harness.service().cancel(created.id()).status());
+        assertEquals("canceled", harness.service().cancel("merchant-a", created.id()).status());
     }
 
     @Test
@@ -105,7 +105,7 @@ class CheckoutCancelTest {
         harness.repository().put(current.withStatus(CheckoutStatus.COMPLETED));
 
         // then
-        ApiException e = assertThrows(ApiException.class, () -> harness.service().cancel(id));
+        ApiException e = assertThrows(ApiException.class, () -> harness.service().cancel("merchant-a", id));
 
         assertEquals("CHECKOUT_NOT_MODIFIABLE", e.errorCode());
         assertEquals(409, e.status().value());
@@ -122,7 +122,7 @@ class CheckoutCancelTest {
         harness.repository().put(current.withStatus(CheckoutStatus.COMPLETE_IN_PROGRESS));
 
         // then
-        ApiException e = assertThrows(ApiException.class, () -> harness.service().cancel(id));
+        ApiException e = assertThrows(ApiException.class, () -> harness.service().cancel("merchant-a", id));
 
         assertEquals("CHECKOUT_NOT_MODIFIABLE", e.errorCode());
         assertEquals("complete_in_progress", e.currentState());
@@ -134,11 +134,11 @@ class CheckoutCancelTest {
         // given & when
         Harness harness = harness();
         String id = cancelableId(harness, "checkout-create-1");
-        harness.service().cancel(id);
+        harness.service().cancel("merchant-a", id);
 
         // then
         ApiException e = assertThrows(ApiException.class,
-                () -> harness.service().update(id, runningShoesToSeoul()));
+                () -> harness.service().update("merchant-a", id, runningShoesToSeoul()));
 
         assertEquals("CHECKOUT_NOT_MODIFIABLE", e.errorCode());
         assertEquals("canceled", e.currentState());
@@ -148,7 +148,7 @@ class CheckoutCancelTest {
     @DisplayName("없는 체크아웃 취소는 404 다")
     void cancel_unknownId_throwsCheckoutNotFound() {
         // when & then
-        ApiException e = assertThrows(ApiException.class, () -> harness().service().cancel("nope"));
+        ApiException e = assertThrows(ApiException.class, () -> harness().service().cancel("merchant-a", "nope"));
 
         assertEquals("CHECKOUT_NOT_FOUND", e.errorCode());
         assertEquals(404, e.status().value());

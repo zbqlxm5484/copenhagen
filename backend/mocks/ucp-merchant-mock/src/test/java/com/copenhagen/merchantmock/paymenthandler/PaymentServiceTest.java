@@ -47,7 +47,7 @@ class PaymentServiceTest {
         repository = new RecordingRepository();
         client = new StubPayClient();
         service = new PaymentService(repository, client, MerchantPropertiesFixture.defaults(),
-                new PayProperties("http://pay-service:8080", "test-token", null, null, null, 0),
+                new PayProperties("http://pay-service:8080", "test-token", "", null, null, null, 0),
                 Clock.fixed(NOW, ZoneId.of("Asia/Seoul")));
     }
 
@@ -142,7 +142,7 @@ class PaymentServiceTest {
     }
 
     private static PaymentService.Charge charge() {
-        return new PaymentService.Charge("checkout-1", "sha256:abc", 92000L, "KRW", "cred-1");
+        return new PaymentService.Charge("merchant-a", "checkout-1", "sha256:abc", 92000L, "KRW", "cred-1");
     }
 
     /** 결제 컬럼 둘만 기억하는 저장소. 나머지 메서드는 이 테스트가 부르지 않는다. */
@@ -243,7 +243,7 @@ class PaymentServiceTest {
         RuntimeException failure;
 
         @Override
-        public PaymentResult lookup(String paymentId) {
+        public PaymentResult lookup(String merchantId, String paymentId) {
             throw new UnsupportedOperationException();
         }
 
@@ -274,7 +274,7 @@ class PaymentServiceTest {
 
         try {
             // when
-            service.charge(new PaymentService.Charge("checkout-1", "sha256:abc", 92000L, "KRW", secret));
+            service.charge(new PaymentService.Charge("merchant-a", "checkout-1", "sha256:abc", 92000L, "KRW", secret));
 
             // then
             assertFalse(appender.list.isEmpty(), "청구 한 번에 로그가 남아야 검사가 의미 있다");

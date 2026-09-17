@@ -43,6 +43,7 @@ class JdbcCatalogSeedWriterPostgresTest {
     private static CatalogSeed.Entry entry(String externalId, String title, long basePrice, String variantsJson) {
         return new CatalogSeed.Entry(
                 "aaaaaaaa-0000-4000-8000-00000000000" + externalId.charAt(externalId.length() - 1),
+                "merchant-a",
                 externalId,
                 title,
                 "https://cdn.example.test/" + externalId + ".jpg",
@@ -173,17 +174,17 @@ class JdbcCatalogSeedWriterPostgresTest {
         // 몰 하나가 풀 1,408건의 약 78% 를 갖는다(DESIGN.md 5.7절). 정확한 수는 CatalogSeedFilesTest 가 본다.
         assertTrue(written >= 1000, "적재 " + written + "건");
         // V3 fixture 5건이 그대로 남아 있어야 한다.
-        assertEquals(written + 5, store.all().size());
+        assertEquals(written + 5, store.all("merchant-a").size());
 
-        Product product = store.all().stream()
+        Product product = store.all("merchant-a").stream()
                 .filter(candidate -> candidate.externalId().startsWith("kurly:"))
                 .findFirst()
                 .orElseThrow();
         // jsonb 왕복에서 옵션이 살아남아야 SKU 로 체크아웃을 걸 수 있다.
         assertFalse(product.variants().isEmpty(), product.externalId());
-        assertTrue(store.byExternalId(product.externalId()).isPresent());
+        assertTrue(store.byExternalId("merchant-a", product.externalId()).isPresent());
         String sku = product.variants().get(0).sku();
-        assertTrue(store.bySku(sku).isPresent(), sku);
+        assertTrue(store.bySku("merchant-a", sku).isPresent(), sku);
         assertEquals("KRW", product.currency());
     }
 

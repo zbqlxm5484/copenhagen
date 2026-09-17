@@ -189,7 +189,7 @@ class OrderServiceTest {
         Created created = h.service().create(readyCheckout(), PaymentStatus.SUCCESS);
 
         // when
-        OrderView view = h.service().get(created.id());
+        OrderView view = h.service().get("merchant-a", created.id());
 
         // then
         assertEquals(created.id(), view.id());
@@ -206,13 +206,13 @@ class OrderServiceTest {
         Harness h = harness();
         Created created = h.service().create(readyCheckout(), PaymentStatus.SUCCESS);
         Order stored = h.repository().findById(created.id()).orElseThrow();
-        h.repository().put(new Order(stored.id(), stored.checkoutSessionId(), stored.status(),
+        h.repository().put(new Order(stored.id(), stored.merchantId(), stored.checkoutSessionId(), stored.status(),
                 stored.totalAmount(), stored.currency(), stored.rawOrderJson(), stored.recipientName(),
                 stored.recipientPhone(), stored.postalCode(), stored.addressLine1(), stored.addressLine2(),
                 stored.version(), OffsetDateTime.parse("2026-09-15T07:11:58.900388Z")));
 
         // when
-        OrderView view = h.service().get(created.id());
+        OrderView view = h.service().get("merchant-a", created.id());
 
         // then
         assertEquals("2026-09-15T16:11:58+09:00", view.updatedAt(),
@@ -226,7 +226,7 @@ class OrderServiceTest {
         Harness h = harness();
 
         // when
-        ApiException thrown = assertThrows(ApiException.class, () -> h.service().get("order-없음"));
+        ApiException thrown = assertThrows(ApiException.class, () -> h.service().get("merchant-a", "order-없음"));
 
         // then
         assertEquals("ORDER_NOT_FOUND", thrown.errorCode());
@@ -264,5 +264,20 @@ class OrderServiceTest {
         assertEquals(CHECKOUT_ID, snapshot.checkoutId());
         assertEquals("CREATED", snapshot.status());
         assertEquals(EXPECTED_UPDATED_AT, snapshot.updatedAt());
+    }
+
+    @Test
+    @DisplayName("주문은 체크아웃의 몰을 물려받고 다른 몰의 경로로는 보이지 않는다 (393)")
+    void get_otherMall_isNotFound() {
+        // given
+        Harness h = harness();
+        Created created = h.service().create(readyCheckout(), PaymentStatus.SUCCESS);
+
+        // when & then
+        assertEquals("merchant-a", h.repository().findById(created.id()).orElseThrow().merchantId());
+        assertTrue(created.permalinkUrl().contains("/api/ucp/v1/merchant-a/orders/"), created.permalinkUrl());
+        assertEquals(created.id(), h.service().get("merchant-a", created.id()).id());
+        ApiException other = assertThrows(ApiException.class, () -> h.service().get("merchant-b", created.id()));
+        assertEquals("ORDER_NOT_FOUND", other.errorCode());
     }
 }

@@ -71,8 +71,8 @@ class CheckoutControllerTest {
         CheckoutCompletionService completion = new CheckoutCompletionService(null, null, null, null, null, null,
                 null, null, null) {
             @Override
-            public CompleteResult complete(String checkoutId, String credentialId) {
-                completeCalls.add(checkoutId + ":" + credentialId);
+            public CompleteResult complete(String merchantId, String checkoutId, String credentialId) {
+                completeCalls.add(merchantId + ":" + checkoutId + ":" + credentialId);
                 if (completeFailure != null) {
                     throw completeFailure;
                 }
@@ -89,7 +89,7 @@ class CheckoutControllerTest {
     @DisplayName("ready_for_complete 응답에 merchant_authorization 이 Compact JWS 로 실린다")
     void create_ready_carriesMerchantAuthorization() throws Exception {
         // when & then
-        mockMvc.perform(post("/ucp/v1/checkout-sessions")
+        mockMvc.perform(post("/api/ucp/v1/merchant-a/checkout-sessions")
                         .header("Idempotency-Key", "checkout-create-signed")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(CREATE_BODY))
@@ -109,7 +109,7 @@ class CheckoutControllerTest {
         String body = CREATE_BODY.replace("\"pr-0001\"", "null");
 
         // when & then
-        mockMvc.perform(post("/ucp/v1/checkout-sessions")
+        mockMvc.perform(post("/api/ucp/v1/merchant-a/checkout-sessions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated())
@@ -128,7 +128,7 @@ class CheckoutControllerTest {
                 new PaymentRef("payment-777", "SUCCESS", null));
 
         // when & then
-        mockMvc.perform(post("/ucp/v1/checkout-sessions/{id}/complete", "checkout-1")
+        mockMvc.perform(post("/api/ucp/v1/merchant-a/checkout-sessions/{id}/complete", "checkout-1")
                         .header("Idempotency-Key", "checkout-complete-checkout-1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(COMPLETE_BODY))
@@ -140,7 +140,7 @@ class CheckoutControllerTest {
                 .andExpect(jsonPath("$.payment.paymentId").value("payment-777"))
                 .andExpect(jsonPath("$.payment.status").value("SUCCESS"))
                 .andExpect(jsonPath("$.payment.errorCode").doesNotExist());
-        org.junit.jupiter.api.Assertions.assertEquals(List.of("checkout-1:credential-123"), completeCalls);
+        org.junit.jupiter.api.Assertions.assertEquals(List.of("merchant-a:checkout-1:credential-123"), completeCalls);
     }
 
     @Test
@@ -151,7 +151,7 @@ class CheckoutControllerTest {
                 new PaymentRef("payment-777", "FAILED", "PG_DECLINED"));
 
         // when & then
-        mockMvc.perform(post("/ucp/v1/checkout-sessions/{id}/complete", "checkout-1")
+        mockMvc.perform(post("/api/ucp/v1/merchant-a/checkout-sessions/{id}/complete", "checkout-1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(COMPLETE_BODY))
                 .andExpect(status().isOk())
@@ -168,13 +168,13 @@ class CheckoutControllerTest {
         completeFailure = ApiException.invalidRequest("credentialId 가 필요하다");
 
         // when & then
-        mockMvc.perform(post("/ucp/v1/checkout-sessions/{id}/complete", "checkout-1")
+        mockMvc.perform(post("/api/ucp/v1/merchant-a/checkout-sessions/{id}/complete", "checkout-1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"payment\": {}}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorCode").value("INVALID_REQUEST"))
                 .andExpect(jsonPath("$.nextAction").value(org.hamcrest.Matchers.nullValue()));
-        org.junit.jupiter.api.Assertions.assertEquals(List.of("checkout-1:null"), completeCalls);
+        org.junit.jupiter.api.Assertions.assertEquals(List.of("merchant-a:checkout-1:null"), completeCalls);
     }
 
     @Test
@@ -184,7 +184,7 @@ class CheckoutControllerTest {
         completeFailure = ApiException.checkoutExpired("checkout-1");
 
         // when & then
-        mockMvc.perform(post("/ucp/v1/checkout-sessions/{id}/complete", "checkout-1")
+        mockMvc.perform(post("/api/ucp/v1/merchant-a/checkout-sessions/{id}/complete", "checkout-1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(COMPLETE_BODY))
                 .andExpect(status().isConflict())
@@ -197,7 +197,7 @@ class CheckoutControllerTest {
     @DisplayName("생성은 201 이고 Core 확정본 모양이다")
     void create_validRequest_returns201WithSnakeCaseBody() throws Exception {
         // when & then
-        mockMvc.perform(post("/ucp/v1/checkout-sessions")
+        mockMvc.perform(post("/api/ucp/v1/merchant-a/checkout-sessions")
                         .header("Idempotency-Key", "checkout-create-abc")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(CREATE_BODY))
@@ -228,7 +228,7 @@ class CheckoutControllerTest {
     @DisplayName("배송지 없는 생성은 201 incomplete 와 messages 다")
     void create_noAddress_returns201Incomplete() throws Exception {
         // when & then
-        mockMvc.perform(post("/ucp/v1/checkout-sessions")
+        mockMvc.perform(post("/api/ucp/v1/merchant-a/checkout-sessions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(NO_ADDRESS_BODY))
                 .andExpect(status().isCreated())
@@ -258,7 +258,7 @@ class CheckoutControllerTest {
         String id = createAndReadId("checkout-create-get");
 
         // then
-        mockMvc.perform(get("/ucp/v1/checkout-sessions/{id}", id))
+        mockMvc.perform(get("/api/ucp/v1/merchant-a/checkout-sessions/{id}", id))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(id))
                 .andExpect(jsonPath("$.status").value("ready_for_complete"))
@@ -270,7 +270,7 @@ class CheckoutControllerTest {
     @DisplayName("없는 체크아웃 조회는 404 오류 Envelope 이다")
     void get_unknownId_returns404WithErrorEnvelope() throws Exception {
         // when & then
-        mockMvc.perform(get("/ucp/v1/checkout-sessions/{id}", "nope")
+        mockMvc.perform(get("/api/ucp/v1/merchant-a/checkout-sessions/{id}", "nope")
                         .header("X-Request-Id", "req-404"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.errorCode").value("CHECKOUT_NOT_FOUND"))
@@ -281,7 +281,7 @@ class CheckoutControllerTest {
     @DisplayName("수정은 200 이고 배송지를 채우면 ready_for_complete 다")
     void update_addressAdded_returns200ReadyForComplete() throws Exception {
         // given & when
-        MvcResult created = mockMvc.perform(post("/ucp/v1/checkout-sessions")
+        MvcResult created = mockMvc.perform(post("/api/ucp/v1/merchant-a/checkout-sessions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(NO_ADDRESS_BODY))
                 .andExpect(jsonPath("$.status").value("incomplete"))
@@ -289,7 +289,7 @@ class CheckoutControllerTest {
         String id = readId(created);
 
         // then
-        mockMvc.perform(put("/ucp/v1/checkout-sessions/{id}", id)
+        mockMvc.perform(put("/api/ucp/v1/merchant-a/checkout-sessions/{id}", id)
                         .header("Idempotency-Key", "checkout-update-1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(CREATE_BODY))
@@ -304,7 +304,7 @@ class CheckoutControllerTest {
     @DisplayName("없는 상품으로 생성하면 404 PRODUCT_NOT_FOUND 다")
     void create_unknownProduct_returns404() throws Exception {
         // when & then
-        mockMvc.perform(post("/ucp/v1/checkout-sessions")
+        mockMvc.perform(post("/api/ucp/v1/merchant-a/checkout-sessions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(CREATE_BODY.replace("product-101\"", "product-999\"")))
                 .andExpect(status().isNotFound())
@@ -315,7 +315,7 @@ class CheckoutControllerTest {
     @DisplayName("없는 체크아웃 수정은 404 다")
     void update_unknownId_returns404() throws Exception {
         // when & then
-        mockMvc.perform(put("/ucp/v1/checkout-sessions/{id}", "nope")
+        mockMvc.perform(put("/api/ucp/v1/merchant-a/checkout-sessions/{id}", "nope")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(CREATE_BODY))
                 .andExpect(status().isNotFound())
@@ -329,14 +329,14 @@ class CheckoutControllerTest {
         String id = createAndReadId("checkout-create-1");
 
         // then
-        mockMvc.perform(post("/ucp/v1/checkout-sessions/{id}/cancel", id))
+        mockMvc.perform(post("/api/ucp/v1/merchant-a/checkout-sessions/{id}/cancel", id))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(id))
                 .andExpect(jsonPath("$.status").value("canceled"))
                 .andExpect(jsonPath("$.totals").doesNotExist())
                 .andExpect(jsonPath("$.line_items").doesNotExist());
 
-        mockMvc.perform(get("/ucp/v1/checkout-sessions/{id}", id))
+        mockMvc.perform(get("/api/ucp/v1/merchant-a/checkout-sessions/{id}", id))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("canceled"));
     }
@@ -345,14 +345,14 @@ class CheckoutControllerTest {
     @DisplayName("없는 체크아웃 취소는 404 다")
     void cancel_unknownId_returns404() throws Exception {
         // when & then
-        mockMvc.perform(post("/ucp/v1/checkout-sessions/{id}/cancel", "nope"))
+        mockMvc.perform(post("/api/ucp/v1/merchant-a/checkout-sessions/{id}/cancel", "nope"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.errorCode").value("CHECKOUT_NOT_FOUND"))
                 .andExpect(jsonPath("$.nextAction").value("RETURN_TO_CART"));
     }
 
     private String createAndReadId(String idempotencyKey) throws Exception {
-        MvcResult result = mockMvc.perform(post("/ucp/v1/checkout-sessions")
+        MvcResult result = mockMvc.perform(post("/api/ucp/v1/merchant-a/checkout-sessions")
                         .header("Idempotency-Key", idempotencyKey)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(CREATE_BODY))

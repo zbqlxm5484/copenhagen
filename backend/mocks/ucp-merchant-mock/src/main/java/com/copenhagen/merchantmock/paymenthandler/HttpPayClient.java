@@ -81,7 +81,7 @@ public class HttpPayClient implements PayClient {
         try {
             PaymentResult result = restClient.post()
                     .uri(PAYMENTS_PATH)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.bearerToken())
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.tokenFor(request.merchantId()))
                     .header(IDEMPOTENCY_KEY_HEADER, request.idempotencyKey())
                     .header(REQUEST_ID_HEADER, requestId)
                     .contentType(MediaType.APPLICATION_JSON)
@@ -101,12 +101,12 @@ public class HttpPayClient implements PayClient {
     }
 
     @Override
-    public PaymentResult lookup(String paymentId) {
+    public PaymentResult lookup(String merchantId, String paymentId) {
         String requestId = LogContext.requestIdOrNew();
         try {
             PaymentResult result = restClient.get()
                     .uri(PAYMENTS_PATH + "/{paymentId}", paymentId)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.bearerToken())
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.tokenFor(merchantId))
                     .header(REQUEST_ID_HEADER, requestId)
                     .exchange((httpRequest, response) ->
                             mapLookup(response.getStatusCode(), response.bodyTo(String.class)));

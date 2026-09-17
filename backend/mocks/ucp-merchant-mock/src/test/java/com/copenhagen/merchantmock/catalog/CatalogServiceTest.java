@@ -1,5 +1,6 @@
 package com.copenhagen.merchantmock.catalog;
 
+import com.copenhagen.merchantmock.support.MerchantPropertiesFixture;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,7 +22,7 @@ class CatalogServiceTest {
     private static CatalogService serviceOf(List<Product> products) {
         CatalogStore store = new CatalogStore(() -> products);
         store.load();
-        return new CatalogService(store);
+        return new CatalogService(store, MerchantPropertiesFixture.defaults());
     }
 
     private static List<String> idsOf(CatalogMessages.ItemsResponse response) {
@@ -40,7 +41,7 @@ class CatalogServiceTest {
     void search_blankQuery_returnsAllActiveProducts() {
         // given & when
         CatalogMessages.ItemsResponse response =
-                service.search(new CatalogMessages.SearchRequest("", null));
+                service.search("merchant-a", new CatalogMessages.SearchRequest("", null));
 
         // then
         assertEquals(List.of("product-101", "product-102", "product-103", "product-104"), idsOf(response));
@@ -51,7 +52,7 @@ class CatalogServiceTest {
     void search_partialTitle_returnsMatchingProducts() {
         // given & when
         CatalogMessages.ItemsResponse response =
-                service.search(new CatalogMessages.SearchRequest("러닝화", null));
+                service.search("merchant-a", new CatalogMessages.SearchRequest("러닝화", null));
 
         // then
         assertEquals(List.of("product-101"), idsOf(response));
@@ -61,7 +62,7 @@ class CatalogServiceTest {
     @DisplayName("십만원 이하 러닝화 검색이 시드 상품을 돌려준다")
     void search_priceAndCurrencyFilter_returnsSeededProduct() {
         // given & when
-        CatalogMessages.ItemsResponse response = service.search(new CatalogMessages.SearchRequest(
+        CatalogMessages.ItemsResponse response = service.search("merchant-a", new CatalogMessages.SearchRequest(
                 "러닝화", new CatalogMessages.SearchRequest.Filters(100000L, "KRW")));
 
         // then
@@ -77,7 +78,7 @@ class CatalogServiceTest {
     @DisplayName("상한가를 넘는 상품은 빠진다")
     void search_maxPriceFilter_excludesExpensiveProducts() {
         // given & when
-        CatalogMessages.ItemsResponse response = service.search(new CatalogMessages.SearchRequest(
+        CatalogMessages.ItemsResponse response = service.search("merchant-a", new CatalogMessages.SearchRequest(
                 "", new CatalogMessages.SearchRequest.Filters(100000L, null)));
 
         // then
@@ -88,7 +89,7 @@ class CatalogServiceTest {
     @DisplayName("통화가 다르면 빠진다")
     void search_otherCurrency_returnsEmpty() {
         // given & when
-        CatalogMessages.ItemsResponse response = service.search(new CatalogMessages.SearchRequest(
+        CatalogMessages.ItemsResponse response = service.search("merchant-a", new CatalogMessages.SearchRequest(
                 "", new CatalogMessages.SearchRequest.Filters(null, "USD")));
 
         // then
@@ -100,7 +101,7 @@ class CatalogServiceTest {
     void search_noMatch_returnsEmpty() {
         // given & when
         CatalogMessages.ItemsResponse response =
-                service.search(new CatalogMessages.SearchRequest("없는상품", null));
+                service.search("merchant-a", new CatalogMessages.SearchRequest("없는상품", null));
 
         // then
         assertTrue(response.items().isEmpty());
@@ -111,7 +112,7 @@ class CatalogServiceTest {
     void search_discontinuedProduct_returnsEmpty() {
         // given & when
         CatalogMessages.ItemsResponse response =
-                service.search(new CatalogMessages.SearchRequest("백팩", null));
+                service.search("merchant-a", new CatalogMessages.SearchRequest("백팩", null));
 
         // then
         assertTrue(response.items().isEmpty());
@@ -124,7 +125,7 @@ class CatalogServiceTest {
         CatalogService soldOutService = serviceOf(List.of(CatalogFixture.soldOut()));
 
         CatalogMessages.ItemsResponse response =
-                soldOutService.search(new CatalogMessages.SearchRequest("", null));
+                soldOutService.search("merchant-a", new CatalogMessages.SearchRequest("", null));
 
         // then
         assertEquals("OUT_OF_STOCK", response.items().get(0).availability());
@@ -134,7 +135,7 @@ class CatalogServiceTest {
     @DisplayName("일괄조회는 요청한 순서로 돌려준다")
     void lookup_multipleIds_keepsRequestedOrder() {
         // given & when
-        CatalogMessages.ItemsResponse response = service.lookup(
+        CatalogMessages.ItemsResponse response = service.lookup("merchant-a",
                 new CatalogMessages.LookupRequest(List.of("product-103", "product-101")));
 
         // then
@@ -145,7 +146,7 @@ class CatalogServiceTest {
     @DisplayName("일괄조회에서 없는 ID 는 조용히 빠진다")
     void lookup_unknownId_dropsItSilently() {
         // given & when
-        CatalogMessages.ItemsResponse response = service.lookup(
+        CatalogMessages.ItemsResponse response = service.lookup("merchant-a",
                 new CatalogMessages.LookupRequest(List.of("product-101", "product-999", "product-105")));
 
         // then
@@ -156,9 +157,9 @@ class CatalogServiceTest {
     @DisplayName("일괄조회에 빈 목록을 주면 빈 배열이다")
     void lookup_emptyRequest_returnsEmpty() {
         // when & then
-        assertTrue(service.lookup(new CatalogMessages.LookupRequest(List.of())).items().isEmpty());
-        assertTrue(service.lookup(new CatalogMessages.LookupRequest(null)).items().isEmpty());
-        assertTrue(service.lookup(null).items().isEmpty());
+        assertTrue(service.lookup("merchant-a", new CatalogMessages.LookupRequest(List.of())).items().isEmpty());
+        assertTrue(service.lookup("merchant-a", new CatalogMessages.LookupRequest(null)).items().isEmpty());
+        assertTrue(service.lookup("merchant-a", null).items().isEmpty());
     }
 
     @Test
@@ -166,7 +167,7 @@ class CatalogServiceTest {
     void product_existingId_groupsOptions() {
         // given & when
         CatalogMessages.ProductDetail detail =
-                service.product(new CatalogMessages.ProductRequest("product-101"));
+                service.product("merchant-a", new CatalogMessages.ProductRequest("product-101"));
 
         // then
         assertEquals("product-101", detail.productId());
@@ -182,7 +183,7 @@ class CatalogServiceTest {
     void product_soldOutVariant_isHidden() {
         // given & when
         CatalogMessages.ProductDetail detail =
-                service.product(new CatalogMessages.ProductRequest("product-101"));
+                service.product("merchant-a", new CatalogMessages.ProductRequest("product-101"));
 
         List<String> skus = detail.options().get(0).values().stream()
                 .map(CatalogMessages.OptionValue::optionValueId).toList();
@@ -196,7 +197,7 @@ class CatalogServiceTest {
     void product_multipleOptionGroups_splitsByName() {
         // given & when
         CatalogMessages.ProductDetail detail =
-                service.product(new CatalogMessages.ProductRequest("product-103"));
+                service.product("merchant-a", new CatalogMessages.ProductRequest("product-103"));
 
         // then
         assertEquals(1, detail.options().size());
@@ -209,7 +210,7 @@ class CatalogServiceTest {
     void product_unknownId_throwsProductNotFound() {
         // when & then
         ApiException thrown = assertThrows(ApiException.class,
-                () -> service.product(new CatalogMessages.ProductRequest("product-999")));
+                () -> service.product("merchant-a", new CatalogMessages.ProductRequest("product-999")));
 
         assertEquals("PRODUCT_NOT_FOUND", thrown.errorCode());
         assertEquals(404, thrown.status().value());
@@ -220,7 +221,7 @@ class CatalogServiceTest {
     void product_discontinuedId_throwsProductNotFound() {
         // when & then
         ApiException thrown = assertThrows(ApiException.class,
-                () -> service.product(new CatalogMessages.ProductRequest("product-105")));
+                () -> service.product("merchant-a", new CatalogMessages.ProductRequest("product-105")));
 
         assertEquals("PRODUCT_NOT_FOUND", thrown.errorCode());
     }
@@ -229,8 +230,28 @@ class CatalogServiceTest {
     @DisplayName("productId 가 비면 PRODUCT_NOT_FOUND 다")
     void product_blankId_throwsProductNotFound() {
         // when & then
-        assertThrows(ApiException.class, () -> service.product(new CatalogMessages.ProductRequest("")));
-        assertThrows(ApiException.class, () -> service.product(new CatalogMessages.ProductRequest(null)));
-        assertThrows(ApiException.class, () -> service.product(null));
+        assertThrows(ApiException.class, () -> service.product("merchant-a", new CatalogMessages.ProductRequest("")));
+        assertThrows(ApiException.class, () -> service.product("merchant-a", new CatalogMessages.ProductRequest(null)));
+        assertThrows(ApiException.class, () -> service.product("merchant-a", null));
+    }
+
+    @Test
+    @DisplayName("다른 몰에서는 그 상품이 보이지 않고, 모르는 몰은 404 MERCHANT_NOT_FOUND 다")
+    void search_otherOrUnknownMall_isScoped() {
+        // given: 시드는 전부 merchant-a 다
+        CatalogMessages.SearchRequest all = new CatalogMessages.SearchRequest("", null);
+
+        // when & then: merchant-b 는 등록된 몰이지만 상품이 없다
+        assertTrue(service.search("merchant-b", all).items().isEmpty());
+        assertTrue(service.lookup("merchant-b", new CatalogMessages.LookupRequest(List.of("product-101"))).items()
+                .isEmpty());
+        ApiException notInMall = assertThrows(ApiException.class,
+                () -> service.product("merchant-b", new CatalogMessages.ProductRequest("product-101")));
+        assertEquals("PRODUCT_NOT_FOUND", notInMall.errorCode());
+
+        // 모르는 몰은 상품을 보기 전에 거절한다
+        ApiException unknown = assertThrows(ApiException.class, () -> service.search("merchant-z", all));
+        assertEquals("MERCHANT_NOT_FOUND", unknown.errorCode());
+        assertEquals(404, unknown.status().value());
     }
 }

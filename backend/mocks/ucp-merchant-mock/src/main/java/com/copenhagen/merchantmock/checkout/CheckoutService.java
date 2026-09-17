@@ -49,21 +49,22 @@ public class CheckoutService {
         this.objectMapper = objectMapper;
     }
 
-    public Checkout create(CheckoutRequest request, String idempotencyKey) {
+    public Checkout create(String merchantId, CheckoutRequest request, String idempotencyKey) {
+        merchant.requireMall(merchantId);
         String id = CheckoutIds.fromIdempotencyKey(idempotencyKey);
         LogContext.put(LogContext.CHECKOUT_ID, id);
         Optional<CheckoutSession> existing = repository.findById(id);
         if (existing.isPresent()) {
             LOG.info("체크아웃 생성 재시도. 기존 행 반환. id={}", id);
-            return snapshotOf(existing.get());
+            return snapshotOf(inMall(existing.get(), merchantId));
         }
 
-        CheckoutEvaluator.Evaluation evaluation = evaluator.evaluate(id, request, Optional.empty());
-        Checkout checkout = signIfReady(id, request, evaluation);
-        CheckoutSession session = toSession(id, request, evaluation, checkout, 0L);
+        CheckoutEvaluator.Evaluation evaluation = evaluator.evaluate(merchantId, id, request, Optional.empty());
+        Checkout checkout = signIfReady(merchantId, id, request, evaluation);
+        CheckoutSession session = toSession(id, merchantId, request, evaluation, checkout, 0L);
         if (!repository.insert(session)) {
             LOG.info("체크아웃 생성 경합. 기존 행 반환. id={}", id);
-            return repository.findById(id).map(this::snapshotOf)
+            return repository.findById(id).map(found -> snapshotOf(inMall(found, merchantId)))
                     .orElseThrow(() -> ApiException.checkoutNotFound(id));
         }
         LOG.info("체크아웃 생성. id={} status={}", id, evaluation.status());
@@ -71,25 +72,23 @@ public class CheckoutService {
         return checkout;
     }
 
-    public Checkout get(String checkoutId) {
+    public Checkout get(String merchantId, String checkoutId) {
         LogContext.put(LogContext.CHECKOUT_ID, checkoutId);
-        return repository.findById(checkoutId)
-                .map(this::snapshotOf)
-                .orElseThrow(() -> ApiException.checkoutNotFound(checkoutId));
+        return snapshotOf(find(merchantId, checkoutId));
     }
 
-    public Checkout update(String checkoutId, CheckoutRequest request) {
+    public Checkout update(String merchantId, String checkoutId, CheckoutRequest request) {
         LogContext.put(LogContext.CHECKOUT_ID, checkoutId);
-        CheckoutSession current = repository.findById(checkoutId)
-                .orElseThrow(() -> ApiException.checkoutNotFound(checkoutId));
+        CheckoutSession current = find(merchantId, checkoutId);
         if (!current.status().modifiable()) {
             throw ApiException.checkoutNotModifiable(checkoutId, current.status());
         }
 
         Checkout previous = snapshotOf(current);
-        CheckoutEvaluator.Evaluation evaluation = evaluator.evaluate(checkoutId, request, Optional.of(previous));
-        Checkout checkout = signIfReady(checkoutId, request, evaluation);
-        CheckoutSession next = toSession(checkoutId, request, evaluation, checkout, current.version());
+        CheckoutEvaluator.Evaluation evaluation = evaluator.evaluate(merchantId, checkoutId, request,
+                Optional.of(previous));
+        Checkout checkout = signIfReady(merchantId, checkoutId, request, evaluation);
+        CheckoutSession next = toSession(checkoutId, merchantId, request, evaluation, checkout, current.version());
         if (!repository.update(next, current.version())) {
             throw ApiException.checkoutNotModifiable(checkoutId, current.status());
         }
@@ -105,13 +104,14 @@ public class CheckoutService {
      * <p>claim 은 여섯이다. {@code amountMinor} 는 totals 의 total, {@code exp} 는 expires_at. 감사에는 kid 만
      * 남기고 JWS 원문은 남기지 않는다(18.10). 아니면 판정 결과를 그대로 돌려준다.
      */
-    private Checkout signIfReady(String id, CheckoutRequest request, CheckoutEvaluator.Evaluation evaluation) {
+    private Checkout signIfReady(String merchantId, String id, CheckoutRequest request,
+            CheckoutEvaluator.Evaluation evaluation) {
         Checkout checkout = evaluation.checkout();
         if (evaluation.status() != CheckoutStatus.READY_FOR_COMPLETE) {
             return checkout;
         }
         String jws = signer.sign(new MerchantAuthorizationSigner.Claims(
-                merchant.id(),
+                merchantId,
                 id,
                 request.purchaseRequestId(),
                 checkout.totalAmount(),
@@ -130,10 +130,9 @@ public class CheckoutService {
      * <p>멱등 키가 {@code checkout-cancel-{checkoutId}} 로 id 에서 나오므로 같은 키의 재시도가 곧 재취소다.
      * 그것을 409 로 막으면 Core 가 재시도할 방법이 없어진다.
      */
-    public CancelResult cancel(String checkoutId) {
+    public CancelResult cancel(String merchantId, String checkoutId) {
         LogContext.put(LogContext.CHECKOUT_ID, checkoutId);
-        CheckoutSession current = repository.findById(checkoutId)
-                .orElseThrow(() -> ApiException.checkoutNotFound(checkoutId));
+        CheckoutSession current = find(merchantId, checkoutId);
         if (current.status() == CheckoutStatus.CANCELED) {
             LOG.info("체크아웃 취소 재시도. 상태 재생. id={}", checkoutId);
             return canceled(checkoutId);
@@ -169,8 +168,22 @@ public class CheckoutService {
         return new CancelResult(checkoutId, CheckoutStatus.CANCELED.apiValue());
     }
 
+    /** 경로의 몰과 행의 몰이 다르면 없는 것으로 답한다(393, DESIGN.md 3.3절). 다른 몰의 존재를 드러내지 않는다. */
+    private CheckoutSession find(String merchantId, String checkoutId) {
+        merchant.requireMall(merchantId);
+        return inMall(repository.findById(checkoutId)
+                .orElseThrow(() -> ApiException.checkoutNotFound(checkoutId)), merchantId);
+    }
+
+    private static CheckoutSession inMall(CheckoutSession session, String merchantId) {
+        if (!merchantId.equals(session.merchantId())) {
+            throw ApiException.checkoutNotFound(session.id());
+        }
+        return session;
+    }
+
     /** @param checkout 서명까지 얹은 응답. 이 JSON 이 그대로 {@code canonical_checkout} 이 된다. */
-    private CheckoutSession toSession(String id, CheckoutRequest request,
+    private CheckoutSession toSession(String id, String merchantId, CheckoutRequest request,
             CheckoutEvaluator.Evaluation evaluation, Checkout checkout, long version) {
         long total = checkout.totalAmount();
         boolean hasAddress = request != null && request.fulfillment() != null
@@ -181,6 +194,7 @@ public class CheckoutService {
                 ? null : objectMapper.writeValueAsString(evaluation.lineSkus());
         return new CheckoutSession(
                 id,
+                merchantId,
                 evaluation.status(),
                 checkout.currency(),
                 total,

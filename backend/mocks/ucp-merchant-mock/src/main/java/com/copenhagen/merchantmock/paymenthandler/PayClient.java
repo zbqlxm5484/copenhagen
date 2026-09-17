@@ -14,6 +14,8 @@ public interface PayClient {
     /**
      * {@code GET /merchant/v1/payments/{paymentId}}. 183 워커가 {@code paymentId} 를 아는 UNKNOWN 을 확인할 때
      * 쓴다(DESIGN.md 8.8절). {@code charge} 와 같은 약속이다 — 전송 실패에 예외를 던지지 않고 UNKNOWN 을 준다.
+     *
+     * @param merchantId 어느 몰의 토큰으로 물어보나(393). Pay 는 토큰의 몰과 결제의 몰이 다르면 거절한다
      */
-    PaymentResult lookup(String paymentId);
+    PaymentResult lookup(String merchantId, String paymentId);
 }
