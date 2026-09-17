@@ -14,6 +14,8 @@ services:
         condition: service_healthy
       pay-service:
         condition: service_healthy
+      pg-mock:
+        condition: service_healthy
     restart: unless-stopped
 
   core-service:
