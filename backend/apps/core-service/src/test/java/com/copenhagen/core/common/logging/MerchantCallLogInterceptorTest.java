@@ -57,6 +57,22 @@ class MerchantCallLogInterceptorTest {
     }
 
     @Test
+    @DisplayName("Platform Profile URI가 있으면 UCP-Agent 헤더로 함께 전달한다")
+    void intercept_withPlatformProfile_sendsUcpAgent() {
+        RestClient.Builder profileBuilder = RestClient.builder()
+                .requestInterceptor(new MerchantCallLogInterceptor("merchant-a", "https://core.example/.well-known/ucp"));
+        MockRestServiceServer profileServer = MockRestServiceServer.bindTo(profileBuilder).build();
+        RestClient profileClient = profileBuilder.build();
+        profileServer.expect(requestTo("/catalog/search"))
+                .andExpect(header("UCP-Agent", "profile=\"https://core.example/.well-known/ucp\""))
+                .andRespond(withSuccess("{\"items\":[]}", MediaType.APPLICATION_JSON));
+
+        profileClient.post().uri("/catalog/search").body("{}").retrieve().toBodilessEntity();
+
+        profileServer.verify();
+    }
+
+    @Test
     @DisplayName("호출 결과를 target·method·path·status와 함께 한 줄 남긴다")
     void intercept_success_writesLine() {
         server.expect(requestTo("/ucp/v1/catalog/product"))

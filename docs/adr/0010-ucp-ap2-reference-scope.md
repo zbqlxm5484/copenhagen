@@ -58,11 +58,11 @@ Cart는 UCP에서 사용할 수 있는 capability이지만 프로젝트의 최�
 
 "부분 적용"이라는 결정만으로는 **스펙이 강제하는 항목과 우리가 선택한 항목이 구분되지 않는다.** 다음은 아직 **확정되지 않았고 팀이 결정해야 하는 항목**이다.
 
-### 1. UCP 스펙 버전 pin (미결정)
+### 1. UCP 스펙 버전 pin (해결)
 
-현재 `2026-01-23`과 `2026-04-08` 두 버전이 공개되어 있고, `용어정의.md`는 2026년 1월 공개를 기준으로 서술한다. technical-flow와 ADR이 **어느 버전을 기준으로 하는지 명시되어 있지 않다.**
-
-버전을 확정한 뒤 아래 항목의 요구 수준(MUST / SHOULD / MAY)을 재확인해야 한다.
+Merchant Mock의 Business Profile 구현과 맞춰 `2026-08-25`로 고정한다. Core Platform Profile,
+Merchant Profile Discovery, Capability Negotiation은 이 버전이 정확히 일치할 때만 활성화한다.
+기존 `2026-01-23`·`2026-04-08` 참고 링크는 설계 비교용이며 구현 계약의 기준이 아니다.
 
 ### 2. 준수 / 이탈 매트릭스 작성 (미착수)
 
@@ -74,7 +74,7 @@ Cart는 UCP에서 사용할 수 있는 capability이지만 프로젝트의 최�
 |---|---|---|---|
 | `Idempotency-Key` 헤더 | 필수 | 사용 (ADR-0009) | 준수 |
 | `Request-Id` 헤더 | 필수 | 미도입 | **이탈 — 결정 필요** |
-| `UCP-Agent` 헤더 | 필수 | Platform Profile 전달에 사용 | 확인 필요 |
+| `UCP-Agent` 헤더 | 필수 | Core가 모든 Merchant 호출에 Platform Profile URI를 전달 | 구현 예정 (409) |
 | Complete body `payment.instruments` | 배열 | `instrument` 단수 | **이탈 — 결정 필요 (ADR-0007)** |
 | `handler_id` | 존재 | 없음 | **이탈 — 결정 필요 (ADR-0007)** |
 | `credential` 내용 | `{ type, token }` | `{ credentialId }` | **이탈 — 결정 필요 (ADR-0007)** |
@@ -109,3 +109,4 @@ MVP에서는 Checkout Mandate-like를 Complete 요청에 추가하지 않고, Pa
 | 2026-09-08 | 최초 기록 |
 | 2026-09-09 | References 절 신설. Required Follow-up 절을 신설하여 스펙 버전 pin, 준수/이탈 매트릭스, AP2 Mandate 적용 범위를 미결정 항목으로 명시. **결정 내용은 변경 없음.** |
 | 2026-09-09 | Status를 `Accepted`에서 `Proposed — 논의 필요`로 변경. 팀 논의 전 초안임을 명시. |
+| 2026-09-18 | Merchant Mock 구현과 맞춰 UCP version을 `2026-08-25`로 pin. Core Profile의 Order Webhook 경로를 `/webhooks/v1/ucp/orders`로 확정. |

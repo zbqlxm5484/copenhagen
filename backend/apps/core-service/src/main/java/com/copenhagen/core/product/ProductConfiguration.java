@@ -6,21 +6,20 @@ import java.util.Map;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.client.RestClient;
-
-import com.copenhagen.core.common.merchant.MerchantRestClients;
+import com.copenhagen.core.ucp.CoreUcpProperties;
+import com.copenhagen.core.ucp.MerchantProfileDirectory;
 
 @Configuration
-@EnableConfigurationProperties(MerchantsProperties.class)
+@EnableConfigurationProperties({MerchantsProperties.class, CoreUcpProperties.class})
 public class ProductConfiguration {
 
     @Bean
-    public Map<String, MerchantCatalogClient> merchantCatalogClients(MerchantsProperties properties) {
+    public Map<String, MerchantCatalogClient> merchantCatalogClients(
+            MerchantsProperties properties, MerchantProfileDirectory directory, CoreUcpProperties ucpProperties) {
         Map<String, MerchantCatalogClient> clients = new LinkedHashMap<>();
         for (MerchantsProperties.MerchantConfig config : properties.merchants()) {
-            RestClient restClient = MerchantRestClients.create(config);
             clients.put(config.id(), new MerchantCatalogClient(
-                    config.id(), config.displayName(), config.baseUrl().toString(), restClient));
+                    config, directory, ucpProperties.profileUrl()));
         }
         return Map.copyOf(clients);
     }

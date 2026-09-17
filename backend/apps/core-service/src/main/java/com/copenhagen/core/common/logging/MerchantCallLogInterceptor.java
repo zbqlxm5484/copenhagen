@@ -22,9 +22,15 @@ public class MerchantCallLogInterceptor implements ClientHttpRequestInterceptor 
     private static final String EVENT = "http.client";
 
     private final String target;
+    private final String platformProfileUrl;
 
     public MerchantCallLogInterceptor(String target) {
+        this(target, null);
+    }
+
+    public MerchantCallLogInterceptor(String target, String platformProfileUrl) {
         this.target = target;
+        this.platformProfileUrl = platformProfileUrl;
     }
 
     @Override
@@ -33,6 +39,9 @@ public class MerchantCallLogInterceptor implements ClientHttpRequestInterceptor 
             byte[] body,
             ClientHttpRequestExecution execution) throws IOException {
         request.getHeaders().set(CoreRequestIdFilter.HEADER, CoreLogContext.requestIdOrNew());
+        if (platformProfileUrl != null) {
+            request.getHeaders().set("UCP-Agent", "profile=\"" + platformProfileUrl + "\"");
+        }
         long startedAt = System.nanoTime();
         try {
             ClientHttpResponse response = execution.execute(request, body);

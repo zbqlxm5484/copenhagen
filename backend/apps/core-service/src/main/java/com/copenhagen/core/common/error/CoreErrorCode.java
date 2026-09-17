@@ -124,6 +124,26 @@ public enum CoreErrorCode {
             "MERCHANT_CHECKOUT_UNAVAILABLE",
             "판매자 주문 서비스에 일시적으로 연결할 수 없습니다.",
             "RETRY_LATER"),
+    MERCHANT_PROFILE_UNAVAILABLE(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "MERCHANT_PROFILE_UNAVAILABLE",
+            "판매자 프로필을 조회할 수 없습니다.",
+            "RETRY_LATER"),
+    MERCHANT_PROFILE_INVALID(
+            HttpStatus.BAD_GATEWAY,
+            "MERCHANT_PROFILE_INVALID",
+            "판매자 프로필 형식이 올바르지 않습니다.",
+            "CONTACT_MERCHANT"),
+    MERCHANT_UCP_VERSION_UNSUPPORTED(
+            HttpStatus.BAD_GATEWAY,
+            "MERCHANT_UCP_VERSION_UNSUPPORTED",
+            "지원하지 않는 판매자 UCP 버전입니다.",
+            "CONTACT_MERCHANT"),
+    MERCHANT_CAPABILITY_UNAVAILABLE(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "MERCHANT_CAPABILITY_UNAVAILABLE",
+            "판매자가 필요한 기능을 지원하지 않습니다.",
+            "CHOOSE_OTHER_MERCHANT"),
     AGENT_CONNECTION_NOT_FOUND(
             HttpStatus.NOT_FOUND,
             "AGENT_CONNECTION_NOT_FOUND",

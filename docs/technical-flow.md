@@ -85,6 +85,8 @@ Pay의 승인·결제 상태는 DB 제약조건과 애플리케이션 전이 검
 
 Core와 Merchant는 거래 시작 전 서로 지원하는 UCP 기능을 확인한다.
 
+이 흐름에서 사용하는 UCP version은 Merchant Mock과 동일한 `2026-08-25`로 고정한다.
+
 ## 2.1 Merchant Profile Discovery
 
 Core는 Merchant의 UCP Business Profile을 조회한다.
@@ -440,7 +442,7 @@ Merchant는 Order 상태가 변경되면 Core가 Platform Profile에 제공한 O
 ```text
 Merchant
  ↓
-POST Core /webhooks/ucp/orders
+POST Core /webhooks/v1/ucp/orders
  ↓
 Core
 ```
