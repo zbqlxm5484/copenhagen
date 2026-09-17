@@ -1,5 +1,7 @@
 package com.copenhagen.core.common.merchant;
 
+import java.net.URI;
+
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
@@ -16,13 +18,18 @@ public final class MerchantRestClients {
     }
 
     public static RestClient create(MerchantsProperties.MerchantConfig config) {
+        return create(config, config.baseUrl(), null);
+    }
+
+    public static RestClient create(
+            MerchantsProperties.MerchantConfig config, URI endpoint, String platformProfileUrl) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(config.connectTimeout());
         factory.setReadTimeout(config.requestTimeout());
         return RestClient.builder()
-                .baseUrl(config.baseUrl().toString())
+                .baseUrl(endpoint.toString())
                 .requestFactory(factory)
-                .requestInterceptor(new MerchantCallLogInterceptor(config.id()))
+                .requestInterceptor(new MerchantCallLogInterceptor(config.id(), platformProfileUrl))
                 .build();
     }
 }

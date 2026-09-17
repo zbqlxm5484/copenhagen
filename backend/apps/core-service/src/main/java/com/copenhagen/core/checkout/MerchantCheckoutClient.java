@@ -10,6 +10,9 @@ import com.copenhagen.core.checkout.MerchantCheckoutMessages.Checkout;
 import com.copenhagen.core.checkout.MerchantCheckoutMessages.CheckoutRequest;
 import com.copenhagen.core.common.error.CoreErrorCode;
 import com.copenhagen.core.common.error.CoreException;
+import com.copenhagen.core.common.merchant.MerchantRestClients;
+import com.copenhagen.core.product.MerchantsProperties;
+import com.copenhagen.core.ucp.MerchantProfileDirectory;
 
 /**
  * Merchant Checkout(UCP {@code /ucp/v1/checkout-sessions}) 전용 경계. merchant 하나당 인스턴스 하나다.
@@ -26,10 +29,25 @@ public class MerchantCheckoutClient {
 
     private final String merchantId;
     private final RestClient restClient;
+    private final MerchantsProperties.MerchantConfig config;
+    private final MerchantProfileDirectory directory;
+    private final String platformProfileUrl;
 
     public MerchantCheckoutClient(String merchantId, RestClient restClient) {
         this.merchantId = merchantId;
         this.restClient = restClient;
+        this.config = null;
+        this.directory = null;
+        this.platformProfileUrl = null;
+    }
+
+    public MerchantCheckoutClient(
+            MerchantsProperties.MerchantConfig config, MerchantProfileDirectory directory, String platformProfileUrl) {
+        this.merchantId = config.id();
+        this.restClient = null;
+        this.config = config;
+        this.directory = directory;
+        this.platformProfileUrl = platformProfileUrl;
     }
 
     public String merchantId() {
@@ -38,8 +56,8 @@ public class MerchantCheckoutClient {
 
     public Checkout create(CheckoutRequest request, String idempotencyKey) {
         try {
-            return restClient.post()
-                    .uri(CHECKOUT_SESSIONS_PATH)
+            return client().post()
+                    .uri(directory == null ? CHECKOUT_SESSIONS_PATH : "/checkout-sessions")
                     .header(IDEMPOTENCY_KEY_HEADER, idempotencyKey)
                     .body(request)
                     .retrieve()
@@ -56,5 +74,13 @@ public class MerchantCheckoutClient {
                     CoreErrorCode.MERCHANT_CHECKOUT_UNAVAILABLE.defaultNextAction(),
                     exception);
         }
+    }
+
+    private RestClient client() {
+        if (directory == null) {
+            return restClient;
+        }
+        return MerchantRestClients.create(
+                config, directory.endpoint(config, "dev.ucp.shopping.checkout"), platformProfileUrl);
     }
 }

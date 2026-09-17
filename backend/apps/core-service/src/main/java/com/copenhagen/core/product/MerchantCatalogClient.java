@@ -10,6 +10,8 @@ import org.springframework.web.client.RestClientException;
 
 import com.copenhagen.core.common.error.CoreErrorCode;
 import com.copenhagen.core.common.error.CoreException;
+import com.copenhagen.core.common.merchant.MerchantRestClients;
+import com.copenhagen.core.ucp.MerchantProfileDirectory;
 
 /**
  * Merchant Catalog(UCP {@code /ucp/v1/catalog/*}) 전용 경계. merchant 하나당 인스턴스 하나(자기 자신의
@@ -26,12 +28,29 @@ class MerchantCatalogClient {
     private final String merchantName;
     private final String baseUrl;
     private final RestClient restClient;
+    private final MerchantsProperties.MerchantConfig config;
+    private final MerchantProfileDirectory directory;
+    private final String platformProfileUrl;
 
     MerchantCatalogClient(String merchantId, String merchantName, String baseUrl, RestClient restClient) {
         this.merchantId = merchantId;
         this.merchantName = merchantName;
         this.baseUrl = baseUrl;
         this.restClient = restClient;
+        this.config = null;
+        this.directory = null;
+        this.platformProfileUrl = null;
+    }
+
+    MerchantCatalogClient(
+            MerchantsProperties.MerchantConfig config, MerchantProfileDirectory directory, String platformProfileUrl) {
+        this.merchantId = config.id();
+        this.merchantName = config.displayName();
+        this.baseUrl = config.baseUrl().toString();
+        this.restClient = null;
+        this.config = config;
+        this.directory = directory;
+        this.platformProfileUrl = platformProfileUrl;
     }
 
     String merchantId() {
@@ -49,8 +68,8 @@ class MerchantCatalogClient {
 
     List<CatalogItem> search(String query, Long maxPrice, String currency) {
         try {
-            CatalogItemsResponse response = restClient.post()
-                    .uri("/ucp/v1/catalog/search")
+            CatalogItemsResponse response = client("dev.ucp.shopping.catalog.search").post()
+                    .uri(path("/catalog/search", "/ucp/v1/catalog/search"))
                     .body(new CatalogSearchRequest(query, new CatalogFilters(maxPrice, currency)))
                     .retrieve()
                     .body(CatalogItemsResponse.class);
@@ -62,8 +81,8 @@ class MerchantCatalogClient {
 
     CatalogProductDetail product(String productId) {
         try {
-            return restClient.post()
-                    .uri("/ucp/v1/catalog/product")
+            return client("dev.ucp.shopping.catalog.lookup").post()
+                    .uri(path("/catalog/product", "/ucp/v1/catalog/product"))
                     .body(new CatalogProductRequest(productId))
                     .retrieve()
                     .body(CatalogProductDetail.class);
@@ -82,6 +101,17 @@ class MerchantCatalogClient {
                 null,
                 CoreErrorCode.MERCHANT_CATALOG_UNAVAILABLE.defaultNextAction(),
                 exception);
+    }
+
+    private RestClient client(String capability) {
+        if (directory == null) {
+            return restClient;
+        }
+        return MerchantRestClients.create(config, directory.endpoint(config, capability), platformProfileUrl);
+    }
+
+    private String path(String canonical, String legacy) {
+        return directory == null ? legacy : canonical;
     }
 
     // Merchant 응답 계약을 그대로 옮긴 내부 전용 레코드. CatalogMessages(ucp-merchant-mock)와 필드가 1:1 대응한다.
