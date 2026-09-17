@@ -41,7 +41,7 @@ class CoreJwtVerifierTest {
 
     @Test
     void verify_expiredToken_rejected() {
-        String token = sign(claims("copenhagen-core", "copenhagen-app", FIXED_INSTANT.minusSeconds(3600)));
+        String token = sign(claims("copenhagen-core", "pay-service", FIXED_INSTANT.minusSeconds(3600)));
 
         assertTrue(verifier.verify(token).isEmpty());
     }
@@ -49,7 +49,7 @@ class CoreJwtVerifierTest {
     @Test
     void verify_tokenSignedWithDifferentKey_rejected() throws JOSEException {
         CoreAuthJwtKeySet otherKeySet = new CoreAuthJwtKeySet("", "shared-kid");
-        JWTClaimsSet claims = claims("copenhagen-core", "copenhagen-app", FIXED_INSTANT.plusSeconds(1800));
+        JWTClaimsSet claims = claims("copenhagen-core", "pay-service", FIXED_INSTANT.plusSeconds(1800));
         JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.ES256).keyID("shared-kid").build();
         SignedJWT jwt = new SignedJWT(header, claims);
         jwt.sign(new ECDSASigner(otherKeySet.signingKey()));
@@ -59,7 +59,7 @@ class CoreJwtVerifierTest {
 
     @Test
     void verify_wrongIssuer_rejected() {
-        String token = sign(claims("someone-else", "copenhagen-app", FIXED_INSTANT.plusSeconds(1800)));
+        String token = sign(claims("someone-else", "pay-service", FIXED_INSTANT.plusSeconds(1800)));
 
         assertTrue(verifier.verify(token).isEmpty());
     }

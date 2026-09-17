@@ -53,3 +53,12 @@ core:
   pii:
     encryption-key: ${CORE_PII_ENC_KEY}
     hash-pepper: ${CORE_PII_HASH_PEPPER}
+  auth:
+    jwt:
+      # 로그인 Access Token 서명 키(EC secp256r1 개인키를 Base64URL PKCS#8로 인코딩한 값).
+      # 미설정 시 기동마다 새 키 쌍을 생성하므로 재기동 전 발급한 토큰과 pay-service의 검증이 모두 깨진다.
+      # 공개키는 개인키에서 역산하므로 core에는 설정하지 않는다 — pay-service가 JWK Set으로 따로 들고 있다.
+      signing-key: ${CORE_AUTH_JWT_PRIVATE_KEY:}
+      # pay-service의 PAY_AUTH_JWT_JWK_SET_JSON에 담긴 JWK의 kid와 반드시 같아야 한다.
+      # pay-service는 kid로만 검증 키를 찾기 때문에 값이 어긋나면 서명이 맞아도 인증에 실패한다.
+      key-id: ${CORE_AUTH_JWT_KEY_ID:A207}
