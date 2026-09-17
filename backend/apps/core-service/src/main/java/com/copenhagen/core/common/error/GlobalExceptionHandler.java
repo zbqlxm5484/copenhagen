@@ -1,5 +1,7 @@
 package com.copenhagen.core.common.error;
 
+import java.util.List;
+
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +28,8 @@ public class GlobalExceptionHandler {
                 exception.getMessage(),
                 exception.currentState(),
                 exception.nextAction(),
-                exception.retryAfterSeconds());
+                exception.retryAfterSeconds(),
+                exception.issues());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -100,7 +103,7 @@ public class GlobalExceptionHandler {
             String message,
             String currentState,
             String nextAction) {
-        return response(errorCode, message, currentState, nextAction, null);
+        return response(errorCode, message, currentState, nextAction, null, null);
     }
 
     private ResponseEntity<ApiErrorResponse> response(
@@ -108,7 +111,8 @@ public class GlobalExceptionHandler {
             String message,
             String currentState,
             String nextAction,
-            Long retryAfterSeconds) {
+            Long retryAfterSeconds,
+            List<ApiErrorIssue> issues) {
         // 컨트롤러 단계 오류는 access 줄이 errorCode를 여기서만 알 수 있다(이슈 374).
         CoreLogContext.put(CoreLogContext.ERROR_CODE, errorCode.code());
         ApiErrorResponse response = new ApiErrorResponse(
@@ -116,7 +120,8 @@ public class GlobalExceptionHandler {
                 message,
                 currentState,
                 nextAction,
-                retryAfterSeconds);
+                retryAfterSeconds,
+                issues);
         return ResponseEntity.status(errorCode.httpStatus()).body(response);
     }
 }

@@ -1,6 +1,7 @@
 package com.copenhagen.core.common.error;
 
 import java.io.IOException;
+import java.util.List;
 import java.nio.charset.StandardCharsets;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -32,7 +33,8 @@ public class CoreApiErrorWriter {
                 exception.getMessage(),
                 exception.currentState(),
                 exception.nextAction(),
-                exception.retryAfterSeconds());
+                exception.retryAfterSeconds(),
+                exception.issues());
     }
 
     public void write(HttpServletResponse response, CoreErrorCode errorCode) throws IOException {
@@ -42,6 +44,7 @@ public class CoreApiErrorWriter {
                 errorCode.defaultMessage(),
                 null,
                 errorCode.defaultNextAction(),
+                null,
                 null);
     }
 
@@ -51,7 +54,8 @@ public class CoreApiErrorWriter {
             String message,
             String currentState,
             String nextAction,
-            Long retryAfterSeconds) throws IOException {
+            Long retryAfterSeconds,
+            List<ApiErrorIssue> issues) throws IOException {
         if (response.isCommitted()) {
             return;
         }
@@ -62,6 +66,7 @@ public class CoreApiErrorWriter {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         objectMapper.writeValue(
                 response.getWriter(),
-                new ApiErrorResponse(errorCode.code(), message, currentState, nextAction, retryAfterSeconds));
+                new ApiErrorResponse(
+                        errorCode.code(), message, currentState, nextAction, retryAfterSeconds, issues));
     }
 }
