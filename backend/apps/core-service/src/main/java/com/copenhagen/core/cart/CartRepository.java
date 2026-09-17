@@ -1,0 +1,35 @@
+package com.copenhagen.core.cart;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+public interface CartRepository {
+
+    Optional<Cart> findActiveByUserId(long userId);
+
+    /** ACTIVE 장바구니를 만든다. {@code version}은 1에서 시작한다({@code carts.version DEFAULT 1}). */
+    Cart insertActiveCart(UUID publicId, long userId, Instant now);
+
+    /**
+     * 조건부 UPDATE로 버전을 올린다. 반환값이 {@code false}면 다른 요청이 먼저 바꾼 것이다(409).
+     * 항목 변경보다 먼저 호출해 같은 장바구니에 대한 동시 요청을 행 잠금으로 직렬화한다.
+     */
+    boolean bumpVersion(long cartId, int expectedVersion, Instant now);
+
+    Optional<CartItem> findItemByProductVariant(
+            long cartId, String merchantProductId, String merchantVariantId);
+
+    void insertItem(UUID publicId, CartItem item, Instant now);
+
+    /** 같은 상품·옵션을 다시 담았을 때 — 수량을 합산하고 상품 정보·가격을 다시 캡처한 값으로 덮는다. */
+    void updateItemOnMerge(long itemId, CartItem item, Instant now);
+
+    /** 소유권 검사를 쿼리 조건에 내장한다 — 다른 사용자의 항목은 0행으로 취급한다. */
+    int updateItemQuantity(UUID publicId, long cartId, int quantity, Instant now);
+
+    int deleteItem(UUID publicId, long cartId);
+
+    List<CartItem> findItemsByCartId(long cartId);
+}

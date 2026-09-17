@@ -74,6 +74,21 @@ public enum CoreErrorCode {
             "MERCHANT_CATALOG_UNAVAILABLE",
             "판매자 서비스에 일시적으로 연결할 수 없습니다.",
             "RETRY_LATER"),
+    CART_VERSION_CONFLICT(
+            HttpStatus.CONFLICT,
+            "CART_VERSION_CONFLICT",
+            "장바구니가 이미 변경되었습니다. 다시 조회한 뒤 시도해 주세요.",
+            "REFETCH_CART"),
+    CART_ITEM_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "CART_ITEM_NOT_FOUND",
+            "장바구니 항목을 찾을 수 없습니다.",
+            "CHECK_REQUEST"),
+    CART_OPTION_REQUIRED(
+            HttpStatus.BAD_REQUEST,
+            "CART_OPTION_REQUIRED",
+            "옵션을 선택해야 장바구니에 담을 수 있습니다.",
+            "SELECT_OPTION"),
     REQUEST_METHOD_NOT_ALLOWED(
             HttpStatus.METHOD_NOT_ALLOWED,
             "REQUEST_METHOD_NOT_ALLOWED",

@@ -24,7 +24,8 @@ public class ProductConfiguration {
                     .baseUrl(config.baseUrl().toString())
                     .requestFactory(factory)
                     .build();
-            clients.put(config.id(), new MerchantCatalogClient(config.id(), config.displayName(), restClient));
+            clients.put(config.id(), new MerchantCatalogClient(
+                    config.id(), config.displayName(), config.baseUrl().toString(), restClient));
         }
         return Map.copyOf(clients);
     }

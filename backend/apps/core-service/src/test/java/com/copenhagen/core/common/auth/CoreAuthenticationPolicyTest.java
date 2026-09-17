@@ -54,4 +54,19 @@ class CoreAuthenticationPolicyTest {
         assertFalse(CoreAuthenticationPolicy.requiresAuthentication("/api/core/v1/products"));
         assertFalse(CoreAuthenticationPolicy.requiresAuthentication("/api/core/v1/products-history"));
     }
+
+    @Test
+    @DisplayName("장바구니 라우트(조회/항목, 경로 변수 포함)는 모두 인증이 필요하다")
+    void requiresAuthentication_cartRoutes_true() {
+        UUID cartItemId = UUID.randomUUID();
+        assertTrue(CoreAuthenticationPolicy.requiresAuthentication("/api/core/v1/cart"));
+        assertTrue(CoreAuthenticationPolicy.requiresAuthentication("/api/core/v1/cart/items"));
+        assertTrue(CoreAuthenticationPolicy.requiresAuthentication("/api/core/v1/cart/items/" + cartItemId));
+    }
+
+    @Test
+    @DisplayName("장바구니 경로를 prefix로만 포함하는 다른 경로는 인증 대상이 아니다")
+    void requiresAuthentication_cartLikePrefix_false() {
+        assertFalse(CoreAuthenticationPolicy.requiresAuthentication("/api/core/v1/cart-history"));
+    }
 }
