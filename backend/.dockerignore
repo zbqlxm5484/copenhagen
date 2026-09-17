@@ -3,3 +3,7 @@
 *.log
 .idea
 .vscode
+**/.env
+**/.env.*
+**/node_modules
+**/.gradle
