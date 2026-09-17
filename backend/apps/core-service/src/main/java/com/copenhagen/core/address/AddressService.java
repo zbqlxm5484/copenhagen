@@ -64,6 +64,12 @@ public class AddressService {
                 .toList();
     }
 
+    public AddressResult get(long userId, UUID addressId) {
+        Address address = addressRepository.findActiveByPublicIdAndUserId(addressId, userId)
+                .orElseThrow(() -> new CoreException(CoreErrorCode.ADDRESS_NOT_FOUND));
+        return toResult(address);
+    }
+
     @Transactional
     public AddressResult update(
             long userId,

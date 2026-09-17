@@ -100,8 +100,13 @@ class AddressControllerTest {
 
         mockMvc.perform(get("/api/core/v1/addresses").with(this::withPrincipal))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].addressId").value(addressId.toString()))
-                .andExpect(jsonPath("$[0].isDefault").value(true));
+                .andExpect(jsonPath("$.items[0].addressId").value(addressId.toString()))
+                .andExpect(jsonPath("$.items[0].recipient").exists())
+                .andExpect(jsonPath("$.items[0].phone").exists())
+                .andExpect(jsonPath("$.items[0].address").exists())
+                .andExpect(jsonPath("$.items[0].detail").exists())
+                .andExpect(jsonPath("$.items[0].memo").exists())
+                .andExpect(jsonPath("$.items[0].isDefault").value(true));
     }
 
     @Test
@@ -146,6 +151,41 @@ class AddressControllerTest {
         mockMvc.perform(get("/api/core/v1/addresses"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.errorCode").value("AUTH_TOKEN_MISSING"));
+    }
+
+    @Test
+    void get_returnsApkAddressResponse() throws Exception {
+        stubPrincipalUser();
+        UUID addressId = UUID.randomUUID();
+        when(addressService.get(USER_ID, addressId)).thenReturn(
+                new AddressResult(addressId, "recipient", "010-1234-5678", "12345", "address", null, null, true));
+
+        mockMvc.perform(get("/api/core/v1/addresses/" + addressId).with(this::withPrincipal))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.addressId").value(addressId.toString()))
+                .andExpect(jsonPath("$.recipient").value("recipient"))
+                .andExpect(jsonPath("$.phone").value("010-1234-5678"))
+                .andExpect(jsonPath("$.address").value("address"))
+                .andExpect(jsonPath("$.detail").value(""))
+                .andExpect(jsonPath("$.memo").value(""));
+    }
+
+    @Test
+    void register_acceptsApkAddressRequestFields() throws Exception {
+        stubPrincipalUser();
+        UUID addressId = UUID.randomUUID();
+        when(addressService.register(eq(USER_ID), eq("recipient"), eq("010-1234-5678"), eq("12345"),
+                eq("address"), eq("detail"), eq("memo"))).thenReturn(addressId);
+
+        mockMvc.perform(post("/api/core/v1/addresses")
+                        .with(this::withPrincipal)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"recipient":"recipient","phone":"010-1234-5678","postalCode":"12345",
+                                 "address":"address","detail":"detail","memo":"memo"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.addressId").value(addressId.toString()));
     }
 
     private void stubPrincipalUser() {
