@@ -29,6 +29,23 @@ services:
       base-url: ${MERCHANT_SERVICE_URL:http://ucp-merchant-mock:8080}
       connect-timeout: PT1S
       request-timeout: PT3S
+    # 가상 몰 b·c (ucp-merchant-mock 393, ADR 0008). 컨테이너 하나가 몰 셋을 서빙하고 경로의 몰 세그먼트로 가른다.
+    # base-url 뒤에 붙는 /ucp/v1 은 Merchant Mock 의 별칭 필터가 떼어 주므로 이 목록만 더하면 된다.
+    # merchant-a 는 옛 경로 별칭으로 위 항목 그대로 동작한다. 상호 셋은 임시다.
+    - id: merchant-b
+      # merchants.id. V8__seed_merchants_b_c.sql 이 넣는 고정 PK.
+      ref-id: 2
+      display-name: 노을상점
+      base-url: http://ucp-merchant-mock:8080/api/ucp/v1/merchant-b
+      connect-timeout: PT1S
+      request-timeout: PT3S
+    - id: merchant-c
+      # merchants.id. V8__seed_merchants_b_c.sql 이 넣는 고정 PK.
+      ref-id: 3
+      display-name: 별빛몰
+      base-url: http://ucp-merchant-mock:8080/api/ucp/v1/merchant-c
+      connect-timeout: PT1S
+      request-timeout: PT3S
 
 # 개인정보 암호화 키. 기본값을 두지 않는다 — 미설정 시 기동을 실패시키는 것이 의도된 동작이다.
 # 로컬 개발은 application-local.yml, 테스트는 src/test/resources/application-test.yml이 값을 채운다.
