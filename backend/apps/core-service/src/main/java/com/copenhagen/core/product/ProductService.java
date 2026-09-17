@@ -3,6 +3,7 @@ package com.copenhagen.core.product;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -109,6 +110,89 @@ public class ProductService {
                 "catalog.detail", "LIVE", "FOUND",
                 requestEcho(productId, merchantId, optionId), product, clock.instant().toString());
         return new DetailEnvelope(principal.toString(), DEFAULT_CONNECTION_REF, data);
+    }
+
+    /**
+     * 장바구니가 담는 시점에 쓸 상품 스냅샷을 만든다(순서 25). {@link MerchantCatalogClient}가
+     * package-private이라 cart 패키지가 직접 Catalog를 호출할 수 없어 여기에 둔다.
+     *
+     * <p>{@code optionValueIds}는 명세상 선택 파라미터다. 비어 있으면 구매 가능한 옵션 값이 정확히 하나일
+     * 때만 그것을 자동 선택하고, 둘 이상이면 {@code CART_OPTION_REQUIRED}로 사용자에게 선택을 요구한다.
+     *
+     * <p>저장되는 {@code merchantVariantId}는 {@code optionValueIds}의 <b>첫 값</b>이다.
+     * {@code CheckoutEvaluator}가 Core가 보낸 {@code option_value_ids} 중 {@code ids.get(0)}만 써서
+     * variant를 찾고, 체크아웃은 줄당 SKU 하나를 전제한다(mock {@code V6__add_checkout_line_skus.sql}).
+     */
+    public CartProductSnapshot captureForCart(
+            String merchantId, String productId, List<String> optionValueIds) {
+        MerchantCatalogClient client = clients.get(merchantId);
+        if (client == null) {
+            throw new CoreException(
+                    CoreErrorCode.INVALID_REQUEST, "등록되지 않은 merchantId입니다.", null, "CHECK_REQUEST");
+        }
+
+        MerchantCatalogClient.CatalogProductDetail detail = client.product(productId);
+        if (!KRW.equals(detail.price().currency())) {
+            throw new CoreException(
+                    CoreErrorCode.INVALID_REQUEST, "KRW 상품만 장바구니에 담을 수 있습니다.", null, "CHECK_REQUEST");
+        }
+
+        Map<String, CartProductSnapshot.SelectedOption> options = purchasableOptions(detail);
+        List<CartProductSnapshot.SelectedOption> selected = resolveSelectedOptions(options, optionValueIds);
+
+        return new CartProductSnapshot(
+                detail.productId(),
+                selected.get(0).optionValueId(),
+                detail.title(),
+                productUrl(client, detail.productId()),
+                null,
+                detail.price().amount(),
+                KRW,
+                selected);
+    }
+
+    /** {@code optionValueId}(= variant sku) → 옵션 정보. 응답에 이미 구매 가능한 값만 담겨 온다. */
+    private Map<String, CartProductSnapshot.SelectedOption> purchasableOptions(
+            MerchantCatalogClient.CatalogProductDetail detail) {
+        Map<String, CartProductSnapshot.SelectedOption> options = new LinkedHashMap<>();
+        for (MerchantCatalogClient.CatalogOption option : detail.options()) {
+            for (MerchantCatalogClient.CatalogOptionValue value : option.values()) {
+                options.put(value.optionValueId(), new CartProductSnapshot.SelectedOption(
+                        value.optionValueId(), option.name(), value.label()));
+            }
+        }
+        return options;
+    }
+
+    private List<CartProductSnapshot.SelectedOption> resolveSelectedOptions(
+            Map<String, CartProductSnapshot.SelectedOption> options, List<String> optionValueIds) {
+        if (optionValueIds.isEmpty()) {
+            if (options.isEmpty()) {
+                throw new CoreException(
+                        CoreErrorCode.INVALID_REQUEST, "구매 가능한 옵션이 없는 상품입니다.", null, "CHECK_REQUEST");
+            }
+            if (options.size() > 1) {
+                throw new CoreException(CoreErrorCode.CART_OPTION_REQUIRED);
+            }
+            return List.copyOf(options.values());
+        }
+
+        List<CartProductSnapshot.SelectedOption> selected = new ArrayList<>(optionValueIds.size());
+        for (String optionValueId : optionValueIds) {
+            CartProductSnapshot.SelectedOption option = options.get(optionValueId);
+            if (option == null) {
+                throw new CoreException(
+                        CoreErrorCode.INVALID_REQUEST, "선택할 수 없는 옵션입니다.", null, "CHECK_REQUEST");
+            }
+            selected.add(option);
+        }
+        return List.copyOf(selected);
+    }
+
+    /** Catalog 응답에 상품 url이 없어 합성한다 — 플레이스홀더다(설계서 §5.3). */
+    private String productUrl(MerchantCatalogClient client, String productId) {
+        String baseUrl = client.baseUrl() == null ? "" : client.baseUrl();
+        return baseUrl + "/products/" + productId;
     }
 
     /** 검증기가 "선택된 variant의 price·availability는 offer와 같아야 한다"고 요구해 선택된 항목만 갱신한다. */

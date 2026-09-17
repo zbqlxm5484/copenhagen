@@ -24,11 +24,13 @@ class MerchantCatalogClient {
 
     private final String merchantId;
     private final String merchantName;
+    private final String baseUrl;
     private final RestClient restClient;
 
-    MerchantCatalogClient(String merchantId, String merchantName, RestClient restClient) {
+    MerchantCatalogClient(String merchantId, String merchantName, String baseUrl, RestClient restClient) {
         this.merchantId = merchantId;
         this.merchantName = merchantName;
+        this.baseUrl = baseUrl;
         this.restClient = restClient;
     }
 
@@ -38,6 +40,11 @@ class MerchantCatalogClient {
 
     String merchantName() {
         return merchantName;
+    }
+
+    /** 장바구니가 {@code product_url}(NOT NULL)을 합성할 때만 쓴다 — Catalog 응답에 상품 url이 없다. */
+    String baseUrl() {
+        return baseUrl;
     }
 
     List<CatalogItem> search(String query, Long maxPrice, String currency) {

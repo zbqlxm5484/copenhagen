@@ -14,7 +14,17 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("services")
 public record MerchantsProperties(List<MerchantConfig> merchants) {
 
+    /**
+     * {@code refId}는 {@code merchants.id}(BIGINT)다. {@code cart_items.merchant_id}가 이 테이블의 FK라
+     * 장바구니가 설정의 문자열 {@code id}를 DB 행으로 바꿀 키가 필요하다(순서 25). 시드는
+     * {@code V7__seed_merchants.sql}이 고정 PK로 넣는다.
+     */
     public record MerchantConfig(
-            String id, String displayName, URI baseUrl, Duration connectTimeout, Duration requestTimeout) {
+            String id,
+            Long refId,
+            String displayName,
+            URI baseUrl,
+            Duration connectTimeout,
+            Duration requestTimeout) {
     }
 }

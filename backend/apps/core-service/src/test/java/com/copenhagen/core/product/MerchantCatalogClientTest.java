@@ -27,13 +27,14 @@ class MerchantCatalogClientTest {
     private RestClient.Builder builder = RestClient.builder();
     private MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
     private MerchantCatalogClient client = new MerchantCatalogClient(
-            "merchant-a", "Copenhagen Demo Store", builder.build());
+            "merchant-a", "Copenhagen Demo Store", "http://merchant-a:8080", builder.build());
 
     @Test
-    @DisplayName("merchantId·merchantName을 그대로 노출한다")
+    @DisplayName("merchantId·merchantName·baseUrl을 그대로 노출한다")
     void exposesMerchantIdentity() {
         assertThat(client.merchantId()).isEqualTo("merchant-a");
         assertThat(client.merchantName()).isEqualTo("Copenhagen Demo Store");
+        assertThat(client.baseUrl()).isEqualTo("http://merchant-a:8080");
     }
 
     @Test

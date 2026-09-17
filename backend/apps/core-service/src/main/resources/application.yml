@@ -23,6 +23,8 @@ services:
     base-url: ${PAY_SERVICE_URL:http://pay-service:8080}
   merchants:
     - id: ${MERCHANT_ID:merchant-a}
+      # merchants.id. V7__seed_merchants.sql 이 넣는 고정 PK 와 맞춘다(cart_items.merchant_id FK).
+      ref-id: ${MERCHANT_REF_ID:1}
       display-name: ${MERCHANT_DISPLAY_NAME:Copenhagen Demo Store}
       base-url: ${MERCHANT_SERVICE_URL:http://ucp-merchant-mock:8080}
       connect-timeout: PT1S

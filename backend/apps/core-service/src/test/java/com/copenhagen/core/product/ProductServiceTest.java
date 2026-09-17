@@ -39,6 +39,7 @@ class ProductServiceTest {
     void setUp() {
         lenient().when(merchantA.merchantId()).thenReturn("merchant-a");
         lenient().when(merchantA.merchantName()).thenReturn("A몰");
+        lenient().when(merchantA.baseUrl()).thenReturn("http://merchant-a:8080");
         lenient().when(merchantB.merchantId()).thenReturn("merchant-b");
         lenient().when(merchantB.merchantName()).thenReturn("B몰");
     }
@@ -261,6 +262,131 @@ class ProductServiceTest {
                 .isInstanceOf(CoreException.class)
                 .extracting(exception -> ((CoreException) exception).errorCode())
                 .isEqualTo(CoreErrorCode.INVALID_REQUEST);
+    }
+
+    @Test
+    @DisplayName("담기 캡처: 옵션을 지정하면 첫 값이 merchantVariantId가 되고 상품 정보를 그대로 캡처한다")
+    void capture_withOption_usesFirstOptionValueId() {
+        when(merchantA.product("p-1")).thenReturn(optionedDetail());
+        ProductService service = service(merchantA);
+
+        CartProductSnapshot snapshot = service.captureForCart("merchant-a", "p-1", List.of("sku-1"));
+
+        assertThat(snapshot.merchantProductId()).isEqualTo("p-1");
+        assertThat(snapshot.merchantVariantId()).isEqualTo("sku-1");
+        assertThat(snapshot.productName()).isEqualTo("옵션상품");
+        assertThat(snapshot.unitPriceAmount()).isEqualTo(9900L);
+        assertThat(snapshot.currency()).isEqualTo("KRW");
+        assertThat(snapshot.selectedOptions()).containsExactly(
+                new CartProductSnapshot.SelectedOption("sku-1", "색상", "화이트"));
+    }
+
+    @Test
+    @DisplayName("담기 캡처: Catalog에 url·이미지가 없어 productUrl은 합성하고 imageUrl은 null이다")
+    void capture_synthesizesProductUrl() {
+        when(merchantA.product("p-1")).thenReturn(optionedDetail());
+        ProductService service = service(merchantA);
+
+        CartProductSnapshot snapshot = service.captureForCart("merchant-a", "p-1", List.of("sku-1"));
+
+        assertThat(snapshot.productUrl()).isEqualTo("http://merchant-a:8080/products/p-1");
+        assertThat(snapshot.imageUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("담기 캡처: 옵션 미지정 + 선택지가 하나면 자동 선택한다")
+    void capture_noOption_singleChoice_autoSelects() {
+        when(merchantA.product("p-1")).thenReturn(optionedDetail());
+        ProductService service = service(merchantA);
+
+        CartProductSnapshot snapshot = service.captureForCart("merchant-a", "p-1", List.of());
+
+        assertThat(snapshot.merchantVariantId()).isEqualTo("sku-1");
+    }
+
+    @Test
+    @DisplayName("담기 캡처: 옵션 미지정 + 선택지가 둘 이상이면 CART_OPTION_REQUIRED다")
+    void capture_noOption_multipleChoices_requiresSelection() {
+        MerchantCatalogClient.CatalogProductDetail detail = new MerchantCatalogClient.CatalogProductDetail(
+                "p-1", "옵션상품", "설명", new MerchantCatalogClient.CatalogPrice(9900, "KRW"),
+                List.of(new MerchantCatalogClient.CatalogOption("색상", List.of(
+                        new MerchantCatalogClient.CatalogOptionValue("sku-1", "화이트"),
+                        new MerchantCatalogClient.CatalogOptionValue("sku-2", "블랙")))),
+                "IN_STOCK");
+        when(merchantA.product("p-1")).thenReturn(detail);
+        ProductService service = service(merchantA);
+
+        assertThatThrownBy(() -> service.captureForCart("merchant-a", "p-1", List.of()))
+                .isInstanceOf(CoreException.class)
+                .extracting(exception -> ((CoreException) exception).errorCode())
+                .isEqualTo(CoreErrorCode.CART_OPTION_REQUIRED);
+    }
+
+    @Test
+    @DisplayName("담기 캡처: 구매 가능한 옵션이 하나도 없으면 INVALID_REQUEST다")
+    void capture_noPurchasableOption_throwsInvalidRequest() {
+        MerchantCatalogClient.CatalogProductDetail detail = new MerchantCatalogClient.CatalogProductDetail(
+                "p-1", "품절상품", "설명", new MerchantCatalogClient.CatalogPrice(9900, "KRW"),
+                List.of(), "OUT_OF_STOCK");
+        when(merchantA.product("p-1")).thenReturn(detail);
+        ProductService service = service(merchantA);
+
+        assertThatThrownBy(() -> service.captureForCart("merchant-a", "p-1", List.of()))
+                .isInstanceOf(CoreException.class)
+                .extracting(exception -> ((CoreException) exception).errorCode())
+                .isEqualTo(CoreErrorCode.INVALID_REQUEST);
+    }
+
+    @Test
+    @DisplayName("담기 캡처: 상세에 없는 optionValueId는 INVALID_REQUEST다")
+    void capture_unknownOptionValueId_throwsInvalidRequest() {
+        when(merchantA.product("p-1")).thenReturn(optionedDetail());
+        ProductService service = service(merchantA);
+
+        assertThatThrownBy(() -> service.captureForCart("merchant-a", "p-1", List.of("sku-없음")))
+                .isInstanceOf(CoreException.class)
+                .extracting(exception -> ((CoreException) exception).errorCode())
+                .isEqualTo(CoreErrorCode.INVALID_REQUEST);
+    }
+
+    @Test
+    @DisplayName("담기 캡처: KRW가 아닌 상품은 INVALID_REQUEST다")
+    void capture_nonKrw_throwsInvalidRequest() {
+        MerchantCatalogClient.CatalogProductDetail detail = new MerchantCatalogClient.CatalogProductDetail(
+                "p-1", "USD상품", "설명", new MerchantCatalogClient.CatalogPrice(10, "USD"),
+                List.of(new MerchantCatalogClient.CatalogOption(
+                        "색상", List.of(new MerchantCatalogClient.CatalogOptionValue("sku-1", "화이트")))),
+                "IN_STOCK");
+        when(merchantA.product("p-1")).thenReturn(detail);
+        ProductService service = service(merchantA);
+
+        assertThatThrownBy(() -> service.captureForCart("merchant-a", "p-1", List.of("sku-1")))
+                .isInstanceOf(CoreException.class)
+                .extracting(exception -> ((CoreException) exception).errorCode())
+                .isEqualTo(CoreErrorCode.INVALID_REQUEST);
+    }
+
+    @Test
+    @DisplayName("담기 캡처: 등록되지 않은 merchantId는 INVALID_REQUEST다")
+    void capture_unknownMerchant_throwsInvalidRequest() {
+        ProductService service = service(merchantA);
+
+        assertThatThrownBy(() -> service.captureForCart("merchant-z", "p-1", List.of()))
+                .isInstanceOf(CoreException.class)
+                .extracting(exception -> ((CoreException) exception).errorCode())
+                .isEqualTo(CoreErrorCode.INVALID_REQUEST);
+    }
+
+    @Test
+    @DisplayName("담기 캡처: 없는 상품은 PRODUCT_NOT_FOUND를 그대로 전파한다(상세 조회와 달리 200이 아니다)")
+    void capture_unknownProduct_propagatesNotFound() {
+        when(merchantA.product("unknown")).thenThrow(new CoreException(CoreErrorCode.PRODUCT_NOT_FOUND));
+        ProductService service = service(merchantA);
+
+        assertThatThrownBy(() -> service.captureForCart("merchant-a", "unknown", List.of()))
+                .isInstanceOf(CoreException.class)
+                .extracting(exception -> ((CoreException) exception).errorCode())
+                .isEqualTo(CoreErrorCode.PRODUCT_NOT_FOUND);
     }
 
     private static MerchantCatalogClient.CatalogProductDetail optionedDetail() {
