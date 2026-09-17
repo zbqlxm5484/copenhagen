@@ -2,6 +2,7 @@ package com.copenhagen.pay.payment.authorization;
 
 import com.copenhagen.pay.payment.policy.AuthorizationSessionStatus;
 import com.copenhagen.pay.payment.policy.PaymentStatus;
+import java.time.Instant;
 import java.util.Optional;
 
 public interface PaymentApprovalStatusRepository {
@@ -14,6 +15,8 @@ public interface PaymentApprovalStatusRepository {
             String paymentId,
             PaymentStatus paymentStatus,
             long amountMinor,
-            String currency) {
+            String currency,
+            String credentialId,
+            Instant credentialExpiresAt) {
     }
 }

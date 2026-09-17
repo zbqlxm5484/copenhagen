@@ -17,10 +17,14 @@ import org.mockito.ArgumentCaptor;
 
 import com.copenhagen.core.address.Address;
 import com.copenhagen.core.address.AddressRepository;
+import com.copenhagen.core.auth.user.User;
+import com.copenhagen.core.auth.user.UserRepository;
+import com.copenhagen.core.auth.user.UserStatus;
 import com.copenhagen.core.cart.Cart;
 import com.copenhagen.core.cart.CartItem;
 import com.copenhagen.core.cart.CartMerchants;
 import com.copenhagen.core.cart.CartRepository;
+import com.copenhagen.core.checkout.CheckoutDigests;
 import com.copenhagen.core.checkout.CheckoutFulfillmentOption;
 import com.copenhagen.core.checkout.CheckoutSnapshot;
 import com.copenhagen.core.checkout.CheckoutSnapshotItem;
@@ -39,6 +43,10 @@ import com.copenhagen.core.common.crypto.EncryptedPii;
 import com.copenhagen.core.common.crypto.PiiEncryptor;
 import com.copenhagen.core.common.error.CoreErrorCode;
 import com.copenhagen.core.common.error.CoreException;
+import com.copenhagen.core.payment.PayCheckoutHash;
+import com.copenhagen.core.payment.PaymentApprovalClient;
+import com.copenhagen.core.payment.PaymentApprovalMessages.ApprovalCreatedResponse;
+import com.copenhagen.core.payment.PaymentApprovalMessages.CreateApprovalRequest;
 import com.copenhagen.core.product.MerchantsProperties;
 
 import tools.jackson.databind.ObjectMapper;
@@ -66,12 +74,17 @@ class OrderValidationServiceTest {
     private static final UUID VALIDATION_ID = UUID.randomUUID();
     private static final String JWS = "eyJhbGciOiJFUzI1NiJ9.eyJhIjoxfQ.sig";
     private static final String EXPIRES_AT = "2026-01-01T00:15:00Z";
+    private static final long MERCHANT_CHECKOUT_ROW_ID = 900L;
+    private static final UUID USER_PUBLIC_ID = UUID.randomUUID();
+    private static final String APPROVAL_ID = "approval-1";
 
     private CartRepository cartRepository;
     private AddressRepository addressRepository;
     private PurchaseRequestRepository purchaseRequestRepository;
     private MerchantCheckoutRepository merchantCheckoutRepository;
     private MerchantCheckoutClient client;
+    private UserRepository userRepository;
+    private PaymentApprovalClient paymentApprovalClient;
     private OrderValidationService service;
 
     @BeforeEach
@@ -81,6 +94,8 @@ class OrderValidationServiceTest {
         purchaseRequestRepository = mock(PurchaseRequestRepository.class);
         merchantCheckoutRepository = mock(MerchantCheckoutRepository.class);
         client = mock(MerchantCheckoutClient.class);
+        userRepository = mock(UserRepository.class);
+        paymentApprovalClient = mock(PaymentApprovalClient.class);
 
         PiiEncryptor piiEncryptor = mock(PiiEncryptor.class);
         when(piiEncryptor.decrypt(any())).thenReturn("복호화값");
@@ -99,8 +114,16 @@ class OrderValidationServiceTest {
                 piiEncryptor,
                 Map.of(MERCHANT_ID, client),
                 new ObjectMapper(),
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                userRepository,
+                paymentApprovalClient,
+                properties);
 
+        when(merchantCheckoutRepository.insertAll(any(), any()))
+                .thenReturn(List.of(MERCHANT_CHECKOUT_ROW_ID));
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user()));
+        when(paymentApprovalClient.create(any(), any())).thenReturn(new ApprovalCreatedResponse(
+                APPROVAL_ID, "PAYMENT_METHOD_REQUIRED", null, NOW.plusSeconds(300), "APPROVE_IN_APP"));
         when(cartRepository.findActiveByUserId(USER_ID)).thenReturn(Optional.of(cart(1)));
         when(cartRepository.findItemsByCartId(CART_ID)).thenReturn(List.of(cartItem("p-1", "sku-1", 2, 5000L)));
         when(addressRepository.findActiveByPublicIdAndUserId(ADDRESS_ID, USER_ID))
@@ -253,6 +276,50 @@ class OrderValidationServiceTest {
         assertThat(request.getValue().fulfillment().destination().recipient()).isEqualTo("복호화값");
         assertThat(idempotencyKey.getValue())
                 .isEqualTo("checkout-create-" + VALIDATION_ID + "-" + MERCHANT_ID);
+    }
+
+    @Test
+    @DisplayName("checkout이 확정되면 Pay에 승인 세션을 생성하고 AWAITING_APPROVAL로 반영한다(이슈 410)")
+    void validate_ready_createsPaymentApprovalAndMarksAwaitingApproval() {
+        when(client.create(any(), any())).thenReturn(readyCheckout(5000L, 2));
+
+        service.validate(USER_ID, CART_PUBLIC_ID, 1, ADDRESS_ID);
+
+        ArgumentCaptor<CreateApprovalRequest> request = ArgumentCaptor.captor();
+        ArgumentCaptor<String> idempotencyKey = ArgumentCaptor.captor();
+        verify(paymentApprovalClient).create(request.capture(), idempotencyKey.capture());
+        assertThat(request.getValue().purchaseRequestId()).isEqualTo(VALIDATION_ID.toString());
+        assertThat(request.getValue().userId()).isEqualTo(USER_PUBLIC_ID.toString());
+        assertThat(request.getValue().merchantId()).isEqualTo(MERCHANT_ID);
+        assertThat(request.getValue().checkoutId()).isEqualTo("checkout-1");
+        assertThat(request.getValue().checkoutJwt()).isEqualTo(JWS);
+        // Pay는 hex가 아니라 "sha256:"+Base64URL 외부 표현만 받는다(CheckoutHashCodec.toInternalDigest) —
+        // 내부 hex(merchant_checkouts.checkout_digest)를 그대로 보내면 400이 난다(도커 컴포즈 E2E로 발견).
+        assertThat(request.getValue().checkoutHash())
+                .isEqualTo(PayCheckoutHash.toExternal(CheckoutDigests.of(JWS)))
+                .startsWith("sha256:")
+                .hasSize(50);
+        assertThat(request.getValue().amountMinor()).isEqualTo(13000L);
+        assertThat(request.getValue().currency()).isEqualTo("KRW");
+        assertThat(idempotencyKey.getValue())
+                .isEqualTo("payment-approval-create-" + VALIDATION_ID + "-" + MERCHANT_ID);
+
+        verify(merchantCheckoutRepository).markAwaitingApproval(
+                MERCHANT_CHECKOUT_ROW_ID, APPROVAL_ID, NOW.plusSeconds(300), NOW);
+    }
+
+    @Test
+    @DisplayName("Pay 승인 생성이 실패해도 이미 만든 checkout은 되돌리지 않고 CREATING으로 남긴다")
+    void validate_paymentApprovalUnavailable_keepsCheckoutCreatingWithoutFailingValidation() {
+        when(client.create(any(), any())).thenReturn(readyCheckout(5000L, 2));
+        when(paymentApprovalClient.create(any(), any()))
+                .thenThrow(new CoreException(CoreErrorCode.PAYMENT_APPROVAL_UNAVAILABLE));
+
+        OrderValidationResult result = service.validate(USER_ID, CART_PUBLIC_ID, 1, ADDRESS_ID);
+
+        assertThat(result.checkouts()).hasSize(1);
+        verify(merchantCheckoutRepository, never()).markAwaitingApproval(anyLong(), any(), any(), any());
+        verify(purchaseRequestRepository, never()).markFailed(anyLong(), any());
     }
 
     @Test
@@ -413,6 +480,13 @@ class OrderValidationServiceTest {
                 10L, UUID.randomUUID(), CART_ID, MERCHANT_REF_ID, productId, variantId,
                 "상품", "http://merchant-a:8080/products/" + productId, null,
                 "[{\"optionValueId\":\"" + variantId + "\"}]", quantity, unitPrice, "KRW");
+    }
+
+    private static User user() {
+        return new User(
+                USER_ID, USER_PUBLIC_ID, "홍길동", UserStatus.ACTIVE,
+                EncryptedPii.of(new byte[] {1}), "hash", true,
+                null, null, null, null, NOW, NOW, NOW);
     }
 
     /** 컬럼이 서로 뒤바뀌어 저장되는 것을 잡으려고 필드마다 다른 암호문을 준다. */

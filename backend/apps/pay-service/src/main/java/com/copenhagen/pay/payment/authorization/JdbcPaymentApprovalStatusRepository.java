@@ -4,6 +4,7 @@ import com.copenhagen.pay.payment.policy.AuthorizationSessionStatus;
 import com.copenhagen.pay.payment.policy.PaymentStatus;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.Optional;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -19,7 +20,9 @@ public class JdbcPaymentApprovalStatusRepository implements PaymentApprovalStatu
                    p.id AS payment_id,
                    p.status AS payment_status,
                    s.amount_minor,
-                   s.currency
+                   s.currency,
+                   c.id AS credential_id,
+                   c.expires_at AS credential_expires_at
             FROM authorization_sessions s
             LEFT JOIN payment_credential_tokens c
               ON c.authorization_session_id = s.id
@@ -53,12 +56,15 @@ public class JdbcPaymentApprovalStatusRepository implements PaymentApprovalStatu
             ResultSet resultSet,
             int rowNumber) throws SQLException {
         String paymentStatus = resultSet.getString("payment_status");
+        Timestamp credentialExpiresAt = resultSet.getTimestamp("credential_expires_at");
         return new PaymentApprovalStatusView(
                 resultSet.getString("approval_id"),
                 AuthorizationSessionStatus.valueOf(resultSet.getString("approval_status")),
                 resultSet.getString("payment_id"),
                 paymentStatus == null ? null : PaymentStatus.valueOf(paymentStatus),
                 resultSet.getLong("amount_minor"),
-                resultSet.getString("currency"));
+                resultSet.getString("currency"),
+                resultSet.getString("credential_id"),
+                credentialExpiresAt == null ? null : credentialExpiresAt.toInstant());
     }
 }

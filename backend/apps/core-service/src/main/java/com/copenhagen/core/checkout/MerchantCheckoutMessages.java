@@ -101,4 +101,37 @@ public final class MerchantCheckoutMessages {
             return "error".equals(severity);
         }
     }
+
+    /**
+     * Complete 요청(Merchant Mock {@code CheckoutMessages.CompleteRequest}와 동일 계약, 이슈 410).
+     * {@code payment.instrument.credential.credentialId} 하나가 전부다.
+     */
+    public record CompleteRequest(Payment payment) {
+
+        public static CompleteRequest of(String credentialId) {
+            return new CompleteRequest(new Payment(new Instrument(new Credential(credentialId))));
+        }
+
+        public record Payment(Instrument instrument) {
+        }
+
+        public record Instrument(Credential credential) {
+        }
+
+        public record Credential(String credentialId) {
+        }
+    }
+
+    /**
+     * Complete 응답 세 갈래. {@code status}가 {@code completed}/{@code ready_for_complete}/
+     * {@code complete_in_progress} 중 하나다.
+     */
+    public record CompleteResult(String id, String status, OrderRef order, PaymentRef payment) {
+    }
+
+    public record OrderRef(String id, @JsonProperty("permalink_url") String permalinkUrl) {
+    }
+
+    public record PaymentRef(String paymentId, String status, String errorCode) {
+    }
 }

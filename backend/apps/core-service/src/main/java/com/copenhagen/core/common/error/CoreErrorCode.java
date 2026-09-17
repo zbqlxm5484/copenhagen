@@ -124,6 +124,11 @@ public enum CoreErrorCode {
             "MERCHANT_CHECKOUT_UNAVAILABLE",
             "판매자 주문 서비스에 일시적으로 연결할 수 없습니다.",
             "RETRY_LATER"),
+    PAYMENT_APPROVAL_UNAVAILABLE(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "PAYMENT_APPROVAL_UNAVAILABLE",
+            "결제 승인 서비스에 일시적으로 연결할 수 없습니다.",
+            "RETRY_LATER"),
     MERCHANT_PROFILE_UNAVAILABLE(
             HttpStatus.SERVICE_UNAVAILABLE,
             "MERCHANT_PROFILE_UNAVAILABLE",

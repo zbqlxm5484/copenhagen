@@ -109,6 +109,8 @@ class PaymentApprovalStatusPostgresIntegrationTest {
         assertNull(response.paymentStatus());
         assertEquals(99000, response.amountMinor());
         assertEquals("KRW", response.currency());
+        assertNull(response.credentialId());
+        assertNull(response.credentialExpiresAt());
         assertEquals(
                 PaymentApprovalNextAction.WAIT_FOR_PAYMENT_CREATION,
                 response.nextAction());
@@ -133,6 +135,8 @@ class PaymentApprovalStatusPostgresIntegrationTest {
         assertEquals("UNKNOWN", response.paymentStatus().name());
         assertEquals(99000, response.amountMinor());
         assertEquals("KRW", response.currency());
+        assertEquals(CREDENTIAL_ID, response.credentialId());
+        assertEquals(NOW.plusSeconds(300), response.credentialExpiresAt());
         assertEquals(
                 PaymentApprovalNextAction.WAIT_FOR_PAYMENT_STATUS,
                 response.nextAction());
@@ -163,6 +167,9 @@ class PaymentApprovalStatusPostgresIntegrationTest {
                 """
                 INSERT INTO merchant_accounts (id, merchant_id, display_name, auth_type, status)
                 VALUES (?, ?, 'Merchant A', 'TOKEN', 'ACTIVE')
+                ON CONFLICT (merchant_id) DO UPDATE SET
+                    id = EXCLUDED.id, display_name = EXCLUDED.display_name,
+                    auth_type = EXCLUDED.auth_type, status = EXCLUDED.status
                 """,
                 MERCHANT_ACCOUNT_ID,
                 MERCHANT_ID);

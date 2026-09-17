@@ -41,6 +41,11 @@ services:
       AGENT_OAUTH_JWT_KEY_ID: ${AGENT_OAUTH_JWT_KEY_ID:-agent-oauth-dev}
       PAY_SERVICE_URL: http://pay-service:8080
       MERCHANT_SERVICE_URL: http://ucp-merchant-mock:8080
+      # Pay 내부 API(승인 세션 생성·조회) 호출용 토큰. pay-service의 PAY_AUTH_CORE_SERVICE_TOKENS_JSON의
+      # core-service 항목과 정확히 같은 값이어야 한다. 값이 없으면 해당 호출이 전부 401이 된다(이슈 410).
+      CORE_PAY_SERVICE_TOKEN: ${CORE_PAY_SERVICE_TOKEN:-}
+      CORE_PAYMENT_WORKER_ENABLED: ${CORE_PAYMENT_WORKER_ENABLED:-false}
+      CORE_PAYMENT_WORKER_POLL_INTERVAL_SECONDS: ${CORE_PAYMENT_WORKER_POLL_INTERVAL_SECONDS:-3}
     depends_on:
       core-db:
         condition: service_healthy

@@ -1,7 +1,10 @@
 package com.copenhagen.core.checkout;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -55,7 +58,8 @@ public class JdbcMerchantCheckoutRepository implements MerchantCheckoutRepositor
 
     @Override
     @Transactional
-    public void insertAll(List<MerchantCheckoutRecord> records, Instant now) {
+    public List<Long> insertAll(List<MerchantCheckoutRecord> records, Instant now) {
+        List<Long> checkoutIds = new ArrayList<>(records.size());
         for (MerchantCheckoutRecord record : records) {
             long checkoutId = insertCheckout(record.checkout(), now);
             long snapshotId = insertSnapshot(record.snapshot(), checkoutId, now);
@@ -65,7 +69,120 @@ public class JdbcMerchantCheckoutRepository implements MerchantCheckoutRepositor
             for (CheckoutFulfillmentOption option : record.fulfillmentOptions()) {
                 insertFulfillmentOption(snapshotId, option);
             }
+            checkoutIds.add(checkoutId);
         }
+        return List.copyOf(checkoutIds);
+    }
+
+    @Override
+    public void markAwaitingApproval(
+            long id, String paymentApprovalId, Instant paymentApprovalExpiresAt, Instant now) {
+        jdbcTemplate.update(
+                """
+                UPDATE merchant_checkouts
+                SET status = 'AWAITING_APPROVAL', payment_approval_id = ?,
+                    payment_approval_expires_at = ?, updated_at = ?
+                WHERE id = ? AND status = 'CREATING'
+                """,
+                paymentApprovalId,
+                Timestamp.from(paymentApprovalExpiresAt),
+                Timestamp.from(now),
+                id);
+    }
+
+    @Override
+    public List<AwaitingApprovalCheckout> findAwaitingApproval() {
+        return jdbcTemplate.query(
+                """
+                SELECT mc.id, mc.purchase_request_id, pr.user_id, mc.merchant_id,
+                       mc.merchant_checkout_id, mc.payment_approval_id, mc.payment_approval_expires_at,
+                       cs.id AS checkout_snapshot_id, cs.total_amount, cs.currency
+                FROM merchant_checkouts mc
+                JOIN purchase_requests pr ON pr.id = mc.purchase_request_id
+                JOIN checkout_snapshots cs ON cs.merchant_checkout_id = mc.id
+                WHERE mc.status = 'AWAITING_APPROVAL'
+                """,
+                JdbcMerchantCheckoutRepository::mapAwaitingApproval);
+    }
+
+    @Override
+    public boolean beginCompleting(long id, Instant now) {
+        int updated = jdbcTemplate.update(
+                """
+                UPDATE merchant_checkouts
+                SET status = 'COMPLETING', updated_at = ?
+                WHERE id = ? AND status = 'AWAITING_APPROVAL'
+                """,
+                Timestamp.from(now),
+                id);
+        return updated == 1;
+    }
+
+    @Override
+    public void markCompleted(long id, Instant now) {
+        jdbcTemplate.update(
+                """
+                UPDATE merchant_checkouts
+                SET status = 'COMPLETED', completed_at = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                Timestamp.from(now),
+                Timestamp.from(now),
+                id);
+    }
+
+    @Override
+    public void markCancelled(long id, String failureCode, Instant now) {
+        jdbcTemplate.update(
+                """
+                UPDATE merchant_checkouts
+                SET status = 'CANCELLED', failure_code = ?, cancelled_at = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                failureCode,
+                Timestamp.from(now),
+                Timestamp.from(now),
+                id);
+    }
+
+    @Override
+    public void markExpired(long id, Instant now) {
+        jdbcTemplate.update(
+                """
+                UPDATE merchant_checkouts
+                SET status = 'EXPIRED', updated_at = ?
+                WHERE id = ?
+                """,
+                Timestamp.from(now),
+                id);
+    }
+
+    @Override
+    public void markFailed(long id, String failureCode, Instant now) {
+        jdbcTemplate.update(
+                """
+                UPDATE merchant_checkouts
+                SET status = 'FAILED', failure_code = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                failureCode,
+                Timestamp.from(now),
+                id);
+    }
+
+    private static AwaitingApprovalCheckout mapAwaitingApproval(
+            ResultSet resultSet, int rowNumber) throws SQLException {
+        return new AwaitingApprovalCheckout(
+                resultSet.getLong("id"),
+                resultSet.getLong("purchase_request_id"),
+                resultSet.getLong("user_id"),
+                resultSet.getLong("merchant_id"),
+                resultSet.getString("merchant_checkout_id"),
+                resultSet.getString("payment_approval_id"),
+                resultSet.getTimestamp("payment_approval_expires_at").toInstant(),
+                resultSet.getLong("checkout_snapshot_id"),
+                resultSet.getLong("total_amount"),
+                resultSet.getString("currency"));
     }
 
     private long insertCheckout(MerchantCheckout checkout, Instant now) {
