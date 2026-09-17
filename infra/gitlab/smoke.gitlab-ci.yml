@@ -49,6 +49,8 @@ deploy-smoke:
         - infra/gitlab/**/*
         - infra/nginx/**/*
         - infra/docker/smoke.override.yml
+        - infra/docker/https.override.yml
+        - scripts/deploy-dev-nginx.sh
         - infra/docker/smoke-gradle-cache.Dockerfile
         - scripts/deploy-smoke.sh
         - scripts/smoke-base.sh

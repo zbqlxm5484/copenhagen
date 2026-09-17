@@ -90,9 +90,12 @@ docker ps
 ```text
 docker-compose.yml
 infra/docker/ec2.env.example
+infra/docker/https.override.yml
 infra/nginx/nginx.conf
+infra/nginx/nginx.https.conf
 scripts/bootstrap-dev-infra.sh
 scripts/deploy-dev-service.sh
+scripts/deploy-dev-nginx.sh
 ```
 
 ### 4. EC2 `.env` 만들기
@@ -131,7 +134,7 @@ redis
 docker compose --env-file .env ps
 ```
 
-DB 3개와 Redis가 `healthy`이면 GitLab의 첫 `develop` 배포를 실행할 준비가 된 것입니다.
+DB 3개와 Redis가 `healthy`이면 [nginx HTTPS 준비](../nginx/README.md#인증서와-자동-갱신)에 따라 서버 인증서와 자동 갱신을 준비합니다. 개발 EC2의 `.env`에는 `NGINX_PORT=80`을 지정합니다. CI는 인증서가 준비된 뒤 첫 `develop` 배포를 실행하며, 개인키를 전달하거나 방화벽을 변경하지 않습니다.
 
 ## 첫 자동 배포 후 할 일
 
@@ -143,10 +146,10 @@ docker compose --env-file .env ps
 docker image ls 'copenhagen/*'
 ```
 
-Core, MCP, Pay, Merchant Mock, PG Mock이 모두 `healthy`가 된 다음 Nginx를 최초 한 번 시작합니다.
+CI는 HTTPS 사전 검사를 통과한 nginx를 먼저 적용한 후 각 서비스를 배포합니다. 수동으로 nginx를 다시 적용할 때도 HTTPS 전용 스크립트를 사용합니다.
 
 ```bash
-docker compose --env-file .env up -d --wait nginx
+sh scripts/deploy-dev-nginx.sh
 ```
 
 이후 서비스 배포는 GitLab CI가 자동으로 수행합니다.
@@ -158,6 +161,7 @@ Core만 변경된 예시는 다음과 같습니다.
 ```text
 GitLab CI에서 core-service image 생성
 → SSH 압축 스트림을 EC2 Docker에 직접 load
+→ HTTPS nginx 설정 사전 검사와 적용
 → .env의 CORE_IMAGE만 새 commit SHA로 변경
 → core-service 컨테이너만 재생성
 → health check

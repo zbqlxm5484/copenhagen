@@ -32,6 +32,10 @@ with open(os.environ['TEST_TRACE'], 'a') as trace:
             trace.write('BUILD ' + target['context'] + ' ' + target['tags'][0] + '\n')
 if args[0] == 'compose' and 'exec' in args and 'smoke-http' in args:
     args = ['run'] + args[args.index('curl') + 1:]
+if args[0] == 'compose':
+    command = args[1:]
+    while command and command[0] in ('--env-file', '--file'):
+        command = command[2:]
 if mode.startswith('deploy-'):
     secret = 'synthetic.p[a]ss&word'
     if args[0] == 'image':
@@ -40,7 +44,6 @@ if mode.startswith('deploy-'):
         print('status=exited ExitCode=1 OOMKilled=false health=unhealthy ' + secret)
         sys.exit(8 if mode == 'deploy-diagnostic-error' else 0)
     env = args[args.index('--env-file') + 1]
-    command = args[args.index('--file') + 2:]
     candidate = '.tmp.' in env
     if command[0] == 'up':
         print('UP candidate=' + str(candidate), flush=True)
@@ -63,7 +66,6 @@ if mode.startswith('deploy-'):
     sys.exit(0)
 if args[0] == 'compose':
     env = Path(args[args.index('--env-file') + 1])
-    command = args[args.index('--file') + 2:]
     secret = next((line.split('=', 1)[1] for line in env.read_text().splitlines()
                    if line.startswith('CORE_DB_PASSWORD=')), '')
     if command[0] == 'config':
@@ -260,13 +262,14 @@ class SmokeDiagnosticsTest(unittest.TestCase):
 
 
 class DeployDiagnosticsTest(unittest.TestCase):
-    def run_deploy(self, mode, recorded_image=True):
+    def run_deploy(self, mode, recorded_image=True, https=False):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             docker = work / 'docker'
             docker.write_text(DOCKER)
             docker.chmod(0o755)
             (work / 'compose.yml').write_text('services: {}')
+            (work / 'https.yml').write_text('services: {}')
             original = "CORE_DB_PASSWORD='synthetic.p[a]ss&word'\n"
             if recorded_image:
                 original += 'CORE_IMAGE=app:old\n'
@@ -276,7 +279,8 @@ class DeployDiagnosticsTest(unittest.TestCase):
             env.update(PATH=f'{work}:{os.environ["PATH"]}',
                        TEST_MODE=mode, TEST_TRACE=str(trace), TEST_SECRET='environment-secret')
             result = subprocess.run(['sh', str(ROOT / 'scripts/deploy-dev-service.sh'),
-                                     'core-service', 'CORE_IMAGE', 'app:new', 'compose.yml', '1'],
+                                     'core-service', 'CORE_IMAGE', 'app:new', 'compose.yml', '1']
+                                    + (['https.yml'] if https else []),
                                     cwd=work, env=env, text=True, stderr=subprocess.STDOUT,
                                     stdout=subprocess.PIPE, timeout=30)
             self.assertFalse(list(work.glob('.env.tmp.*')))
@@ -330,6 +334,18 @@ class DeployDiagnosticsTest(unittest.TestCase):
         self.assertNotIn('FAIL', output)
         self.assertNotIn('ROLLBACK', output)
         self.assertNotIn('logs --no-color', trace)
+
+    def test_https_override_is_used_for_deployment_diagnostics_and_rollback(self):
+        for mode in ('deploy-success', 'deploy-startup', 'deploy-nginx-reload'):
+            with self.subTest(mode=mode):
+                code, output, current, original, trace = self.run_deploy(mode, https=True)
+                self.assertEqual(code, 0 if mode == 'deploy-success' else 7 if mode == 'deploy-startup' else 6, output)
+                commands = [line for line in trace.splitlines() if line.startswith('compose ')]
+                self.assertTrue(commands)
+                self.assertTrue(all('--file compose.yml --file https.yml' in line for line in commands))
+                if code:
+                    self.assertIn('ROLLBACK SUCCESS', output)
+                    self.assertEqual(current, original)
 
 
 if __name__ == '__main__':

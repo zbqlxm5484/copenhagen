@@ -153,7 +153,7 @@ FAIL HTTP source=core-service target=PAY_SERVICE_URL/actuator/health reason=json
 - 필수 설정: `allow_failure: false`, GitLab `Pipelines must succeed`. MR 자체 검증 실패는 Merge 차단, develop 스모크 실패는 EC2 배포 차단
 - 실패 주입: 임시 브랜치에서 Dockerfile 빌드 오류, unhealthy 서비스, 잘못된 Nginx upstream별 job 실패와 merge 차단 확인
 - Nginx 검증: 기준 Nginx에서 서비스 교체와 reload 후 MR Nginx 이미지로 재생성
-- Nginx 설정만 변경: 스모크 실행, EC2 반영 별도 확인
+- Nginx 설정만 변경: 스모크·TLS 검증 후 `nginx-deploy-dev`로 EC2 반영
 - 실제 서버 검증: 독립된 스모크용 EC2 사용
 
 ## 서비스별 독립 job
@@ -208,17 +208,23 @@ FAIL HTTP source=core-service target=PAY_SERVICE_URL/actuator/health reason=json
 
 ## EC2 배포 과정
 
-전송 파일: `docker-compose.yml`, `infra/nginx/nginx.conf`, `scripts/deploy-dev-service.sh`
+전송 파일: `docker-compose.yml`, `infra/nginx/nginx.conf`, `infra/nginx/nginx.https.conf`, `infra/docker/https.override.yml`, `scripts/deploy-dev-service.sh`, `scripts/deploy-dev-nginx.sh`
 
 1. 변경 서비스 이미지 빌드, commit SHA 태그 지정
 2. SSH 압축 스트림으로 EC2 적재. 양쪽 `pipefail` 적용
-3. 빌드/전송 성공 후 배포 시작, 적재 이미지 확인
+3. 빌드/전송 성공 후 HTTPS 설정·인증서 사전 검사, nginx만 기동/재생성과 reload, 적재 이미지 확인
 4. 임시 `.env`에 대상 이미지 기록
-5. `--no-deps --no-build --pull never --wait`로 대상 컨테이너 교체
+5. HTTPS override를 포함하여 `--no-deps --no-build --pull never --wait`로 대상 컨테이너 교체
 6. health 확인, 실행 중인 Nginx 검사와 reload, `.env` 확정
 7. 실패 시 진단 출력, 이전 이미지 복구와 Nginx reload 시도
 
 동시 배포 제한: 모든 개발 배포 job이 `development-ec2` resource group 공유. DB와 Nginx 설정 파일 원복 제외.
+
+`nginx-deploy-dev`는 nginx·HTTPS override·nginx 배포 스크립트 변경도 서버에 반영합니다. 서비스 이미지 변경이 없는 경우에도 실행되며 `deploy-smoke`와 `nginx-config-test` 성공이 필수입니다. 애플리케이션 배포 job도 같은 설정 전송·nginx 적용 절차를 먼저 실행하므로 다음 서비스 배포에서 HTTPS가 사라지지 않습니다.
+
+`nginx-config-test`는 임시 인증서와 합성 백엔드로 실제 nginx의 HTTP/TLS 프록시, HTTPS 전환, ACME 경로, 내부 경로 차단, 백엔드 DNS 중단 중 reload를 검증합니다. 기존 전체 스택 스모크는 인증서 없는 로컬 HTTP 구성을 유지합니다. HTTPS override·nginx 배포 스크립트 변경도 전체 스모크와 그에 필요한 모든 서비스 JAR build를 선택합니다.
+
+개발 서버에는 [nginx 문서](../nginx/README.md)의 인증서와 ACME 디렉터리가 미리 준비되어 있어야 합니다. `.env`의 `NGINX_PORT=80`, 인증서·자동 갱신 타이머는 서버에서 관리합니다. CI는 개인키를 전달하거나 갱신 타이머·방화벽을 변경하지 않습니다.
 
 ### 배포 실패 진단
 
@@ -253,7 +259,7 @@ ROLLBACK SUCCESS service=pay-service
 5. MR pipeline의 필수 job 성공 확인
 6. `develop` merge 후 SSH 이미지 적재와 배포 job 성공 확인
 7. `docker compose ps`로 서비스 healthy 확인
-8. 전체 앱 배포 후 Nginx 시작
+8. HTTPS 인증서 준비 후 `sh scripts/deploy-dev-nginx.sh`로 Nginx 시작
 
 ## 참고
 
