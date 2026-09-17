@@ -20,9 +20,9 @@ import java.util.Set;
 final class QaCatalogStore {
 
     private static final List<Map<String, Object>> MERCHANTS = List.of(
-            Map.of("merchantId", "qa-a", "name", "가상몰 A"),
-            Map.of("merchantId", "qa-b", "name", "가상몰 B"),
-            Map.of("merchantId", "qa-c", "name", "가상몰 C"));
+            Map.of("merchantId", "qa-a", "name", "노르드 마켓"),
+            Map.of("merchantId", "qa-b", "name", "하운 스토어"),
+            Map.of("merchantId", "qa-c", "name", "벨루아 셀렉트"));
     private final List<Map<String, Object>> products;
     private final Set<String> failed;
 
@@ -33,6 +33,11 @@ final class QaCatalogStore {
 
     Set<String> failedMerchants() {
         return failed;
+    }
+
+    static String merchantName(String merchantId, String fallback) {
+        return MERCHANTS.stream().filter(merchant -> merchantId.equals(merchant.get("merchantId")))
+                .map(merchant -> (String) merchant.get("name")).findFirst().orElse(fallback);
     }
 
     static QaCatalogStore load(Path file) throws IOException {
@@ -64,7 +69,7 @@ final class QaCatalogStore {
                         && (query.merchantId().isEmpty() || query.merchantId().equals(offer.get("merchantId")))
                         && (query.minPrice() == null || (price != null && price.longValue() >= query.minPrice()))
                         && (query.maxPrice() == null || (price != null && price.longValue() <= query.maxPrice()));
-            }).toList();
+            }).map(QaCatalogStore::namedOffer).toList();
             if (!offers.isEmpty()) {
                 Map<String, Object> card = new LinkedHashMap<>();
                 for (String field : List.of("productId", "name", "brand", "category", "imageUrl")) {
@@ -78,14 +83,13 @@ final class QaCatalogStore {
             Comparator<Map<String, Object>> comparator = Comparator.comparingLong(QaCatalogStore::minimumPrice);
             filtered.sort(query.sort().equals("PRICE_ASC") ? comparator : comparator.reversed());
         }
-        boolean clarify = query.category().isEmpty() && categories.size() > 1 && failures.isEmpty();
-        int total = clarify ? 0 : filtered.size();
+        int total = filtered.size();
         int from = Math.min((query.page() - 1) * query.pageSize(), total);
         List<Map<String, Object>> page = filtered.subList(from, Math.min(from + query.pageSize(), total));
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("kind", "catalog.search");
         result.put("mode", "QA");
-        result.put("status", !failures.isEmpty() ? "PARTIAL" : clarify ? "CLARIFY" : page.isEmpty() ? "EMPTY" : "OK");
+        result.put("status", !failures.isEmpty() ? "PARTIAL" : page.isEmpty() ? "EMPTY" : "OK");
         result.put("query", query.arguments());
         result.put("products", List.copyOf(page));
         result.put("categories", categories);
@@ -132,12 +136,15 @@ final class QaCatalogStore {
         }
         product.put("description", source.getOrDefault("description", ""));
         product.put("specs", source.getOrDefault("specs", List.of()));
+        boolean merchantUnavailable = List.of("OUT_OF_STOCK", "DISCONTINUED")
+                .contains(sourceOffer.get("availability"));
         List<Map<String, Object>> variants = new ArrayList<>();
         for (Map<String, Object> variant : maps(source.getOrDefault("variants", List.of()))) {
             Map<String, Object> option = new LinkedHashMap<>();
             option.put("optionId", variant.get("optionId"));
             option.put("label", variant.get("label"));
-            option.put("availability", variant.get("availability"));
+            option.put("availability", merchantUnavailable ? sourceOffer.get("availability")
+                    : variant.get("availability"));
             option.put("purchaseAllowed", variant.get("purchaseAllowed"));
             option.put("price", ((Map<?, ?>) variant.get("prices")).get(request.merchantId()));
             variants.add(option);
@@ -146,7 +153,7 @@ final class QaCatalogStore {
                 .findFirst().orElse(null);
         String selection = selected != null ? "VALID" : !request.optionId().isEmpty() ? "INVALID"
                 : Boolean.TRUE.equals(source.get("optionsRequired")) ? "REQUIRED" : "UNKNOWN";
-        Map<String, Object> offer = new LinkedHashMap<>(sourceOffer);
+        Map<String, Object> offer = namedOffer(sourceOffer);
         if (selected != null) {
             offer.put("price", selected.get("price"));
             offer.put("availability", selected.get("availability"));
@@ -173,6 +180,12 @@ final class QaCatalogStore {
     private static long minimumPrice(Map<String, Object> product) {
         return maps(product.get("offers")).stream().filter(offer -> offer.get("price") != null)
                 .mapToLong(offer -> ((Number) offer.get("price")).longValue()).min().orElse(Long.MAX_VALUE);
+    }
+
+    private static Map<String, Object> namedOffer(Map<String, Object> source) {
+        Map<String, Object> offer = new LinkedHashMap<>(source);
+        offer.put("merchantName", merchantName((String) source.get("merchantId"), (String) source.get("merchantName")));
+        return offer;
     }
 
     @SuppressWarnings("unchecked")

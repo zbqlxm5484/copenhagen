@@ -1,15 +1,15 @@
-param([string]$JavaHome = $env:JAVA_HOME, [ValidateSet(1, 2, 3)][int]$Stage = 1)
+param([string]$JavaHome = $env:JAVA_HOME, [ValidateSet(1, 2, 3, 4)][int]$Stage = 1)
 $ErrorActionPreference = 'Stop'
 $moduleRoot = Split-Path -Parent $PSScriptRoot
 $backendRoot = [IO.Path]::GetFullPath((Join-Path $moduleRoot '..\..'))
-$port = 8090 + $Stage
+$port = if ($Stage -ge 3) { 8093 } else { 8090 + $Stage }
 $runtimeRoot = Join-Path $moduleRoot $(if ($Stage -gt 1) { "build\qa$Stage" } else { 'build\qa' })
 $catalogFile = Join-Path $runtimeRoot 'catalog.json'
 if ($Stage -gt 1 -and -not (Test-Path -LiteralPath $catalogFile)) {
     throw "Import the supplied catalog to build/qa$Stage/catalog.json before starting QA$Stage."
 }
 if (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue) {
-    throw "Port $port is already in use. Keep the existing service or run stop-qa.ps1 -Stage $Stage first."
+    throw "Port $port is already in use. Stop the owned QA server for its running Stage first. QA3/4 share 8093."
 }
 if (-not $JavaHome) {
     $jdkRoot = Join-Path $env:USERPROFILE '.gradle\jdks'
@@ -30,12 +30,13 @@ try {
 $classPath = (Get-Content -LiteralPath (Join-Path $moduleRoot 'build\qa\classpath.txt') -Raw).Trim().Replace('\', '/')
 $argFile = Join-Path $runtimeRoot 'java.args'
 $mainClass = switch ($Stage) {
+    4 { 'com.copenhagen.mcp.qa.LocalHandoffQa' }
     3 { 'com.copenhagen.mcp.qa.LocalCartQa' }
     2 { 'com.copenhagen.mcp.qa.LocalCatalogQa' }
     default { 'com.copenhagen.mcp.qa.LocalMcpQa' }
 }
 $catalogArgument = if ($Stage -gt 1) { '"-Dcopenhagen.qa.catalog=' + $catalogFile.Replace('\', '/') + '"' + "`n" } else { '' }
-if ($Stage -eq 3) {
+if ($Stage -ge 3) {
     $cartFile = Join-Path $runtimeRoot 'cart.json'
     $catalogArgument += '"-Dcopenhagen.qa.cart=' + $cartFile.Replace('\', '/') + '"' + "`n"
 }

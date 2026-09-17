@@ -76,7 +76,34 @@ final class QaCartStore implements AutoCloseable {
     }
 
     synchronized Map<String, Object> view(String user) throws IOException {
-        return QaCartQuote.view(get(user), catalog.failedMerchants());
+        Map<String, Object> cart = get(user);
+        for (Map<String, Object> line : QaCatalogStore.maps(cart.get("lines"))) {
+            line.put("merchantName", QaCatalogStore.merchantName((String) line.get("merchantId"),
+                    (String) line.get("merchantName")));
+        }
+        return QaCartQuote.view(cart, catalog.failedMerchants());
+    }
+
+    synchronized Map<String, Object> prepareHandoff(String user, String connection,
+            Map<String, Object> request, Instant now) throws IOException {
+        if (!McpJsonDefaults.getSchemaValidator()
+                .validate(com.copenhagen.mcp.handoff.HandoffSchemas.INPUT, request).valid()) {
+            throw new IllegalArgumentException("Invalid handoff request");
+        }
+        Map<String, Object> cart = get(user);
+        if (!cart.get("cartId").equals(request.get("cartId"))) {
+            throw new SecurityException("Cart not owned by authenticated user");
+        }
+        Map<String, Object> next = copy(users);
+        Map<String, Object> account = map(next.get(user));
+        Map<String, Object> receipts = map(account.computeIfAbsent("handoffs", unused -> new LinkedHashMap<>()));
+        Map<String, Object> output = QaPurchaseHandoff.prepare(cart, receipts, connection, normalized(request), now);
+        if (output.get("status").equals("READY")) {
+            map(account.computeIfAbsent("purchaseSnapshots", unused -> new LinkedHashMap<>()))
+                    .put(output.get("purchaseRef").toString(), cart);
+        }
+        save(next);
+        return copy(output);
     }
 
     synchronized Map<String, Object> add(String user, Map<String, Object> request) throws IOException {

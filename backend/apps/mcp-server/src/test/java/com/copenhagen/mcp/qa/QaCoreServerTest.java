@@ -28,7 +28,7 @@ class QaCoreServerTest {
     }
 
     @Test
-    void http_boundaryHandlesClarificationPagingFiltersAndPartialFailure() throws Exception {
+    void http_boundaryHandlesAllCategoriesPagingFiltersAndPartialFailure() throws Exception {
         List<Map<String, Object>> products = new ArrayList<>();
         for (int index = 1; index <= 9; index++) {
             products.add(product("p" + index, "group-a", index * 100L));
@@ -36,7 +36,21 @@ class QaCoreServerTest {
         products.add(product("other", "group-b", 0));
         try (QaCoreServer core = new QaCoreServer(new QaCatalogStore(products, Set.of()))) {
             ProductCatalogService service = service(core);
-            assertEquals("CLARIFY", service.search(IDENTITY, Map.of()).get("status"));
+            Map<String, Object> all = service.search(IDENTITY, Map.of());
+            assertEquals("OK", all.get("status"));
+            assertEquals(10, ((Number) all.get("total")).intValue());
+            assertEquals(List.of("group-a", "group-b"), all.get("categories"));
+            assertEquals(4, QaCatalogStore.maps(all.get("products")).size());
+            assertEquals(true, all.get("hasNext"));
+            assertEquals(all.get("products"), service.search(IDENTITY, Map.of("category", ""))
+                    .get("products"));
+            Map<String, Object> last = service.search(IDENTITY, Map.of("query", "QA", "page", 3));
+            assertEquals("OK", last.get("status"));
+            assertEquals(10, ((Number) last.get("total")).intValue());
+            assertEquals(List.of("group-a", "group-b"), QaCatalogStore.maps(last.get("products")).stream()
+                    .map(product -> product.get("category")).toList());
+            assertEquals(false, last.get("hasNext"));
+            assertEquals("EMPTY", service.search(IDENTITY, Map.of("page", 4)).get("status"));
             Map<String, Object> page = service.search(IDENTITY, Map.of("category", "group-a", "page", 2));
             assertEquals("p5", QaCatalogStore.maps(page.get("products")).getFirst().get("productId"));
             assertEquals(true, page.get("hasNext"));
@@ -49,6 +63,9 @@ class QaCoreServerTest {
             assertEquals(9, ((Number) service.search(IDENTITY, Map.of("category", "group-a")).get("total")).intValue());
         }
         try (QaCoreServer core = new QaCoreServer(new QaCatalogStore(products, Set.of("qa-b")))) {
+            Map<String, Object> allPartial = service(core).search(IDENTITY, Map.of());
+            assertEquals("PARTIAL", allPartial.get("status"));
+            assertEquals(10, ((Number) allPartial.get("total")).intValue());
             Map<String, Object> partial = service(core).search(IDENTITY, Map.of("category", "group-a"));
             assertEquals("PARTIAL", partial.get("status"));
             assertEquals(List.of("qa-b"), partial.get("failedMerchants"));

@@ -15,6 +15,8 @@ import com.copenhagen.mcp.catalog.ProductDetailRequest;
 import com.copenhagen.mcp.catalog.ProductSearchRequest;
 import com.copenhagen.mcp.core.CoreClient;
 import com.copenhagen.mcp.core.CoreProperties;
+import com.copenhagen.mcp.handoff.CorePurchaseHandoff;
+import com.copenhagen.mcp.handoff.HandoffSchemas;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.modelcontextprotocol.json.McpJsonDefaults;
@@ -46,6 +48,7 @@ final class QaCoreServer implements AutoCloseable {
             server.createContext("/fixture/cart/view", exchange -> cart(exchange, carts));
             server.createContext("/fixture/cart/update", exchange -> cart(exchange, carts));
             server.createContext("/fixture/cart/delete", exchange -> cart(exchange, carts));
+            server.createContext("/fixture/handoff/prepare", exchange -> cart(exchange, carts));
         }
         server.start();
         http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
@@ -80,13 +83,19 @@ final class QaCoreServer implements AutoCloseable {
         };
     }
 
+    CorePurchaseHandoff handoffAdapter() {
+        return (identity, request) -> client.post("/fixture/handoff/prepare", body(identity, request),
+                HandoffSchemas.CORE);
+    }
+
     @SuppressWarnings("unchecked")
     private void cart(HttpExchange exchange, QaCartStore carts) throws IOException {
         try (exchange) {
             String path = exchange.getRequestURI().getPath();
             if (!exchange.getRequestMethod().equals("POST")
                     || !java.util.Set.of("/fixture/cart/add", "/fixture/cart/view",
-                            "/fixture/cart/update", "/fixture/cart/delete").contains(path)) {
+                            "/fixture/cart/update", "/fixture/cart/delete", "/fixture/handoff/prepare")
+                            .contains(path)) {
                 exchange.sendResponseHeaders(404, -1);
                 return;
             }
@@ -97,7 +106,10 @@ final class QaCoreServer implements AutoCloseable {
             }
             Map<String, Object> input = McpJsonDefaults.getMapper().readValue(bytes, new TypeRef<>() { });
             try {
-                Map<String, Object> data = path.endsWith("/view") ? carts.view((String) input.get("publicUserRef"))
+                Map<String, Object> data = path.endsWith("/prepare")
+                        ? carts.prepareHandoff((String) input.get("publicUserRef"), (String) input.get("connectionRef"),
+                                (Map<String, Object>) input.get("arguments"), java.time.Instant.now())
+                        : path.endsWith("/view") ? carts.view((String) input.get("publicUserRef"))
                         : carts.change((String) input.get("publicUserRef"),
                                 path.substring(path.lastIndexOf('/') + 1).toUpperCase(java.util.Locale.ROOT),
                                 (Map<String, Object>) input.get("arguments"));
