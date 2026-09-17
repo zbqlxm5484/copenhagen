@@ -34,6 +34,9 @@ services:
       # 공개된 개발 전용 키이며, 운영 배포에서는 반드시 .env로 덮어써야 한다.
       # 공개키 쌍은 pay-service의 PAY_AUTH_JWT_JWK_SET_JSON(kid=A207)에 들어간다.
       CORE_AUTH_JWT_PRIVATE_KEY: ${CORE_AUTH_JWT_PRIVATE_KEY:-MEECAQAwEwYHKoZIzj0CAQYIKoZIzj0DAQcEJzAlAgEBBCAyh5K36nStp8dccrpgKa1lO1LnP8Uh45CWJ0ElrxvBFA}
+      # Agent OAuth 인가 서버 issuer/audience. 운영 배포에서는 반드시 실제 값으로 덮어써야 한다.
+      AGENT_OAUTH_ISSUER: ${AGENT_OAUTH_ISSUER:-http://localhost:8080}
+      AGENT_OAUTH_MCP_AUDIENCE: ${AGENT_OAUTH_MCP_AUDIENCE:-http://localhost:8080/mcp}
       PAY_SERVICE_URL: http://pay-service:8080
       MERCHANT_SERVICE_URL: http://ucp-merchant-mock:8080
     depends_on:
