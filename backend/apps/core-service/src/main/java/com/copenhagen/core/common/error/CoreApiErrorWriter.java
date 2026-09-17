@@ -8,6 +8,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 
+import com.copenhagen.core.common.logging.CoreLogContext;
+
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -53,6 +55,8 @@ public class CoreApiErrorWriter {
         if (response.isCommitted()) {
             return;
         }
+        // 필터 단계 오류는 access 줄이 errorCode를 여기서만 알 수 있다(이슈 374).
+        CoreLogContext.put(CoreLogContext.ERROR_CODE, errorCode.code());
         response.setStatus(errorCode.httpStatus().value());
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);

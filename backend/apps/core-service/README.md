@@ -32,6 +32,38 @@ Dockerfile              독립 이미지 빌드 정의
 
 Docker Compose에서는 `CORE_DB_URL`, `PAY_SERVICE_URL`, `MERCHANT_SERVICE_URL` 등의 환경변수로 연결 대상을 주입합니다. 서비스 주소는 Nginx가 아니라 Docker DNS 이름을 사용합니다.
 
+## 로그로 요청 하나 추적하기
+
+로그 한 줄마다 `req= usr=` 두 칸이 붙습니다. `req`는 `X-Request-Id`입니다. 앱·MCP가 보낸 값이 있으면 그대로 쓰고 없으면 Core가 만들어 응답 헤더로 돌려줍니다. 같은 값이 Merchant 호출의 `X-Request-Id` 헤더에 실리므로 Core와 `ucp-merchant-mock` 로그를 한 값으로 이어 볼 수 있습니다. `usr`은 Access Token의 사용자 공개 UUID이고 보호 라우트에서만 찍힙니다.
+
+요청·응답은 `ACCESS` 접두어의 한 줄 JSON으로 따로 남습니다. `event`는 들어온 요청이 `http.access`, 나가는 Merchant 호출이 `http.client`입니다.
+
+```bash
+# 요청 하나 따라가기
+docker compose logs core-service | grep 'req=core-req-42'
+
+# 요청·응답만 보기
+docker compose logs core-service | grep ' ACCESS '
+
+# 실패한 요청만
+docker compose logs core-service | grep ' ACCESS ' | grep '"errorCode"'
+```
+
+```text
+ACCESS {"event":"http.access","requestId":"3f2a…","userId":"9c1b…","method":"POST",
+        "path":"/api/core/v1/addresses","status":201,"durationMs":62,"requestBytes":159,"clientIp":"127.0.0.1"}
+ACCESS {"event":"http.client","requestId":"3f2a…","target":"merchant-a","method":"POST",
+        "path":"/ucp/v1/catalog/search","status":200,"durationMs":112}
+```
+
+**요청·응답 본문과 헤더는 남기지 않습니다.** 비밀번호·토큰·이메일·배송지가 로그로 새는 경로를 막기 위해서이고(`backend/docs/code-convention.md` §로깅, POLICY-06), 그런 이름의 키를 넣으려 하면 `AccessLogLine`이 예외로 거절합니다. 남는 것은 method·path·status·errorCode·소요시간·요청 바이트 수·clientIp뿐입니다. 쿼리 스트링도 버립니다.
+
+`/actuator/**`는 기록하지 않습니다 — compose healthcheck가 10초마다 칩니다.
+
+끄려면 로거 하나만 내립니다: `logging.level.access=OFF`.
+
+상태 전이 단위의 감사 로그(로그인 실패·잠금·토큰 폐기 등)는 여기에 없습니다. 구현순서 순서 16의 별도 작업이고, 저장 구조는 D-7로 보류 중입니다.
+
 ## 로컬 DB 통합 테스트 실행
 
 `AuthSchemaIntegrationTest`처럼 실제 PostgreSQL 제약조건을 검증하는 테스트는 `CORE_TEST_DB_URL` 환경변수가
