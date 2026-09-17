@@ -18,6 +18,7 @@ public interface PaymentCompletionRepository {
             String payTransactionId,
             long amountMinor,
             String currency,
+            String paymentLabel,
             Instant now);
 
     /** {@code ready_for_complete}(결제 실패로 되돌림) 또는 그 밖의 확정 실패. 주문은 만들지 않는다. */

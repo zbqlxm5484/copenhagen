@@ -119,6 +119,11 @@ public enum CoreErrorCode {
             "ORDER_MERCHANT_HANDOFF_REQUIRED",
             "판매자에게 직접 문의가 필요한 주문입니다.",
             "CONTACT_MERCHANT"),
+    ORDER_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "ORDER_NOT_FOUND",
+            "주문을 찾을 수 없습니다.",
+            "CHECK_REQUEST"),
     MERCHANT_CHECKOUT_UNAVAILABLE(
             HttpStatus.SERVICE_UNAVAILABLE,
             "MERCHANT_CHECKOUT_UNAVAILABLE",

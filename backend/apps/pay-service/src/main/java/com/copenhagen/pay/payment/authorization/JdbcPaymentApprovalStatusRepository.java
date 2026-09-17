@@ -22,12 +22,20 @@ public class JdbcPaymentApprovalStatusRepository implements PaymentApprovalStatu
                    s.amount_minor,
                    s.currency,
                    c.id AS credential_id,
-                   c.expires_at AS credential_expires_at
+                   c.expires_at AS credential_expires_at,
+                   CASE
+                       WHEN pm.last4 IS NULL OR BTRIM(pm.last4) = '' THEN 'Copenhagen Pay'
+                       ELSE COALESCE(NULLIF(BTRIM(pm.brand), ''), 'CARD') || ' '
+                            || CHR(8226) || CHR(8226) || CHR(8226) || CHR(8226) || ' ' || BTRIM(pm.last4)
+                   END AS payment_label
             FROM authorization_sessions s
             LEFT JOIN payment_credential_tokens c
               ON c.authorization_session_id = s.id
             LEFT JOIN payments p
               ON p.credential_token_id = c.id
+            LEFT JOIN payment_methods pm
+              ON pm.id = s.selected_payment_method_id
+             AND pm.user_id = s.user_id
             WHERE s.id = ?
             """;
 
@@ -65,6 +73,7 @@ public class JdbcPaymentApprovalStatusRepository implements PaymentApprovalStatu
                 resultSet.getLong("amount_minor"),
                 resultSet.getString("currency"),
                 resultSet.getString("credential_id"),
-                credentialExpiresAt == null ? null : credentialExpiresAt.toInstant());
+                credentialExpiresAt == null ? null : credentialExpiresAt.toInstant(),
+                resultSet.getString("payment_label"));
     }
 }

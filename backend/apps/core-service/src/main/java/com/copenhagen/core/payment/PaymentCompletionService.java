@@ -41,7 +41,7 @@ public class PaymentCompletionService {
         this.clock = coreClock;
     }
 
-    public Outcome complete(AwaitingApprovalCheckout row, String credentialId) {
+    public Outcome complete(AwaitingApprovalCheckout row, String credentialId, String paymentLabel) {
         String merchantId = cartMerchants.merchantId(row.merchantRefId());
         MerchantCheckoutClient client = merchantCheckoutClients.get(merchantId);
         if (client == null) {
@@ -64,6 +64,7 @@ public class PaymentCompletionService {
                     result.payment().paymentId(),
                     row.totalAmountMinor(),
                     row.currency(),
+                    paymentLabel,
                     clock.instant());
             return Outcome.COMPLETED;
         }
