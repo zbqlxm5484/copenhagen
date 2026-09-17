@@ -11,8 +11,6 @@ deploy-smoke:
   before_script:
     - apk add --no-cache bash git jq
   script:
-    - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
-    - export SMOKE_BASE_REF="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-$(git rev-parse FETCH_HEAD)}"
     - bash scripts/deploy-smoke.sh
   allow_failure: false
   timeout: 30m
@@ -23,8 +21,10 @@ deploy-smoke:
     expire_in: 1 day
   rules:
     - if: >-
-        $CI_PIPELINE_SOURCE == "merge_request_event" &&
-        $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "develop"
+        ($CI_PIPELINE_SOURCE == "merge_request_event" &&
+        $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "develop") ||
+        ($CI_PIPELINE_SOURCE == "push" &&
+        $CI_COMMIT_BRANCH == "develop")
       changes:
         - backend/**/*
         - .gitlab-ci.yml
@@ -33,5 +33,6 @@ deploy-smoke:
         - infra/nginx/**/*
         - infra/docker/smoke.override.yml
         - scripts/deploy-smoke.sh
+        - scripts/smoke-base.sh
         - scripts/deploy-dev-service.sh
     - when: never

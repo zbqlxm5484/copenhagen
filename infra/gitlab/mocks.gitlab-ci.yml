@@ -138,6 +138,8 @@ merchant-mock-docker-build:
     - .merchant-mock-delivery-rules
   stage: docker-build
   needs:
+    - job: deploy-smoke
+      artifacts: false
     - job: merchant-mock-build
       artifacts: false
   variables:
@@ -150,6 +152,8 @@ pg-mock-docker-build:
     - .pg-mock-delivery-rules
   stage: docker-build
   needs:
+    - job: deploy-smoke
+      artifacts: false
     - job: pg-mock-build
       artifacts: false
   variables:
@@ -162,6 +166,8 @@ merchant-mock-deploy-dev:
     - .merchant-mock-delivery-rules
   stage: deploy-dev
   needs:
+    - job: deploy-smoke
+      artifacts: false
     - job: merchant-mock-docker-build
       artifacts: false
   resource_group: development-ec2
@@ -176,6 +182,8 @@ pg-mock-deploy-dev:
     - .pg-mock-delivery-rules
   stage: deploy-dev
   needs:
+    - job: deploy-smoke
+      artifacts: false
     - job: pg-mock-docker-build
       artifacts: false
   resource_group: development-ec2
