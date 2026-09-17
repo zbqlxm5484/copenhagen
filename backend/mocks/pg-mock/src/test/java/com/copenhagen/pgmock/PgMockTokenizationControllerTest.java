@@ -1,6 +1,7 @@
 package com.copenhagen.pgmock;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -15,12 +16,24 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 class PgMockTokenizationControllerTest {
 
     private static final Clock CLOCK = Clock.fixed(
             Instant.parse("2026-09-16T00:00:00Z"),
             ZoneOffset.UTC);
+
+    @Test
+    void tokenizationEndpointUsesPublicApiPath() {
+        RequestMapping mapping = PgMockTokenizationController.class
+                .getAnnotation(RequestMapping.class);
+
+        assertNotNull(mapping);
+        assertArrayEquals(
+                new String[]{"/api/pg/v1/payment-methods/tokenize"},
+                mapping.value());
+    }
 
     @Test
     void tokenize_withFirstCardPassword_returnsProviderToken() {

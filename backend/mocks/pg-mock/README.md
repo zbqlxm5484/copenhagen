@@ -9,12 +9,12 @@
 
 ## 카드 토큰화
 
-앱은 개발 환경에서 `POST /v1/payment-methods/tokenize`를 호출해 Pay 카드 등록에 사용할
+앱은 개발 환경에서 `POST /api/pg/v1/payment-methods/tokenize`를 호출해 Pay 카드 등록에 사용할
 `providerTokenRef`를 발급받을 수 있습니다. 첫 카드 등록일 때만 4자리 `cardPassword`를
 전달하며, PG Mock은 사용자별 카드 보유 여부를 조회하지 않고 값의 형식만 검증합니다.
 
 ```http
-POST /v1/payment-methods/tokenize
+POST /api/pg/v1/payment-methods/tokenize
 Content-Type: application/json
 Idempotency-Key: tokenize-{uuid}
 ```

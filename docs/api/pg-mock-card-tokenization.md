@@ -8,7 +8,7 @@
 | 제공 서비스 | `pg-mock` |
 | 적용 범위 | 로컬·개발 환경 전용 |
 | 운영 사용 | 금지 |
-| 계약 버전 | v1 (구현 예정) |
+| 계약 버전 | v1 |
 
 ## 1. 전체 흐름
 
@@ -29,19 +29,19 @@ PG Mock은 실제 PG가 아니며, 카드번호·CVC를 저장하지 않습니�
 앱은 환경별로 `PG_MOCK_BASE_URL`을 주입받아 사용합니다.
 
 ```text
-${PG_MOCK_BASE_URL}/v1/payment-methods/tokenize
+${PG_MOCK_BASE_URL}/api/pg/v1/payment-methods/tokenize
 ```
 
 현재 Docker Compose 기준 `http://pg-mock:8080`은 컨테이너 간 통신용 주소입니다. 앱 에뮬레이터·실기기에서는 이 주소에 접근할 수 없습니다.
 
-앱에서 직접 호출하려면 개발 환경에서 PG Mock에 접근할 수 있는 별도 호스트 포트 또는 개발용 게이트웨이 주소가 필요합니다. 현재 Compose에는 PG Mock 외부 포트와 Nginx 공개 경로가 설정되어 있지 않으므로, 실제 앱 연동 주소는 인프라 담당자가 환경별로 제공합니다.
+앱은 개발용 Nginx의 `/api/pg/` 경로를 통해 PG Mock에 접근합니다. `PG_MOCK_BASE_URL`은 개발 서버의 scheme·host·port까지만 포함하고, 앱은 `/api/pg/v1/payment-methods/tokenize`를 붙여 호출합니다. 실제 개발 서버 주소와 포트는 인프라 담당자가 제공합니다.
 
 ## 3. 카드 토큰화
 
 ### Request
 
 ```http
-POST /v1/payment-methods/tokenize
+POST /api/pg/v1/payment-methods/tokenize
 Content-Type: application/json
 Idempotency-Key: tokenize-{uuid}
 ```

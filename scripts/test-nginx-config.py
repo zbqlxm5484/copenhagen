@@ -88,7 +88,7 @@ COPY www /var/www/certbot
                 return name
 
             backends = [start(role, 'backend.conf', [role])
-                        for role in ('core-service', 'mcp-server', 'pay-service')]
+                        for role in ('core-service', 'mcp-server', 'pay-service', 'pg-mock')]
             start('http', 'nginx.conf', ['plain'])
             https = start('https', 'nginx.https.conf', [DOMAIN])
             # The curl image cannot see the client's filesystem on a remote DinD daemon.
@@ -129,13 +129,15 @@ COPY www /var/www/certbot
                     ('/oauth/authorize/test-request/decision', 'core-service'),
                     ('/oauth/token', 'core-service'),
                     ('/api/core/probe', 'core-service'), ('/api/pay/probe', 'pay-service'),
+                    ('/api/pg/v1/payment-methods/tokenize', 'pg-mock'),
                     ('/merchant/v1/probe', 'pay-service'), ('/.well-known/ucp', 'core-service')):
                     for method in ('GET', 'POST'):
                         body, status, _ = request(f'{scheme}://{host}{path}', method)
                         assert status == (401 if path.startswith('/mcp') else 200), (scheme, path, status)
                         data = json.loads(body)
                         assert data == dict(data, uri=path, method=method, proto=scheme, backend=upstream)
-                for path in ('/internal', '/internal/v1/catalog/products', '/unknown',
+                for path in ('/internal', '/internal/v1/catalog/products', '/v1/payment-methods/tokenize',
+                             '/api/pg/v1/payment-methods/other', '/unknown',
                              '/.well-known/unknown', '/.well-known/jwks.json/extra',
                              '/.well-known/oauth-protected-resource/extra', '/oauth/unknown',
                              '/oauth/token/extra'):

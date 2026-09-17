@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/v1/payment-methods/tokenize")
+@RequestMapping("/api/pg/v1/payment-methods/tokenize")
 public class PgMockTokenizationController {
 
     private final PgMockTokenizationService service;

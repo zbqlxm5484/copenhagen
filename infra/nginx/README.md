@@ -10,10 +10,13 @@
 | `/oauth/authorize`, `/oauth/authorize/**`, `/oauth/token` | `core-service` |
 | `/api/core/**` | `core-service` |
 | `/api/pay/**` | `pay-service` |
+| `/api/pg/v1/payment-methods/tokenize` | `pg-mock` (개발 환경 전용) |
 | `/.well-known/ucp` | `core-service` |
 | `/merchant/v1/**` | `pay-service` |
 
 `/internal`과 `/internal/**`는 명시적으로 차단합니다. 새 공개 경로를 추가할 때는 먼저 책임 서비스와 인증·인가 정책을 정하고, 내부 endpoint가 노출되지 않는지 확인합니다.
+
+`/api/pg/v1/payment-methods/tokenize`는 테스트 카드 토큰화를 위한 개발 전용 경로입니다. 운영 환경에서는 PG Mock을 외부에 공개하지 않습니다.
 
 ## 로컬 HTTP와 개발 서버 HTTPS
 
