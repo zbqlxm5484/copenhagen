@@ -24,13 +24,19 @@ import org.springframework.web.server.ResponseStatusException;
 final class CatalogPreviewController {
 
     private final boolean cart;
+    private final boolean handoff;
 
     CatalogPreviewController() {
         this(false);
     }
 
     CatalogPreviewController(boolean cart) {
+        this(cart, false);
+    }
+
+    CatalogPreviewController(boolean cart, boolean handoff) {
         this.cart = cart;
+        this.handoff = handoff;
     }
 
     @GetMapping(value = "/qa", produces = "text/html;charset=UTF-8")
@@ -38,7 +44,12 @@ final class CatalogPreviewController {
         String html = new ClassPathResource("mcp-ui/catalog.html").getContentAsString(StandardCharsets.UTF_8);
         String bridge = """
                 <script>
+                document.body.dataset.localPreview = 'true';
                 window.openai = {
+                  openExternal: function({href}) {
+                    const link = document.createElement('a'); link.href = href;
+                    link.target = '_blank'; link.rel = 'noopener noreferrer'; link.click();
+                  },
                   callTool: async function(name, args) {
                     const response = await fetch('/qa/tools', {method: 'POST', cache: 'no-store',
                       headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name, arguments: args})});
@@ -49,6 +60,8 @@ final class CatalogPreviewController {
                 </script>
                 """;
         return html.replace("__CART_ENABLED__", Boolean.toString(cart))
+                .replace("__HANDOFF_ENABLED__", Boolean.toString(handoff))
+                .replace("__HANDOFF_LINK_BASE__", handoff ? QaPurchaseHandoff.LINK_BASE : "")
                 .replace("<script>/* BRIDGE */</script>", bridge);
     }
 
@@ -61,7 +74,8 @@ final class CatalogPreviewController {
     Object tool(HttpServletRequest request, @RequestBody Call call) {
         if (!Set.of("search_products", "display_products", "open_copenhagen", "get_product_detail")
                 .contains(call.name()) && !(cart && Set.of("get_cart", "add_cart_item", "update_cart_item",
-                        "delete_cart_item").contains(call.name()))) {
+                        "delete_cart_item").contains(call.name()))
+                && !(handoff && "prepare_purchase_handoff".equals(call.name()))) {
             throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST);
         }
         return invoke(request, call.name(), call.arguments());

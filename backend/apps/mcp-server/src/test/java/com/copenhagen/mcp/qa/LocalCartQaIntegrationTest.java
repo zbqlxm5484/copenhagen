@@ -60,6 +60,8 @@ class LocalCartQaIntegrationTest {
                 McpSchema.Tool add = client.listTools().tools().stream()
                         .filter(tool -> tool.name().equals("add_cart_item")).findFirst().orElseThrow();
                 assertFalse(add.annotations().readOnlyHint());
+                assertFalse(client.listTools().tools().stream()
+                        .anyMatch(tool -> tool.name().equals("prepare_purchase_handoff")));
                 McpSchema.Tool display = client.listTools().tools().stream()
                         .filter(tool -> tool.name().equals("open_copenhagen")).findFirst().orElseThrow();
                 String uri = (String) display.meta().get("openai/outputTemplate");
@@ -85,14 +87,14 @@ class LocalCartQaIntegrationTest {
         }
     }
 
-    private static McpSyncClient client(String base) {
+    static McpSyncClient client(String base) {
         McpSyncClient client = McpClient.sync(HttpClientStreamableHttpTransport.builder(base).endpoint("/mcp").build())
                 .requestTimeout(Duration.ofSeconds(10)).build();
         client.initialize();
         return client;
     }
 
-    private static Map<String, Object> call(McpSyncClient client, String name, Map<String, Object> request) {
+    static Map<String, Object> call(McpSyncClient client, String name, Map<String, Object> request) {
         McpSchema.CallToolResult result = client.callTool(McpSchema.CallToolRequest.builder()
                 .name(name).arguments(request).build());
         assertFalse(result.isError());
@@ -100,7 +102,7 @@ class LocalCartQaIntegrationTest {
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<String, Object> map(Object value) {
+    static Map<String, Object> map(Object value) {
         return (Map<String, Object>) value;
     }
 }

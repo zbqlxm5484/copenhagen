@@ -68,7 +68,8 @@ test('host-omitted nullable amounts remain unknown without accepting invalid val
 test('replayed host results cannot cancel an in-flight search or restore old filters after it', () => {
   const initial = { checkedAt: '2026-09-16T12:00:00Z', query: { query: 'first' } };
   const fresh = { checkedAt: '2026-09-16T12:00:01Z', query: { query: 'second' } };
-  assert.equal(acceptHostSearch(initial, undefined, true), true);
+  assert.equal(acceptHostSearch(initial, undefined, false), true);
+  assert.equal(acceptHostSearch(initial, undefined, true), false);
   assert.equal(acceptHostSearch(initial, initial, true), false);
   assert.equal(acceptHostSearch(fresh, initial, true), false);
   assert.equal(acceptHostSearch(initial, fresh, false), false);

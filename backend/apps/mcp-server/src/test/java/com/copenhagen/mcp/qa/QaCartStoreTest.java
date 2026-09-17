@@ -3,6 +3,8 @@ package com.copenhagen.mcp.qa;
 import com.copenhagen.mcp.auth.McpIdentity;
 import com.copenhagen.mcp.cart.CartService;
 import io.modelcontextprotocol.json.McpJsonDefaults;
+import io.modelcontextprotocol.json.TypeRef;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -14,6 +16,7 @@ import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -74,6 +77,35 @@ class QaCartStoreTest {
                     .get("status"));
             assertEquals(4, QaCatalogStore.maps(store.get("user-a").get("lines")).getFirst().get("quantity"));
         }
+    }
+
+    @Test
+    void view_legacyMerchantNames_updatesOnlyDisplayAndPreservesLedgerAndRetryReceipt() throws Exception {
+        Path ledger = directory.resolve("legacy-cart.json");
+        Map<String, Object> request;
+        Map<String, Object> receipt;
+        try (QaCartStore store = new QaCartStore(catalog(), ledger)) {
+            request = request(store.get("user-a"), "legacy-request-0001");
+            receipt = store.add("user-a", request);
+        }
+        // Reproduce a ledger and receipt saved before the QA display names changed.
+        Files.writeString(ledger, Files.readString(ledger).replace("노르드 마켓", "가상몰 A"));
+        Map<String, Object> legacyReceipt = McpJsonDefaults.getMapper().readValue(
+                McpJsonDefaults.getMapper().writeValueAsString(receipt).replace("노르드 마켓", "가상몰 A"),
+                new TypeRef<>() { });
+        byte[] original = Files.readAllBytes(ledger);
+        try (QaCartStore store = new QaCartStore(catalog(), ledger)) {
+            Map<?, ?> displayed = (Map<?, ?>) store.view("user-a").get("cart");
+            Map<String, Object> line = QaCatalogStore.maps(displayed.get("lines")).getFirst();
+            assertEquals("qa-a", line.get("merchantId"));
+            assertEquals("노르드 마켓", line.get("merchantName"));
+            assertEquals("가상몰 A", QaCatalogStore.maps(store.get("user-a").get("lines"))
+                    .getFirst().get("merchantName"));
+            assertEquals(legacyReceipt, store.add("user-a", request));
+            assertEquals(1, store.get("user-a").get("version"));
+            assertArrayEquals(original, Files.readAllBytes(ledger));
+        }
+        assertArrayEquals(original, Files.readAllBytes(ledger));
     }
 
     @Test

@@ -336,6 +336,7 @@ Story 362부터 ChatGPT 연결·최소 UI를 먼저 검증하고 검색·장바�
 [전체 계획](docs/roadmap.md)과 [QA 실행 및 휴대폰 확인 방법](docs/mobile-qa.md)을 참고하세요.
 UI는 `MCP_UI_ENABLED=true`일 때 등록되며 운영 기본 인증 차단은 유지됩니다.
 
+구매 인계 Mock과 런타임 키 환경파일 설정은 [QA4 실행 문서](docs/qa4.md)를 참고하세요.
 상품 탐색은 [QA2 실행 문서](docs/qa2.md), 장바구니 구성과 상태 유지는
 [QA3 실행 문서](docs/qa3.md)를 참고하세요. QA3의 장바구니 저장은 테스트용 Mock Core가 담당하며,
 실제 Core API 계약이 확정되면 내부 포트의 어댑터를 교체합니다.

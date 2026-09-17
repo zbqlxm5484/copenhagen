@@ -74,7 +74,7 @@ export async function timedCall(call, timeout = 10000) {
 }
 
 export function acceptHostSearch(data, current, busy) {
-  return !current || (!busy && Date.parse(data.checkedAt) > Date.parse(current.checkedAt));
+  return !busy && (!current || Date.parse(data.checkedAt) > Date.parse(current.checkedAt));
 }
 
 export function detailData(result, request) {

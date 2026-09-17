@@ -1,4 +1,4 @@
-param([ValidateSet(1, 2, 3)][int]$Stage = 1)
+param([ValidateSet(1, 2, 3, 4)][int]$Stage = 1)
 $ErrorActionPreference = 'Stop'
 $recordPath = Join-Path (Split-Path -Parent $PSScriptRoot) $(if ($Stage -gt 1) { "build\qa$Stage\process.json" } else { 'build\qa\process.json' })
 if (-not (Test-Path -LiteralPath $recordPath)) { Write-Output 'No owned QA process.'; exit 0 }
