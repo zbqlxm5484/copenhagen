@@ -45,7 +45,7 @@ public final class McpAuthenticationService {
             throw new McpAuthException(McpAuthError.ACCOUNT_NOT_CONNECTED);
         }
         McpIdentity identity = new McpIdentity(token.publicUserRef(), token.connectionRef(), token.scopes(),
-                token.expiresAt());
+                token.expiresAt(), accessToken);
         identity.requireScopes(properties.requiredScopes());
         return identity;
     }

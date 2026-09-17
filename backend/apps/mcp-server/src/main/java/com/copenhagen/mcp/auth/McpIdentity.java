@@ -5,9 +5,14 @@ import java.time.Instant;
 import java.util.Set;
 
 /** 인증 필터가 생성해 SDK transport context로 전달하는 요청별 사용자 문맥. */
-public record McpIdentity(String publicUserRef, String connectionRef, Set<String> scopes, Instant expiresAt) {
+public record McpIdentity(String publicUserRef, String connectionRef, Set<String> scopes, Instant expiresAt,
+        String agentAccessToken) {
 
     public static final String CONTEXT_KEY = McpIdentity.class.getName();
+
+    public McpIdentity(String publicUserRef, String connectionRef, Set<String> scopes, Instant expiresAt) {
+        this(publicUserRef, connectionRef, scopes, expiresAt, null);
+    }
 
     public McpIdentity {
         if (publicUserRef == null || publicUserRef.isBlank() || connectionRef == null || connectionRef.isBlank()

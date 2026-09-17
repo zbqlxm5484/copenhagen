@@ -14,12 +14,20 @@ management:
 
 services:
   core:
+    auth:
+      enabled: ${CORE_SERVICE_AUTH_ENABLED:false}
+      token-uri: ${CORE_TOKEN_URI:}
+      client-id: ${CORE_MCP_CLIENT_ID:copenhagen-mcp}
+      private-jwk-file: ${CORE_MCP_PRIVATE_JWK_FILE:}
     base-url: ${CORE_SERVICE_URL:http://core-service:8080}
     connect-timeout: ${CORE_CONNECT_TIMEOUT:2s}
     request-timeout: ${CORE_REQUEST_TIMEOUT:5s}
     max-response-bytes: ${CORE_MAX_RESPONSE_BYTES:262144}
 
 mcp:
+  integration:
+    enabled: ${MCP_INTEGRATION_ENABLED:false}
+    app-link-base: ${MCP_APP_LINK_BASE:}
   handoff:
     enabled: ${MCP_HANDOFF_ENABLED:false}
     write-scopes: ${MCP_HANDOFF_WRITE_SCOPES:}
@@ -38,6 +46,9 @@ mcp:
     enabled: ${MCP_MERCHANTS_ENABLED:false}
     required-scopes: ${MCP_MERCHANTS_REQUIRED_SCOPES:}
   auth:
+    jwt:
+      enabled: ${MCP_AUTH_JWT_ENABLED:false}
+      jwks-uri: ${MCP_AUTH_JWKS_URI:}
     issuer: ${MCP_AUTH_ISSUER:}
     resource: ${MCP_AUTH_RESOURCE:}
     required-scopes: ${MCP_AUTH_REQUIRED_SCOPES:}
