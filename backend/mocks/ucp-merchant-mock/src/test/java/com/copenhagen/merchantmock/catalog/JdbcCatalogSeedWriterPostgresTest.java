@@ -159,7 +159,7 @@ class JdbcCatalogSeedWriterPostgresTest {
     void seedFile_loadedThroughDatabase_appearsInCatalogStore() {
         // given
         CatalogSeedLoader loader = new CatalogSeedLoader(
-                MerchantPropertiesFixture.withCatalogSeedFile("classpath:catalog/kurly.json"),
+                MerchantPropertiesFixture.withCatalogSeedFile("classpath:catalog/merchant-a.json"),
                 new DefaultResourceLoader(),
                 new ObjectMapper(),
                 writer);
@@ -170,9 +170,10 @@ class JdbcCatalogSeedWriterPostgresTest {
         store.load();
 
         // then
-        assertEquals(100, written);
+        // 몰 하나가 풀 1,408건의 약 78% 를 갖는다(DESIGN.md 5.7절). 정확한 수는 CatalogSeedFilesTest 가 본다.
+        assertTrue(written >= 1000, "적재 " + written + "건");
         // V3 fixture 5건이 그대로 남아 있어야 한다.
-        assertEquals(105, store.all().size());
+        assertEquals(written + 5, store.all().size());
 
         Product product = store.all().stream()
                 .filter(candidate -> candidate.externalId().startsWith("kurly:"))
