@@ -1,4 +1,7 @@
 include:
+  - local: /infra/gitlab/runner-target.gitlab-ci.yml
+    rules:
+      - if: '$CI_TARGET_RUNNER_TAG != null && $CI_TARGET_RUNNER_TAG != ""'
   - local: /infra/gitlab/common.gitlab-ci.yml
   - local: /infra/gitlab/core.gitlab-ci.yml
   - local: /infra/gitlab/mcp.gitlab-ci.yml

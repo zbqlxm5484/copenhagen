@@ -59,6 +59,7 @@ bash -n scripts/deploy-smoke.sh
 sh -n scripts/smoke-base.sh
 sh -n scripts/deploy-dev-service.sh
 shellcheck scripts/smoke-base.sh scripts/deploy-smoke.sh scripts/deploy-dev-service.sh
+shellcheck scripts/ci-jar.sh scripts/build-ci-jar.sh scripts/build-ci-image.sh scripts/run-ci-gradle.sh
 git diff --check
 ```
 
@@ -70,6 +71,19 @@ git diff --check
 | 전체 앱 스모크, GitLab Runner, EC2 | 미검증 |
 
 격리 검증 환경: Podman API, Docker Compose. 테스트 컨테이너, 네트워크, 전용 이미지 정리 완료.
+
+## CI 빌드 스크립트
+
+| 스크립트 | 역할 |
+| --- | --- |
+| `run-ci-gradle.sh <task>...` | CI Gradle 실행. 선택한 `CI_GRADLE_MAX_WORKERS`를 검증해 전달 |
+| `ci-jar.sh record\|verify <module>` | JAR의 SHA·pipeline·서비스·내용 기록 및 검증. `CI_COMMIT_SHA`, `CI_PIPELINE_ID` 필수 |
+| `build-ci-jar.sh <module>` | 테스트 artifact 재사용. `REQUIRE_TEST_ARTIFACT=true`일 때 누락 시 실패. 미변경 스모크 서비스만 소스 빌드 |
+| `build-ci-image.sh <module> <image>` | 검증된 JAR만 포함한 임시 context로 `ci-runtime` 이미지 빌드 |
+
+module은 `apps/core-service`, `apps/mcp-server`, `apps/pay-service`, `mocks/ucp-merchant-mock`, `mocks/pg-mock`만 허용합니다.
+
+2026-09-17 검증: 회귀 테스트 20개 통과. artifact 누락·오염·다른 SHA/pipeline/서비스 거부, Gradle 중복 실행 방지, worker 옵션, CI Job 의존 관계, 기존 실패 진단과 롤백 확인. 로컬 Podman에서 다섯 CI 이미지의 JAR 바이트와 런타임 설정 일치, Docker 소스 빌드의 worker 옵션 전달 확인. 실제 서버 성능 측정과 구분한 결과는 [Runner 측정 기록](../infra/gitlab/runner-performance.md)에 정리합니다.
 
 ## `smoke-base.sh`
 

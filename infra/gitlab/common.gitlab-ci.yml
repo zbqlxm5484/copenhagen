@@ -19,6 +19,8 @@ stages:
 variables:
   GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
   DEV_DEPLOY_WAIT_TIMEOUT: "120"
+  # 측정할 pipeline에서만 1 또는 2 등을 지정합니다. 미지정 시 기존 동작 유지.
+  CI_GRADLE_MAX_WORKERS: ""
 
 .gradle-job:
   image: eclipse-temurin:21-jdk-alpine
@@ -31,7 +33,23 @@ variables:
     - cd backend
     - chmod +x gradlew
   script:
-    - ./gradlew "$GRADLE_TASK" --build-cache --no-daemon
+    - sh ../scripts/run-ci-gradle.sh "$GRADLE_TASK"
+
+.gradle-test-job:
+  extends: .gradle-job
+  script:
+    - sh ../scripts/run-ci-gradle.sh "$GRADLE_TASK" "${GRADLE_TASK%:test}:bootJar"
+    - sh ../scripts/ci-jar.sh record "$GRADLE_MODULE"
+  artifacts:
+    paths:
+      - backend/$GRADLE_MODULE/build/libs/app.jar
+      - backend/$GRADLE_MODULE/build/libs/app.jar.metadata
+    expire_in: 1 day
+
+.gradle-jar-job:
+  extends: .gradle-job
+  script:
+    - sh ../scripts/build-ci-jar.sh "$GRADLE_MODULE"
 
 .ssh-dev-job:
   before_script:
@@ -57,7 +75,7 @@ variables:
   script:
     - set -o pipefail
     - docker info
-    - docker build --file "$DOCKERFILE" --tag "$CONTAINER_IMAGE" backend
+    - sh scripts/build-ci-image.sh "$GRADLE_MODULE" "$CONTAINER_IMAGE"
     - >-
       docker save "$CONTAINER_IMAGE" | gzip -1 |
       ssh -F /dev/null
@@ -153,7 +171,7 @@ backend-lint:
   extends: .gradle-job
   stage: lint
   script:
-    - ./gradlew checkstyleMain checkstyleTest --build-cache --no-daemon
+    - sh ../scripts/run-ci-gradle.sh checkstyleMain checkstyleTest
   rules:
     - if: >-
         ($CI_PIPELINE_SOURCE == "merge_request_event" &&
@@ -162,6 +180,7 @@ backend-lint:
         $CI_COMMIT_BRANCH == "develop")
       changes:
         - backend/**/*
+        - scripts/run-ci-gradle.sh
     - when: never
 
 ci-config-test:
@@ -171,13 +190,20 @@ ci-config-test:
     - apk add --no-cache python3 py3-yaml bash git jq shellcheck
   script:
     - PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v
+    - sh -n scripts/ci-jar.sh
+    - sh -n scripts/build-ci-jar.sh
+    - sh -n scripts/build-ci-image.sh
+    - sh -n scripts/run-ci-gradle.sh
     - sh -n scripts/smoke-base.sh
-    - bash -n scripts/deploy-smoke.sh
     - sh -n scripts/deploy-dev-service.sh
     - shellcheck scripts/smoke-base.sh scripts/deploy-smoke.sh scripts/deploy-dev-service.sh
+    - shellcheck scripts/ci-jar.sh scripts/build-ci-jar.sh scripts/build-ci-image.sh scripts/run-ci-gradle.sh
+    - bash -n scripts/deploy-smoke.sh
   rules:
     - changes:
         - .gitlab-ci.yml
         - infra/gitlab/**/*
         - scripts/**/*
+        - backend/**/Dockerfile
+        - backend/gradle.properties
     - when: never

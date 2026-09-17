@@ -4,7 +4,7 @@ from pathlib import Path
 import re
 import unittest
 
-import yaml
+from test_ci_pipeline import load_raw_config
 
 ROOT = Path(__file__).resolve().parents[2]
 SERVICES = ('core', 'mcp', 'pay', 'merchant-mock', 'pg-mock')
@@ -33,9 +33,7 @@ def selected(job, env, paths):
 class SmokePipelineTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.config = yaml.safe_load((ROOT / '.gitlab-ci.yml').read_text())
-        for include in cls.config['include']:
-            cls.config.update(yaml.safe_load((ROOT / include['local'].lstrip('/')).read_text()))
+        cls.config = load_raw_config()
 
     def job(self, name):
         job = deepcopy(self.config[name])
@@ -76,6 +74,8 @@ class SmokePipelineTest(unittest.TestCase):
                             if isinstance(need, dict) and need.get('optional'):
                                 continue
                             self.assertIn(dependency, jobs, f'{name} requires {dependency}')
+                    for dependency in jobs['deploy-smoke']['dependencies']:
+                        self.assertIn(dependency, jobs)
                     if event == 'merge_request_event':
                         self.assertFalse(any(name.endswith(('-docker-build', '-deploy-dev'))
                                              for name in jobs))
@@ -118,7 +118,8 @@ class SmokePipelineTest(unittest.TestCase):
     def test_smoke_keeps_stage_barrier_and_reads_the_pinned_baseline(self):
         job = self.job('deploy-smoke')
         self.assertNotIn('needs', job)  # Wait for all selected lint/test/build jobs.
-        self.assertEqual(job['dependencies'], [])  # Source-built full stack on current develop.
+        self.assertCountEqual(job['dependencies'], [service + '-build' for service in SERVICES])
+        self.assertEqual(job['variables']['SMOKE_USE_CI_ARTIFACTS'], 'true')
         self.assertEqual(job['variables']['GIT_DEPTH'], '0')
         self.assertEqual(job['script'], ['bash scripts/deploy-smoke.sh'])
         script = (ROOT / 'scripts/deploy-smoke.sh').read_text()
