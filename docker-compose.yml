@@ -29,6 +29,11 @@ services:
       # 운영 배포에서는 반드시 환경변수로 덮어써야 하며, 값이 없으면 core-service가 기동에 실패한다.
       CORE_PII_ENC_KEY: ${CORE_PII_ENC_KEY:-ZGV2LW9ubHktY29yZS1waWkta2V5LTMyLWJ5dGVzISE=}
       CORE_PII_HASH_PEPPER: ${CORE_PII_HASH_PEPPER:-dev-only-core-pii-hash-pepper-value-do-not-use-in-prod}
+      # 로그인 Access Token 서명 키. 미설정 시 core-service가 기동마다 새 키 쌍을 생성해
+      # pay-service가 토큰을 검증하지 못한다. 아래 기본값은 CORE_PII_ENC_KEY와 같은 성격의
+      # 공개된 개발 전용 키이며, 운영 배포에서는 반드시 .env로 덮어써야 한다.
+      # 공개키 쌍은 pay-service의 PAY_AUTH_JWT_JWK_SET_JSON(kid=A207)에 들어간다.
+      CORE_AUTH_JWT_PRIVATE_KEY: ${CORE_AUTH_JWT_PRIVATE_KEY:-MEECAQAwEwYHKoZIzj0CAQYIKoZIzj0DAQcEJzAlAgEBBCAyh5K36nStp8dccrpgKa1lO1LnP8Uh45CWJ0ElrxvBFA}
       PAY_SERVICE_URL: http://pay-service:8080
       MERCHANT_SERVICE_URL: http://ucp-merchant-mock:8080
     depends_on:

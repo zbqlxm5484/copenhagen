@@ -33,7 +33,7 @@ class CoreJwtIssuerTest {
         JWTClaimsSet claims = SignedJWT.parse(token.token()).getJWTClaimsSet();
         assertEquals("copenhagen-core", claims.getIssuer());
         assertEquals(subject.toString(), claims.getSubject());
-        assertEquals("copenhagen-app", claims.getAudience().get(0));
+        assertEquals("pay-service", claims.getAudience().get(0));
         assertEquals(FIXED_INSTANT, claims.getIssueTime().toInstant());
         assertEquals(FIXED_INSTANT.plusSeconds(1800), claims.getExpirationTime().toInstant());
         assertNotNull(claims.getJWTID());

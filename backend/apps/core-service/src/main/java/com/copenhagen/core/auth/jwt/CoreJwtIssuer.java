@@ -22,7 +22,7 @@ public class CoreJwtIssuer {
 
     static final Duration ACCESS_TOKEN_TTL = Duration.ofMinutes(30);
     static final String ISSUER = "copenhagen-core";
-    static final String AUDIENCE = "copenhagen-app";
+    static final String AUDIENCE = "pay-service";
 
     private final CoreAuthJwtKeySet keySet;
     private final Clock clock;
