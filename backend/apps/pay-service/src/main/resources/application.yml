@@ -46,6 +46,17 @@ pay:
     batch-size: ${PAY_RECONCILIATION_BATCH_SIZE:10}
     lease-duration-seconds: ${PAY_RECONCILIATION_LEASE_SECONDS:60}
     retry-delay-seconds: ${PAY_RECONCILIATION_RETRY_SECONDS:60}
+  notification:
+    fcm:
+      enabled: ${PAY_FCM_ENABLED:false}
+      project-id: ${PAY_FCM_PROJECT_ID:}
+      service-account-json: ${PAY_FCM_SERVICE_ACCOUNT_JSON:}
+    worker:
+      enabled: ${PAY_NOTIFICATION_WORKER_ENABLED:false}
+      poll-delay-millis: ${PAY_NOTIFICATION_POLL_MILLIS:5000}
+      batch-size: ${PAY_NOTIFICATION_BATCH_SIZE:10}
+      lease-duration-seconds: ${PAY_NOTIFICATION_LEASE_SECONDS:60}
+      retry-delay-seconds: ${PAY_NOTIFICATION_RETRY_SECONDS:60}
 
 management:
   endpoints:

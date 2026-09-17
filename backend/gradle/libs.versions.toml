@@ -3,6 +3,7 @@ spring-boot = "4.1.1"
 spring-dependency-management = "1.1.7"
 nimbus-jose-jwt = "9.41.1"
 json-canonicalization = "1.1"
+firebase-admin = "9.10.0"
 
 [libraries]
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
@@ -15,6 +16,7 @@ flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
 postgresql = { module = "org.postgresql:postgresql" }
 nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
 json-canonicalization = { module = "io.github.erdtman:java-json-canonicalization", version.ref = "json-canonicalization" }
+firebase-admin = { module = "com.google.firebase:firebase-admin", version.ref = "firebase-admin" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }

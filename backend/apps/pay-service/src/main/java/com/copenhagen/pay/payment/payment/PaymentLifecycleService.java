@@ -3,6 +3,7 @@ package com.copenhagen.pay.payment.payment;
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
 import com.copenhagen.pay.payment.authorization.AuthorizationSessionLifecycleService;
+import com.copenhagen.pay.payment.notification.NotificationEventPublisher;
 import com.copenhagen.pay.payment.policy.PayStateTransitionPolicy;
 import com.copenhagen.pay.payment.policy.PaymentStatus;
 import org.springframework.stereotype.Service;
@@ -13,12 +14,20 @@ public class PaymentLifecycleService {
 
     private final PaymentRepository paymentRepository;
     private final AuthorizationSessionLifecycleService authorizationSessionService;
+    private NotificationEventPublisher notificationEventPublisher = NotificationEventPublisher.noop();
 
     public PaymentLifecycleService(
             PaymentRepository paymentRepository,
             AuthorizationSessionLifecycleService authorizationSessionService) {
         this.paymentRepository = paymentRepository;
         this.authorizationSessionService = authorizationSessionService;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setNotificationEventPublisher(NotificationEventPublisher notificationEventPublisher) {
+        if (notificationEventPublisher != null) {
+            this.notificationEventPublisher = notificationEventPublisher;
+        }
     }
 
     @Transactional
@@ -29,6 +38,10 @@ public class PaymentLifecycleService {
     @Transactional
     public void markUnknown(String paymentId) {
         transition(paymentId, PaymentStatus.PROCESSING, PaymentStatus.UNKNOWN);
+        notificationEventPublisher.publishPaymentResult(
+                paymentId,
+                findAuthorizationSessionId(paymentId),
+                PaymentStatus.UNKNOWN);
     }
 
     @Transactional
@@ -47,8 +60,12 @@ public class PaymentLifecycleService {
             }
             throw stateConflict(actualStatus);
         }
-        authorizationSessionService.completeAfterPaymentSuccess(
-                findAuthorizationSessionId(paymentId));
+        String authorizationSessionId = findAuthorizationSessionId(paymentId);
+        authorizationSessionService.completeAfterPaymentSuccess(authorizationSessionId);
+        notificationEventPublisher.publishPaymentResult(
+                paymentId,
+                authorizationSessionId,
+                PaymentStatus.SUCCESS);
     }
 
     @Transactional
@@ -67,8 +84,12 @@ public class PaymentLifecycleService {
             }
             throw stateConflict(actualStatus);
         }
-        authorizationSessionService.invalidateAfterDefinitivePaymentFailure(
-                findAuthorizationSessionId(paymentId));
+        String authorizationSessionId = findAuthorizationSessionId(paymentId);
+        authorizationSessionService.invalidateAfterDefinitivePaymentFailure(authorizationSessionId);
+        notificationEventPublisher.publishPaymentResult(
+                paymentId,
+                authorizationSessionId,
+                PaymentStatus.FAILED);
     }
 
     private void transition(String paymentId, PaymentStatus expectedStatus, PaymentStatus targetStatus) {

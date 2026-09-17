@@ -291,7 +291,7 @@ public class AuthorizationSessionController {
             String checkoutId,
             String checkoutHash,
             List<SummaryItemResponse> summary,
-            long amountMinor,
+            long totalAmountMinor,
             String currency,
             String selectedPaymentMethodId,
             String status,

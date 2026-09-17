@@ -53,6 +53,9 @@ public class PayIdempotencyFilter extends OncePerRequestFilter {
         if (!request.getDispatcherType().equals(jakarta.servlet.DispatcherType.REQUEST)) {
             return true;
         }
+        if (isNotificationInstallationRequest(request)) {
+            return true;
+        }
         if (PayAuthenticationPolicy.requiredPrincipal(request.getRequestURI())
                 == PayAuthenticationPolicy.RequiredPrincipal.NONE) {
             return true;
@@ -61,6 +64,12 @@ public class PayIdempotencyFilter extends OncePerRequestFilter {
             case "GET", "HEAD", "OPTIONS", "TRACE" -> true;
             default -> false;
         };
+    }
+
+    private boolean isNotificationInstallationRequest(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return "/api/pay/v1/notification-installations".equals(path)
+                || path.startsWith("/api/pay/v1/notification-installations/");
     }
 
     @Override

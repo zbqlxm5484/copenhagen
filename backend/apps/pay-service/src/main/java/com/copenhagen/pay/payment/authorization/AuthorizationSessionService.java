@@ -6,6 +6,7 @@ import com.copenhagen.pay.common.idempotency.IdempotencyGuard;
 import com.copenhagen.pay.common.validation.RequestValidation;
 import com.copenhagen.pay.payment.merchant.MerchantAccount;
 import com.copenhagen.pay.payment.merchant.MerchantAccountRepository;
+import com.copenhagen.pay.payment.notification.NotificationEventPublisher;
 import com.copenhagen.pay.payment.paymentmethod.PaymentMethod;
 import com.copenhagen.pay.payment.paymentmethod.PaymentMethodRepository;
 import com.copenhagen.pay.payment.policy.AuthorizationSessionStatus;
@@ -15,6 +16,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.JacksonException;
@@ -38,6 +40,7 @@ public class AuthorizationSessionService {
     private final ApprovalProperties approvalProperties;
     private final MerchantCheckoutVerifier checkoutVerifier;
     private final VerifiedCheckoutEvidenceRepository evidenceRepository;
+    private NotificationEventPublisher notificationEventPublisher = NotificationEventPublisher.noop();
 
     public AuthorizationSessionService(
             AuthorizationSessionStore store,
@@ -58,6 +61,13 @@ public class AuthorizationSessionService {
         this.approvalProperties = approvalProperties;
         this.checkoutVerifier = checkoutVerifier;
         this.evidenceRepository = evidenceRepository;
+    }
+
+    @Autowired(required = false)
+    public void setNotificationEventPublisher(NotificationEventPublisher notificationEventPublisher) {
+        if (notificationEventPublisher != null) {
+            this.notificationEventPublisher = notificationEventPublisher;
+        }
     }
 
     @Transactional
@@ -134,6 +144,9 @@ public class AuthorizationSessionService {
             if (!evidenceRepository.insert(evidence)) {
                 throw new PayException(PayErrorCode.INTERNAL_ERROR);
             }
+            if (status == AuthorizationSessionStatus.PENDING) {
+                notificationEventPublisher.publishApprovalRequested(session);
+            }
             return new CreateResult(session, false);
         }
 
@@ -205,8 +218,13 @@ public class AuthorizationSessionService {
             throw stateConflict(current.status());
         }
 
-        return store.findByIdAndUserId(authorizationSessionId, userId)
+        AuthorizationSession updated = store.findByIdAndUserId(authorizationSessionId, userId)
                 .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
+        if (session.status() == AuthorizationSessionStatus.PAYMENT_METHOD_REQUIRED
+                && updated.status() == AuthorizationSessionStatus.PENDING) {
+            notificationEventPublisher.publishApprovalRequested(updated);
+        }
+        return updated;
     }
 
     public AuthorizationDisplaySnapshot displaySnapshot(AuthorizationSession session) {
