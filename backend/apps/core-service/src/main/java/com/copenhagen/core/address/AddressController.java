@@ -24,6 +24,8 @@ import com.copenhagen.core.common.auth.CoreRequestContext;
 import com.copenhagen.core.common.error.CoreErrorCode;
 import com.copenhagen.core.common.error.CoreException;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 @RestController
 @RequestMapping("/api/core/v1/addresses")
 public class AddressController {
@@ -87,22 +89,26 @@ public class AddressController {
     }
 
     public record AddressRequest(
-            @NotBlank
-            String recipientName,
+        @NotBlank
+        @JsonAlias("recipient")
+        String recipientName,
 
-            @NotBlank
-            String recipientPhone,
+        @NotBlank
+        @JsonAlias("phone")
+        String recipientPhone,
 
-            @NotBlank
-            String postalCode,
+        @NotBlank
+        String postalCode,
 
-            @NotBlank
-            String addressLine1,
+        @NotBlank
+        @JsonAlias("address")
+        String addressLine1,
 
-            String addressLine2,
+        String addressLine2,
 
-            String deliveryRequest) {
-    }
+        String deliveryRequest
+) {
+}
 
     public record RegisterResponse(UUID addressId) {
     }
