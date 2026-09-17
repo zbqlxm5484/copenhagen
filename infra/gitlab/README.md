@@ -15,6 +15,25 @@
 
 Stage: `lint -> test -> build -> deploy-smoke -> docker-build -> deploy-dev`
 
+## JAR 생성과 이미지 전달
+
+변경 영향 서비스의 `*-test`는 `test`와 `bootJar`를 한 번의 Gradle 실행으로 처리합니다. 성공한 Job만 `app.jar`와 provenance 파일을 artifact로 전달합니다. `*-build`는 이를 검증해 다음 단계로 전달하며 Gradle을 다시 실행하지 않습니다.
+
+MR과 develop 스모크에는 다섯 서비스가 모두 필요합니다. 변경이 없어 테스트가 선택되지 않은 서비스만 `*-build`에서 현재 커밋의 `bootJar`를 실행합니다. 테스트가 선택된 서비스는 `REQUIRE_TEST_ARTIFACT=true`이며, artifact가 없거나 검증에 실패하면 소스 빌드로 대체하지 않습니다.
+
+- 검증: 커밋 SHA, pipeline ID, 서비스 경로, JAR SHA-256
+- 전달 경로: `backend/<module>/build/libs/app.jar` 및 `app.jar.metadata`
+- 소비자: 같은 pipeline의 `deploy-smoke`, 서비스별 `*-docker-build`
+- 이미지: `scripts/build-ci-image.sh`가 검증한 JAR만 임시 context에 복사하고 `ci-runtime` target 빌드
+- 런타임: 기존 소스 빌드와 동일한 Dockerfile의 `runtime-base` 공유
+- 로컬 `docker compose up --build`: 마지막 `runtime` target에서 기존 소스 빌드 유지
+- 필수 회귀 검사: `ci-config-test`에서 CI 선택 규칙, artifact 실패 조건, worker 전달, 배포 진단·정리·복구 검사
+
+`CI_GRADLE_MAX_WORKERS`는 기본값이 빈 문자열입니다. 비교할 pipeline에서 양의 정수를 지정하면 CI Gradle과 지원하는 Docker 소스 빌드에 전달됩니다. Runner 동시 실행 수나 컨테이너 CPU 제한을 변경하는 변수가 아닙니다. [Runner 측정 기록과 적용·원복 절차](runner-performance.md)를 참고하세요.
+
+여러 Runner가 등록돼 있으면 수동 MR pipeline 실행 시 `CI_TARGET_RUNNER_TAG`에 측정 대상 Runner만 가진 태그를 지정할 수 있습니다. 해당 실행의 모든 Job이 그 태그를 요구합니다. 변수를 생략하거나 빈 값으로 두면 기존 태그 없는 Job 선택 방식을 유지합니다. 대상 Runner에 실제로 등록된 태그를 사용하고, Job 상세 화면의 Runner ID도 확인합니다. 태그가 일치하는 Runner가 없으면 Job은 대기하므로 임시 태그는 측정 Job이 모두 끝난 뒤 제거합니다.
+
+
 `deploy-smoke`는 앞선 stage의 선택된 검증이 모두 성공한 뒤 실행합니다. 모든 서비스의 `*-docker-build`와 `*-deploy-dev`는 `deploy-smoke`를 필수 `needs`로 지정합니다. 스모크가 실패·취소되면 이미지 전송과 EC2 배포를 진행하지 않으며, 필수 Job이 누락되면 pipeline 생성이 실패합니다. `optional: true`나 `allow_failure`로 우회하지 않습니다.
 
 CI·배포 스크립트 변경 시 `ci-config-test`가 기준 SHA 선택, Job 선택·의존 관계와 기존 실패 진단·복구 회귀 테스트 및 ShellCheck를 실행합니다.
@@ -24,7 +43,7 @@ CI·배포 스크립트 변경 시 `ci-config-test`가 기준 SHA 선택, Job �
 - 실행: 앞선 stage 성공 후 `smoke.gitlab-ci.yml`의 `deploy-smoke` job
 - 스크립트: `scripts/deploy-smoke.sh`
 - 대상: Core, Pay, MCP, Merchant Mock, PG Mock, PostgreSQL 3개, Redis, Nginx
-- 구성: 서비스 Dockerfile, `docker-compose.yml` 재사용
+- 구성: 후보 버전은 CI JAR artifact와 `ci-runtime`, 기준 버전은 해당 SHA의 소스 Dockerfile 사용. `docker-compose.yml` 재사용
 - 격리: 실행별 Compose 프로젝트, 이미지 태그, 임시 DB 비밀번호
 - 접근 제외: 개인 `.env`, 개발 EC2 키, 실제 DB
 - Nginx: smoke override로 호스트 포트와 bind mount 제거, 원본 이미지에 동일 `nginx.conf` 복사
@@ -41,13 +60,13 @@ CI·배포 스크립트 변경 시 `ci-config-test`가 기준 SHA 선택, Job �
 | --- | --- |
 | 서비스 | health 응답, 실제 서비스 URL 호출, Core의 Merchant Profile 조회 |
 | Nginx | 설정 검사, upstream 경로, 교체 후 reload |
-| `__smoke__` 경로 | 공개 경로는 애플리케이션 JSON 404와 원본 path 일치. Merchant 경로는 기준 Pay·업그레이드 전 404, 후보 Pay·업그레이드 후 무토큰 JSON 401 확인. 내부 경로는 Nginx 차단 404, 502 실패 |
+| `__smoke__` 경로 | 공개 경로는 애플리케이션 JSON 404와 원본 path 일치. Merchant 경로는 기준·후보·업그레이드 전후 모두 무토큰 JSON 401 확인. 내부 경로는 Nginx 차단 404, 502 실패 |
 | DB | 표식 데이터 유지, Flyway 기동 검사 |
 | 복구 | `deploy-dev-service.sh` 실행 후 이전 이미지, `.env`, health, HTTP 확인 |
 
 검증 제외: 결제 전체 E2E, 업무 데이터의 전체 마이그레이션 호환성, DB schema 원복, 실제 EC2의 SSH 권한과 자원 상태, 배포된 서비스별 SHA 일치.
 
-변경 감지 경로: `backend/**/*`, 루트 CI/Compose, `infra/gitlab/**/*`, `infra/nginx/**/*`, smoke override, 스모크/기준 SHA 선택/배포 스크립트. 해당 경로의 README 포함. 그 외 문서 변경은 생략. MR과 develop push에 동일한 경로를 적용합니다.
+변경 감지 경로: `backend/**/*`, 루트 CI/Compose, `infra/gitlab/**/*`, `infra/nginx/**/*`, smoke override, 스모크/기준 SHA 선택/배포 및 CI JAR·이미지·Gradle 스크립트. 해당 경로의 README 포함. 그 외 문서 변경은 생략. MR과 develop push에 동일한 경로를 적용합니다.
 
 ### Git 버전
 
@@ -77,7 +96,7 @@ MR 스모크는 해당 MR 자체를 고정된 기준에서 검증합니다. 다�
 | --- | --- |
 | Runner | privileged Docker-in-Docker, 전체 스택 실행 메모리 |
 | 도구 | BuildKit, Compose 2.24.4 이상. Bash, Git, jq는 job에서 설치 |
-| 최초 빌드 | 기준 버전과 MR 버전 이미지, 의존성 다운로드 |
+| 최초 빌드 | 기준 버전 소스 빌드, MR 버전 JAR artifact 패키징, 필요한 이미지 다운로드 |
 | Job 제한 | 30분 |
 | 기동 대기 | `SMOKE_WAIT_TIMEOUT`, 기본 180초 |
 | 결과 경로 | `SMOKE_ARTIFACT_DIR`, 기본 `tmp/deploy-smoke/`, Git 제외 |

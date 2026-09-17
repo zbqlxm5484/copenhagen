@@ -95,7 +95,15 @@ build_images() {
         esac
         image="$COMPOSE_PROJECT_NAME/$service:$tag"
         images+=("$image")
-        docker build --load --file "$source/backend/$dockerfile" --tag "$image" "$source/backend"
+        if [ "$tag" = candidate ] && [ "${SMOKE_USE_CI_ARTIFACTS:-false}" = true ]; then
+            sh "$root/scripts/build-ci-image.sh" "${dockerfile%/Dockerfile}" "$image"
+        else
+            if [ -n "${CI_GRADLE_MAX_WORKERS:-}" ] && ! grep -q '^ARG GRADLE_MAX_WORKERS' "$source/backend/$dockerfile"; then
+                record "INFO $tag/$service uses a historical Dockerfile without a Gradle worker override"
+            fi
+            docker build --load --build-arg "GRADLE_MAX_WORKERS=${CI_GRADLE_MAX_WORKERS:-}" \
+                --file "$source/backend/$dockerfile" --tag "$image" "$source/backend"
+        fi
     done
     images+=("$COMPOSE_PROJECT_NAME/nginx:$tag")
     # 실제 Compose와 동일한 Nginx image 및 설정을 사용합니다.
@@ -234,6 +242,15 @@ check_data() {
 
 base_sha=$(sh "$root/scripts/smoke-base.sh")
 record "base=$base_sha candidate=$(git -C "$root" rev-parse HEAD) project=$COMPOSE_PROJECT_NAME"
+if [ "${SMOKE_USE_CI_ARTIFACTS:-false}" = true ]; then
+    for service in "${services[@]}"; do
+        case "$service" in
+            pg-mock|ucp-merchant-mock) module="mocks/$service" ;;
+            *) module="apps/$service" ;;
+        esac
+        sh "$root/scripts/ci-jar.sh" verify "$module"
+    done
+fi
 docker info >/dev/null
 docker pull "$curl_image"
 build_images "$root" candidate
