@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from test_deploy_diagnostics import fixture_environment
+
 
 ROOT = Path(__file__).resolve().parents[2]
 MODULES = ('apps/core-service', 'apps/mcp-server', 'apps/pay-service',
@@ -20,7 +22,7 @@ class CiArtifactTest(unittest.TestCase):
         (self.root / 'scripts').mkdir()
         for script in ('ci-jar.sh', 'build-ci-image.sh', 'build-ci-jar.sh', 'run-ci-gradle.sh'):
             shutil.copy(ROOT / 'scripts' / script, self.root / 'scripts' / script)
-        self.env = dict(os.environ, CI_COMMIT_SHA='a' * 40, CI_PIPELINE_ID='123',
+        self.env = dict(fixture_environment(), CI_COMMIT_SHA='a' * 40, CI_PIPELINE_ID='123',
                         PATH=f'{self.root}:{os.environ["PATH"]}')
 
     def jar(self, module):
@@ -139,6 +141,7 @@ sys.exit(int(os.environ.get('DOCKER_EXIT', '0')))
 
         shutil.copy(ROOT / 'scripts/deploy-smoke.sh', self.root / 'scripts/deploy-smoke.sh')
         shutil.copy(ROOT / 'scripts/smoke-base.sh', self.root / 'scripts/smoke-base.sh')
+        shutil.copy(ROOT / 'scripts/smoke-dockerfiles.py', self.root / 'scripts/smoke-dockerfiles.py')
         git = self.root / 'git'
         git.write_text('#!/bin/sh\nprintf "%s\\n" "$CI_COMMIT_SHA"\n')
         git.chmod(0o755)
@@ -150,11 +153,14 @@ sys.exit(int(os.environ.get('DOCKER_EXIT', '0')))
                         TEST_TRACE=str(trace), SMOKE_ARTIFACT_DIR=str(self.root / 'results'))
         for module in MODULES:
             self.record(module)
+            shutil.copy(ROOT / 'backend' / module / 'Dockerfile',
+                        self.root / 'backend' / module / 'Dockerfile')
         result = subprocess.run(['bash', str(self.root / 'scripts/deploy-smoke.sh')],
                                 env=self.env, text=True, capture_output=True, timeout=10)
         self.assertEqual(result.returncode, 7, result.stdout + result.stderr)
         builds = [line for line in trace.read_text().splitlines() if '--target ci-runtime' in line]
         self.assertEqual(len(builds), 5)
+        self.assertNotIn('buildx bake', trace.read_text(), 'CI candidate must only package verified JARs')
         for module in MODULES:
             self.assertTrue(any(f'/backend/{module}/Dockerfile' in line for line in builds))
         trace.unlink()

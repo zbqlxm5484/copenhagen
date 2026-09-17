@@ -57,6 +57,8 @@ class SmokePipelineTest(unittest.TestCase):
         paths = {'backend/new-service/Dockerfile', 'backend/apps/core-service/Dockerfile',
                  'infra/nginx/nginx.conf', 'infra/docker/smoke.override.yml',
                  'scripts/deploy-smoke.sh', 'scripts/smoke-base.sh'}
+        paths.add('scripts/smoke-dockerfiles.py')
+        paths.add('infra/docker/smoke-gradle-cache.Dockerfile')
         # Every concrete representative of every delivery rule must have its smoke gate.
         for service in SERVICES:
             for rule in self.job(service + '-deploy-dev')['rules']:
@@ -125,6 +127,14 @@ class SmokePipelineTest(unittest.TestCase):
         script = (ROOT / 'scripts/deploy-smoke.sh').read_text()
         self.assertIn('base_sha=$(sh "$root/scripts/smoke-base.sh")', script)
         self.assertLess(script.index('base_sha='), script.index('docker info'))
+
+    def test_smoke_cache_is_separate_from_current_pipeline_application_artifacts(self):
+        job = self.job('deploy-smoke')
+        self.assertEqual(job['cache']['key'], 'smoke-gradle-v1-$CI_COMMIT_REF_SLUG')
+        self.assertEqual(job['cache']['fallback_keys'], ['smoke-gradle-v1-develop'])
+        self.assertEqual(job['cache']['paths'], ['tmp/smoke-gradle-cache/', 'tmp/smoke-runtime-cache/'])
+        self.assertCountEqual(job['dependencies'], [service + '-build' for service in SERVICES])
+        self.assertNotIn('cache', job['artifacts']['paths'])
 
 
 if __name__ == '__main__':

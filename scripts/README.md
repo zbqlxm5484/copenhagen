@@ -28,7 +28,7 @@
 ## `deploy-smoke.sh`
 
 - 범위: 빈 DB 기동, 고정 기준 버전에서 MR 또는 develop 후보 버전으로 갱신, 실패 이미지 복구, 임시 자원 정리
-- 요구사항: Docker/BuildKit, Compose 2.24.4 이상, Bash, Git, jq
+- 요구사항: Docker/BuildKit 및 Buildx Bake, Compose 2.24.4 이상, Bash, Git, jq, Python 3
 - 결과 경로: `tmp/deploy-smoke/`
 - 개인 `.env`, 개발 EC2 접근 없음
 - 상세: [MR 배포 스모크 테스트](../infra/gitlab/README.md#mr-배포-스모크-테스트)
@@ -37,6 +37,20 @@
 git fetch origin develop
 SMOKE_BASE_REF=origin/develop bash scripts/deploy-smoke.sh
 ```
+
+동일한 표준 builder를 사용하는 서비스는 `smoke-dockerfiles.py`가 임시 Dockerfile에서
+Gradle `bootJar` 실행을 합치고 Buildx Bake로 BuildKit 계층을 공유합니다. 각 서비스의 런타임 단계는
+원문 그대로 유지하며 알 수 없는 builder는 원본 Dockerfile을 사용합니다.
+HTTP 검사는 전용 `smoke-http` 컨테이너를 재사용합니다. 기동 확인 주기만 스모크
+override에서 단축하며 health 명령, 의존 관계와 기동 실패 대기 한도는 유지합니다.
+`result.log`의 `TIMING` 행은 각 단계 및 자원 정리를 포함한 총 실행 시간을 기록합니다.
+짧게 실행하는 스모크 앱과 표준 Temurin 21 공유 빌드에만 JVM C1 기동 옵션을 적용합니다.
+CI는 `SMOKE_GRADLE_CACHE` 경로에 Gradle 캐시를 보관합니다. 로컬에서 같은 옵션을
+지정하면 `caches/`, `wrapper/`를 Docker cache mount에 넣고 종료 전 다시 내보냅니다.
+이 디렉터리는 재사용을 위해 남기며 앱 이미지·DB·환경 파일은 포함하지 않습니다.
+`SMOKE_RUNTIME_CACHE`에는 JDK·JRE·Nginx·DB·Redis·curl 기반 이미지 tar를 저장합니다.
+다음 실행에서 복원한 뒤 원격 태그를 확인합니다. CI 후보 앱 이미지는 같은 pipeline의
+검증된 JAR artifact를 패키징하며, 기준 버전과 로컬 실행은 해당 소스를 빌드합니다.
 
 ## `pay-observability-smoke.sh`
 

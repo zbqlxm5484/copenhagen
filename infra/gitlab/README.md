@@ -95,8 +95,10 @@ MR 스모크는 해당 MR 자체를 고정된 기준에서 검증합니다. 다�
 | 항목 | 설정 |
 | --- | --- |
 | Runner | privileged Docker-in-Docker, 전체 스택 실행 메모리 |
-| 도구 | BuildKit, Compose 2.24.4 이상. Bash, Git, jq는 job에서 설치 |
+| 도구 | BuildKit·Buildx Bake, Compose 2.24.4 이상. Bash, Git, jq, Python 3는 job에서 설치 |
 | 최초 빌드 | 기준 버전 소스 빌드, MR 버전 JAR artifact 패키징, 필요한 이미지 다운로드 |
+| Gradle 캐시 | `smoke-gradle-v1-$CI_COMMIT_REF_SLUG`, develop fallback. `tmp/smoke-gradle-cache/` 재사용 |
+| 기반 이미지 캐시 | 같은 키의 `tmp/smoke-runtime-cache/`. 원격 태그 갱신 확인 후 계층 재사용 |
 | Job 제한 | 30분 |
 | 기동 대기 | `SMOKE_WAIT_TIMEOUT`, 기본 180초 |
 | 결과 경로 | `SMOKE_ARTIFACT_DIR`, 기본 `tmp/deploy-smoke/`, Git 제외 |
@@ -108,6 +110,11 @@ SMOKE_BASE_REF=origin/develop bash scripts/deploy-smoke.sh
 ```
 
 종료, 실패, 종료 신호 수신 시 테스트 컨테이너, 네트워크, 볼륨, 이미지 정리. Runner 강제 종료 시 job 전용 Docker-in-Docker 폐기. 공유 daemon 전체 prune 금지.
+
+기준 버전과 로컬 소스 빌드에서 동일한 builder는 한 Gradle 실행을 공유합니다.
+CI 후보는 같은 pipeline에서 검증한 JAR artifact를 패키징하며 소스로 대체하지 않습니다.
+스모크 앱과 표준 Temurin 21 공유 빌드는 C1 JVM 기동 옵션을 사용합니다.
+검증 항목과 [측정 조건·결과](smoke-performance.md)는 별도로 기록합니다.
 
 ### 실패 진단
 
