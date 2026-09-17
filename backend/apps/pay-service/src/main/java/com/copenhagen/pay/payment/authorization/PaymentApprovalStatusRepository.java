@@ -17,6 +17,7 @@ public interface PaymentApprovalStatusRepository {
             long amountMinor,
             String currency,
             String credentialId,
-            Instant credentialExpiresAt) {
+            Instant credentialExpiresAt,
+            String paymentLabel) {
     }
 }

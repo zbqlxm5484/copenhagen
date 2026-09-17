@@ -342,7 +342,7 @@ class OrderValidationApiIntegrationTest {
         paymentCompletionRepository.recordCompleted(
                 row.checkoutSnapshotId(), row.userId(), row.paymentApprovalId(),
                 completed.order().id(), completed.payment().paymentId(),
-                row.totalAmountMinor(), row.currency(), Instant.now());
+                row.totalAmountMinor(), row.currency(), "VISA **** 1234", Instant.now());
         merchantCheckoutRepository.markCompleted(row.id(), Instant.now());
 
         assertEquals(1, (int) jdbcTemplate.queryForObject("""
@@ -356,6 +356,7 @@ class OrderValidationApiIntegrationTest {
                 WHERE pt.checkout_snapshot_id = ? AND pt.authorization_session_id = 'approval-1'
                   AND pt.pay_transaction_id = 'pay-txn-1' AND pt.status = 'PAID'
                   AND pt.payment_amount = 13000 AND pt.currency = 'KRW'
+                  AND pt.payment_label = 'VISA **** 1234'
                   AND o.merchant_order_id = 'merchant-order-1'
                 """, Integer.class, row.checkoutSnapshotId()));
         assertEquals("COMPLETED", jdbcTemplate.queryForObject(

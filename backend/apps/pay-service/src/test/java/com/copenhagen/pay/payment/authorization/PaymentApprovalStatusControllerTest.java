@@ -38,6 +38,7 @@ class PaymentApprovalStatusControllerTest {
                 "KRW",
                 "33333333-3333-3333-3333-333333333333",
                 java.time.Instant.parse("2026-09-18T00:05:00Z"),
+                "VISA **** 1234",
                 PaymentApprovalNextAction.WAIT_FOR_PAYMENT_STATUS);
         when(service.find(APPROVAL_ID)).thenReturn(expected);
 

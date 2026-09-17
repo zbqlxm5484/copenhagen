@@ -11,5 +11,6 @@ public record PaymentApprovalStatusResponse(
         String currency,
         String credentialId,
         Instant credentialExpiresAt,
+        String paymentLabel,
         PaymentApprovalNextAction nextAction) {
 }

@@ -111,6 +111,7 @@ class PaymentApprovalStatusPostgresIntegrationTest {
         assertEquals("KRW", response.currency());
         assertNull(response.credentialId());
         assertNull(response.credentialExpiresAt());
+        assertEquals("VISA " + "\u2022".repeat(4) + " 1234", response.paymentLabel());
         assertEquals(
                 PaymentApprovalNextAction.WAIT_FOR_PAYMENT_CREATION,
                 response.nextAction());
@@ -137,6 +138,7 @@ class PaymentApprovalStatusPostgresIntegrationTest {
         assertEquals("KRW", response.currency());
         assertEquals(CREDENTIAL_ID, response.credentialId());
         assertEquals(NOW.plusSeconds(300), response.credentialExpiresAt());
+        assertEquals("VISA " + "\u2022".repeat(4) + " 1234", response.paymentLabel());
         assertEquals(
                 PaymentApprovalNextAction.WAIT_FOR_PAYMENT_STATUS,
                 response.nextAction());

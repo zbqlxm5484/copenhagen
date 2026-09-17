@@ -94,7 +94,7 @@ public class PaymentApprovalPollingWorker {
             return;
         }
 
-        PaymentCompletionService.Outcome outcome = completionService.complete(row, credentialId);
+        PaymentCompletionService.Outcome outcome = completionService.complete(row, credentialId, status.paymentLabel());
         Instant now = clock.instant();
         switch (outcome) {
             case COMPLETED -> merchantCheckoutRepository.markCompleted(row.id(), now);

@@ -21,8 +21,8 @@ public class JdbcPaymentCompletionRepository implements PaymentCompletionReposit
     private static final String INSERT_PAID_TRANSACTION_SQL = """
             INSERT INTO payment_transactions
                 (checkout_snapshot_id, order_id, authorization_session_id, pay_transaction_id, status,
-                    payment_amount, currency, approved_at, paid_at, created_at)
-            VALUES (?, ?, ?, ?, 'PAID', ?, ?, ?, ?, ?)
+                    payment_amount, currency, payment_label, approved_at, paid_at, created_at)
+            VALUES (?, ?, ?, ?, 'PAID', ?, ?, ?, ?, ?, ?)
             """;
 
     private static final String INSERT_FAILED_TRANSACTION_SQL = """
@@ -48,6 +48,7 @@ public class JdbcPaymentCompletionRepository implements PaymentCompletionReposit
             String payTransactionId,
             long amountMinor,
             String currency,
+            String paymentLabel,
             Instant now) {
         Long orderId = jdbcTemplate.queryForObject(
                 INSERT_ORDER_SQL,
@@ -66,6 +67,7 @@ public class JdbcPaymentCompletionRepository implements PaymentCompletionReposit
                 payTransactionId,
                 amountMinor,
                 currency,
+                paymentLabel,
                 Timestamp.from(now),
                 Timestamp.from(now),
                 Timestamp.from(now));

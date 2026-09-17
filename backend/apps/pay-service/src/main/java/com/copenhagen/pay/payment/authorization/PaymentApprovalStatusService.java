@@ -39,6 +39,7 @@ public class PaymentApprovalStatusService {
                 view.currency(),
                 view.credentialId(),
                 view.credentialExpiresAt(),
+                view.paymentLabel(),
                 nextAction(view));
     }
 

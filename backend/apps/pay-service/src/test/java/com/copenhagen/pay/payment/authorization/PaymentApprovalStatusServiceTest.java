@@ -185,12 +185,14 @@ class PaymentApprovalStatusServiceTest {
                         87000,
                         "KRW",
                         "33333333-3333-3333-3333-333333333333",
-                        credentialExpiresAt)));
+                        credentialExpiresAt,
+                        "VISA **** 1234")));
 
         PaymentApprovalStatusResponse response = service.find(APPROVAL_ID);
 
         assertEquals("33333333-3333-3333-3333-333333333333", response.credentialId());
         assertEquals(credentialExpiresAt, response.credentialExpiresAt());
+        assertEquals("VISA **** 1234", response.paymentLabel());
     }
 
     @Test
@@ -221,6 +223,7 @@ class PaymentApprovalStatusServiceTest {
                 87000,
                 "KRW",
                 null,
-                null);
+                null,
+                "Copenhagen Pay");
     }
 }
