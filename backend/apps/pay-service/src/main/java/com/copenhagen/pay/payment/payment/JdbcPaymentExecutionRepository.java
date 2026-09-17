@@ -96,8 +96,8 @@ public class JdbcPaymentExecutionRepository implements PaymentExecutionRepositor
 
     private static final String INSERT_RECONCILIATION_JOB_SQL = """
             INSERT INTO payment_reconciliation_jobs
-                (id, payment_attempt_id, reason, status, next_run_at, attempt_count)
-            VALUES (?, ?, ?, 'PENDING', ?, 0)
+                (id, payment_attempt_id, reason, request_id, status, next_run_at, attempt_count)
+            VALUES (?, ?, ?, ?, 'PENDING', ?, 0)
             ON CONFLICT (payment_attempt_id, reason) DO NOTHING
             """;
 
@@ -235,11 +235,21 @@ public class JdbcPaymentExecutionRepository implements PaymentExecutionRepositor
             String attemptId,
             String reason,
             Instant nextRunAt) {
+        insertReconciliationJob(attemptId, reason, nextRunAt, null);
+    }
+
+    @Override
+    public void insertReconciliationJob(
+            String attemptId,
+            String reason,
+            Instant nextRunAt,
+            String requestId) {
         jdbcTemplate.update(
                 INSERT_RECONCILIATION_JOB_SQL,
                 java.util.UUID.randomUUID().toString(),
                 attemptId,
                 reason,
+                requestId,
                 Timestamp.from(nextRunAt));
     }
 

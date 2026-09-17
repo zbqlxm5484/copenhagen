@@ -50,7 +50,8 @@ public class JdbcReconciliationJobRepository implements ReconciliationJobReposit
                                   WHEN job.attempt_count >= 5 THEN 'PG_LOOKUP_EXHAUSTED' ELSE NULL END
             FROM candidate
             WHERE job.id = candidate.id
-            RETURNING job.id, job.payment_attempt_id, job.status, job.attempt_count, job.lease_expires_at
+            RETURNING job.id, job.payment_attempt_id, job.request_id, job.status,
+                      job.attempt_count, job.lease_expires_at
             """;
 
     private static final String LOCK_OWNED_SQL = """
@@ -115,6 +116,7 @@ public class JdbcReconciliationJobRepository implements ReconciliationJobReposit
         return new ReconciliationJob(
                 resultSet.getString("id"),
                 resultSet.getString("payment_attempt_id"),
+                resultSet.getString("request_id"),
                 ReconciliationJobStatus.valueOf(resultSet.getString("status")),
                 resultSet.getInt("attempt_count"),
                 leaseTimestamp == null ? null : leaseTimestamp.toInstant());

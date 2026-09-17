@@ -2,12 +2,15 @@ package com.copenhagen.pay.payment.payment;
 
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
+import com.copenhagen.pay.common.observability.PayLogContext;
 import com.copenhagen.pay.common.validation.RequestValidation;
 import com.copenhagen.pay.payment.credential.mandate.CreatedPayment;
 import com.copenhagen.pay.payment.credential.mandate.PaymentCredentialConsumptionService;
 import com.copenhagen.pay.payment.merchant.MerchantAccount;
 import com.copenhagen.pay.payment.merchant.MerchantAccountRepository;
 import com.copenhagen.pay.payment.policy.PaymentStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /** Merchant 결제 요청을 Credential 소비와 단일 PG 실행으로 연결합니다. */
@@ -16,6 +19,7 @@ public class MerchantPaymentService {
 
     private static final String IDEMPOTENCY_PREFIX = "merchant-payment-";
     private static final String KRW = "KRW";
+    private static final Logger log = LoggerFactory.getLogger(MerchantPaymentService.class);
 
     private final MerchantAccountRepository merchantAccountRepository;
     private final PaymentCredentialConsumptionService credentialConsumptionService;
@@ -36,6 +40,12 @@ public class MerchantPaymentService {
      */
     public PaymentResult create(CreateCommand command) {
         validate(command);
+        log.info(
+                "pay.payment.create.start merchantId={} checkoutId={} amountMinor={} currency={}",
+                command.merchantId(),
+                command.businessCheckoutId(),
+                command.amountMinor(),
+                command.currency());
         MerchantAccount merchant = merchantAccountRepository
                 .findActiveByMerchantId(command.merchantId())
                 .orElseThrow(() -> new PayException(PayErrorCode.FORBIDDEN));
@@ -51,11 +61,17 @@ public class MerchantPaymentService {
                         command.credentialId(),
                         command.idempotencyKey(),
                         command.requestHash()));
+        PayLogContext.put(PayLogContext.PAYMENT_ID, payment.id());
+        PayLogContext.put(PayLogContext.ORDER_ID, payment.purchaseRequestId());
+        log.info("pay.payment.created status={}", payment.status());
         PaymentExecutionResult execution = paymentExecutionService.execute(
                 new PaymentExecutionCommand(
                         payment.id(),
                         command.idempotencyKey(),
                         command.requestHash()));
+        log.info(
+                "pay.payment.create.complete status={}",
+                execution.status());
         return new PaymentResult(payment, execution);
     }
 

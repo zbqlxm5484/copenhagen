@@ -3,6 +3,7 @@ package com.copenhagen.pay.payment.merchant;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.copenhagen.pay.common.observability.PayLogContext;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -22,13 +23,16 @@ class HttpMerchantPublicKeyClientTest {
     private HttpServer server;
     private String responseBody;
     private int responseStatus;
+    private String requestIdHeader;
 
     @BeforeEach
     void setUp() throws IOException {
         responseBody = PROFILE;
         responseStatus = 200;
+        requestIdHeader = null;
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/.well-known/ucp", exchange -> {
+            requestIdHeader = exchange.getRequestHeaders().getFirst("X-Request-Id");
             byte[] body = responseBody.getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(responseStatus, body.length);
             try (OutputStream output = exchange.getResponseBody()) {
@@ -41,6 +45,7 @@ class HttpMerchantPublicKeyClientTest {
     @AfterEach
     void tearDown() {
         server.stop(0);
+        PayLogContext.clear();
     }
 
     @Test
@@ -50,6 +55,15 @@ class HttpMerchantPublicKeyClientTest {
         List<java.util.Map<String, Object>> keys = client.findPublicKeys("merchant-001");
 
         assertEquals("merchant-key-1", keys.getFirst().get("kid"));
+    }
+
+    @Test
+    void propagatesRequestIdToMerchantProfileAdapter() {
+        PayLogContext.put(PayLogContext.REQUEST_ID, "request-merchant-123");
+
+        client().findPublicKeys("merchant-001");
+
+        assertEquals("request-merchant-123", requestIdHeader);
     }
 
     @Test

@@ -38,6 +38,17 @@ git fetch origin develop
 SMOKE_BASE_REF=origin/develop bash scripts/deploy-smoke.sh
 ```
 
+## `pay-observability-smoke.sh`
+
+- 범위: Pay DB·PG Mock·Pay만 격리 기동해 health, 인증 실패, `X-Request-Id` 응답·로그 연결과 합성 Authorization 값 비노출을 확인합니다.
+- 기본 설정: 대사 Worker·알림 Worker·FCM 발송은 꺼서 외부 계정과 실제 결제를 사용하지 않습니다.
+- 자원: 임시 Compose 프로젝트·네트워크·볼륨을 만들고 종료 시 함께 정리합니다.
+- 실제 Firebase 수신·모바일 앱 로그·Nginx 연계는 이 스크립트의 범위가 아닙니다.
+
+```bash
+bash scripts/pay-observability-smoke.sh
+```
+
 ## 실패 진단 검증
 
 기준 SHA·CI 의존 관계 및 Docker CLI 대체 테스트. 요구사항: Python 3, PyYAML, Bash, Git, jq. Docker daemon, EC2 불필요. CI·스크립트 변경 시 `ci-config-test`에서도 실행합니다.

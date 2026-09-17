@@ -42,6 +42,14 @@ public interface PaymentExecutionRepository {
             String reason,
             Instant nextRunAt);
 
+    default void insertReconciliationJob(
+            String attemptId,
+            String reason,
+            Instant nextRunAt,
+            String requestId) {
+        insertReconciliationJob(attemptId, reason, nextRunAt);
+    }
+
     record PaymentReceipt(
             String id,
             String paymentId,

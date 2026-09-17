@@ -1,5 +1,6 @@
 package com.copenhagen.pay.payment.reconciliation;
 
+import com.copenhagen.pay.common.observability.PayLogContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,7 +14,7 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(prefix = "pay.reconciliation", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class PayWorker {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(PayWorker.class);
+    private static final Logger log = LoggerFactory.getLogger(PayWorker.class);
 
     private final ReconciliationService service;
     private final int batchSize;
@@ -31,19 +32,30 @@ public class PayWorker {
     @Scheduled(fixedDelayString = "${pay.reconciliation.poll-delay-millis:5000}",
             initialDelayString = "${pay.reconciliation.poll-delay-millis:5000}")
     public void runBatch() {
+        int processed = 0;
+        log.debug("pay.reconciliation.worker.batch.start batchSize={}", batchSize);
         for (int i = 0; i < batchSize; i++) {
             if (Thread.currentThread().isInterrupted()) {
                 return;
             }
-            try {
-                if (!service.processNext()) {
-                    return;
+            boolean processedNext;
+            try (PayLogContext.Scope ignored = PayLogContext.openWorker("reconciliation")) {
+                try {
+                    processedNext = service.processNext();
+                } catch (RuntimeException exception) {
+                    // A failed settlement rolls back; the next worker can recover after lease expiry.
+                    log.error(
+                            "pay.reconciliation.worker.item_failed failureStage=PROCESS_NEXT "
+                                    + "exceptionType={}",
+                            exception.getClass().getSimpleName());
+                    continue;
                 }
-            } catch (RuntimeException exception) {
-                // A failed settlement rolls back; the next worker can recover after lease expiry.
-                // Do not log SQL, external responses, or exception messages containing credentials.
-                LOGGER.error("Pay reconciliation processing failed; pending jobs recover after lease expiry");
             }
+            if (!processedNext) {
+                break;
+            }
+            processed++;
         }
+        log.info("pay.reconciliation.worker.batch.complete processed={}", processed);
     }
 }

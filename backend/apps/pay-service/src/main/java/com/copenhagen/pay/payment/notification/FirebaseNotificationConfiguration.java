@@ -7,6 +7,8 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,6 +21,7 @@ import org.springframework.context.annotation.Configuration;
 public class FirebaseNotificationConfiguration {
 
     private static final String APP_NAME = "pay-fcm";
+    private static final Logger log = LoggerFactory.getLogger(FirebaseNotificationConfiguration.class);
 
     @Bean(name = "payFirebaseApp", destroyMethod = "")
     public FirebaseApp payFirebaseApp(PayNotificationProperties properties) {
@@ -36,9 +39,13 @@ public class FirebaseNotificationConfiguration {
                     .setProjectId(fcm.projectId())
                     .build();
             try {
-                return FirebaseApp.getInstance(APP_NAME);
+                FirebaseApp existingApp = FirebaseApp.getInstance(APP_NAME);
+                log.info("notification.fcm.initialized appName={} reused=true", APP_NAME);
+                return existingApp;
             } catch (IllegalStateException ignored) {
-                return FirebaseApp.initializeApp(options, APP_NAME);
+                FirebaseApp app = FirebaseApp.initializeApp(options, APP_NAME);
+                log.info("notification.fcm.initialized appName={} reused=false", APP_NAME);
+                return app;
             }
         } catch (IOException exception) {
             throw new IllegalStateException("Firebase service account configuration is invalid", exception);

@@ -10,6 +10,10 @@ public record NotificationMessage(
         String status,
         String nextAction) {
 
+    public String pushId() {
+        return eventId;
+    }
+
     static String nextAction(PaymentStatus status) {
         return status == PaymentStatus.UNKNOWN
                 ? "WAIT_FOR_PAYMENT_STATUS"

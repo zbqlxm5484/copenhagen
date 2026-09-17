@@ -1,5 +1,6 @@
 package com.copenhagen.pay.common.error;
 
+import com.copenhagen.pay.common.observability.PayLogContext;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +18,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(PayException.class)
     public ResponseEntity<ApiErrorResponse> handlePayException(PayException exception) {
+        log.warn(
+                "pay.request.rejected errorCode={} currentState={} nextAction={}",
+                exception.errorCode().code(),
+                exception.currentState(),
+                exception.nextAction());
         return response(
                 exception.errorCode(),
                 exception.getMessage(),
@@ -27,6 +33,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handleValidationException(
             MethodArgumentNotValidException exception) {
+        log.warn(
+                "pay.request.validation_failed errorCode={} errorCount={}",
+                PayErrorCode.INVALID_REQUEST.code(),
+                exception.getErrorCount());
         return response(
                 PayErrorCode.INVALID_REQUEST,
                 "요청 값이 올바르지 않습니다.",
@@ -37,6 +47,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiErrorResponse> handleUnreadableMessage(
             HttpMessageNotReadableException exception) {
+        log.warn("pay.request.body_unreadable errorCode={}", PayErrorCode.INVALID_REQUEST.code());
         return response(
                 PayErrorCode.INVALID_REQUEST,
                 "요청 본문을 읽을 수 없습니다.",
@@ -47,6 +58,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MissingRequestHeaderException.class)
     public ResponseEntity<ApiErrorResponse> handleMissingHeader(
             MissingRequestHeaderException exception) {
+        log.warn(
+                "pay.request.missing_header errorCode={} header={}",
+                PayErrorCode.INVALID_REQUEST.code(),
+                exception.getHeaderName());
         return response(
                 PayErrorCode.INVALID_REQUEST,
                 "필수 요청 헤더가 없습니다.",
@@ -59,10 +74,11 @@ public class GlobalExceptionHandler {
             Exception exception,
             HttpServletRequest request) {
         log.error(
-                "Unhandled Pay API error: method={}, path={}",
+                "pay.request.unexpected_failed method={} path={} errorCode={} exceptionType={}",
                 request.getMethod(),
-                request.getRequestURI(),
-                exception);
+                PayLogContext.safePath(request.getRequestURI()),
+                PayErrorCode.INTERNAL_ERROR.code(),
+                exception.getClass().getSimpleName());
         return response(
                 PayErrorCode.INTERNAL_ERROR,
                 PayErrorCode.INTERNAL_ERROR.defaultMessage(),

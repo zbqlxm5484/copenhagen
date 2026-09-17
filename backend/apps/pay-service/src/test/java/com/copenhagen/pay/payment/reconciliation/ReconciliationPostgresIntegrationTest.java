@@ -220,6 +220,20 @@ class ReconciliationPostgresIntegrationTest {
     }
 
     @Test
+    void claim_preservesOriginatingRequestIdForWorkerTracing() {
+        JdbcPaymentExecutionRepository repository = context.getBean(JdbcPaymentExecutionRepository.class);
+        repository.insertReconciliationJob(
+                ATTEMPT,
+                "TRACE_CONTEXT",
+                clock.instant().minusSeconds(1),
+                "request-reconciliation-123");
+
+        ReconciliationJob claimed = jobs.claimNext().orElseThrow();
+
+        assertEquals("request-reconciliation-123", claimed.requestId());
+    }
+
+    @Test
     void settle_replayedSuccess_issuesOnlyOneReceipt() {
         ReconciliationJob job = jobs.claimNext().orElseThrow();
         StatusResult success = new StatusResult(Outcome.SUCCESS, "pg-test", "APPROVED");

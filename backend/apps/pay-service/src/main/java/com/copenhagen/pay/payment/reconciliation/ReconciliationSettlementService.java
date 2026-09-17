@@ -2,6 +2,7 @@ package com.copenhagen.pay.payment.reconciliation;
 
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
+import com.copenhagen.pay.common.observability.PayLogContext;
 import com.copenhagen.pay.payment.payment.PaymentExecutionRecord;
 import com.copenhagen.pay.payment.payment.PaymentLifecycleService;
 import com.copenhagen.pay.payment.payment.PaymentReceiptService;
@@ -10,11 +11,15 @@ import com.copenhagen.pay.payment.pg.PaymentGateway.StatusResult;
 import com.copenhagen.pay.payment.policy.PaymentStatus;
 import java.time.Clock;
 import java.time.Instant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ReconciliationSettlementService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReconciliationSettlementService.class);
 
     private final ReconciliationJobRepository jobRepository;
     private final ReconciliationJobService jobService;
@@ -40,14 +45,22 @@ public class ReconciliationSettlementService {
 
     @Transactional
     public void settle(ReconciliationJob job, StatusResult result) {
+        log.info(
+                "pay.reconciliation.settlement.start jobId={} attemptId={} outcome={}",
+                job.id(),
+                job.paymentAttemptId(),
+                result == null ? null : result.outcome());
         Instant now = clock.instant();
         if (!jobRepository.lockOwned(job, now)) {
+            log.warn("pay.reconciliation.settlement.skipped jobId={} reason=LEASE_NOT_OWNED", job.id());
             return;
         }
         PaymentExecutionRecord payment = paymentRepository.findByAttemptIdForUpdate(job.paymentAttemptId())
                 .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
+        PayLogContext.put(PayLogContext.PAYMENT_ID, payment.id());
         if (payment.status() != PaymentStatus.UNKNOWN) {
             requireUpdated(jobService.markCancelled(job));
+            log.info("pay.reconciliation.settlement.cancelled jobId={} reason=PAYMENT_NOT_UNKNOWN", job.id());
             return;
         }
         if (!job.paymentAttemptId().equals(payment.attemptId())
@@ -67,6 +80,7 @@ public class ReconciliationSettlementService {
                 payment.attemptId(), outcome.name(), normalized.pgTransactionId(), code, now));
         if (outcome == Outcome.UNKNOWN) {
             requireUpdated(jobService.markFailed(job));
+            log.warn("pay.reconciliation.settlement.retry jobId={} outcome=UNKNOWN", job.id());
             return;
         }
         requireUpdated(paymentRepository.resolveUnknownAttempt(
@@ -78,6 +92,11 @@ public class ReconciliationSettlementService {
             lifecycleService.resolveDefinitiveFailure(payment.id());
         }
         requireUpdated(jobService.markSucceeded(job));
+        log.info(
+                "pay.reconciliation.settlement.complete jobId={} paymentId={} status={}",
+                job.id(),
+                payment.id(),
+                outcome);
     }
 
     private StatusResult normalize(StatusResult result, PaymentExecutionRecord payment) {
