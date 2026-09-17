@@ -18,6 +18,30 @@ Core가 UCP REST로 이 모듈을 호출하고, 결제가 필요하면 이 모�
 ./gradlew :mocks:ucp-merchant-mock:build
 ```
 
+## 시연 카탈로그와 가상 몰 셋
+
+이 모듈은 플랫폼 바깥의 독립 쇼핑몰을 흉내 냅니다. 시연에서는 같은 이미지를 환경변수만 다르게 셋 띄워 가상 몰 셋(한강마켓 `merchant-a`, 노을상점 `merchant-b`, 별빛몰 `merchant-c`)을 만듭니다. 세 몰이 상품 1,408건 풀을 나눠 갖고, 같은 상품은 몰이 달라도 같은 `productId` 에 몰마다 다른 가격이라 Core 가 가격을 비교할 수 있습니다.
+
+몰마다 다른 것은 셋이고 전부 결정적 해시로 정합니다. 취급 여부(몰당 약 78%), 가격(원본의 -10%~+10%, 10원·100원 단위 반올림), 품절(약 5%). 난수를 쓰지 않아 스크립트를 다시 돌려도 같은 파일이 나옵니다.
+
+```bash
+# 시드 JSON 셋 재생성. 원본 sqlite 는 Git 에 없다(김지호 전처리 번들)
+python tools/build_demo_catalog.py \
+  --sqlite ~/Downloads/korean_products_clean_bundle/korean_products_clean.sqlite \
+  --out-dir src/main/resources/catalog
+```
+
+인스턴스 하나는 `MERCHANT_ID`·`MERCHANT_SELLER_NAME`·`MERCHANT_CATALOG_SEED_FILE`·`MERCHANT_SIGNING_KID`·`MERCHANT_PUBLIC_BASE_URL`·DB 여섯을 한 몰로 받습니다. `MERCHANT_CATALOG_SEED_FILE` 을 비우면 V3 fixture 5건만 뜨고 테스트·CI 가 그 상태입니다.
+
+compose 에서 b·c 는 profile `malls` 뒤에 있습니다. 기본 `up` 과 CI 스모크는 a 하나만 띄웁니다.
+
+```bash
+# 몰 셋 전부. merchant-db 볼륨이 이미 있으면 down -v 로 지운 뒤 올려야 b·c 데이터베이스가 만들어진다
+docker compose --profile malls up -d
+```
+
+b·c 가 Core 검색에 잡히려면 Core `services.merchants[]` 와 Pay 토큰·`merchant_accounts` 에 같은 id 로 등록돼야 합니다. 그 전에는 떠 있어도 a 만 잡힙니다.
+
 ## 로그로 구매 하나 추적하기
 
 로그 한 줄마다 `req= co= pay= ord= wh=` 다섯 칸이 붙습니다. `req` 는 `X-Request-Id` 입니다. Core 가 보낸 값이 있으면 그대로 쓰고 없으면 이 모듈이 만들어 응답 헤더로 돌려줍니다. 같은 값이 Pay 호출과 Order Webhook 의 `X-Request-Id` 헤더에 실리므로 세 서비스 로그를 한 값으로 이어 볼 수 있습니다. 워커가 집은 일은 `sweep-…`, `recheck-…`, `webhook-retry-…` 접두어의 requestId 를 새로 받습니다.
