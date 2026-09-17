@@ -28,8 +28,8 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 class PayMigrationPostgresIntegrationTest {
 
     private static final Instant NOW = Instant.parse("2026-09-15T00:00:00Z");
-    private static final String LATEST_MIGRATION_VERSION = "11";
-    private static final int MIGRATION_COUNT = 11;
+    private static final String LATEST_MIGRATION_VERSION = "12";
+    private static final int MIGRATION_COUNT = 12;
     private static final String MERCHANT_ACCOUNT_ID = "00000000-0000-0000-0000-000000000001";
     private static final String USER_ID = "00000000-0000-0000-0000-000000000002";
     private static final String VALID_SESSION_ID = "00000000-0000-0000-0000-000000000003";
@@ -78,7 +78,7 @@ class PayMigrationPostgresIntegrationTest {
         assertEquals(MIGRATION_COUNT, flyway.migrate().migrationsExecuted);
 
         assertEquals(
-                List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", LATEST_MIGRATION_VERSION),
+                List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", LATEST_MIGRATION_VERSION),
                 appliedVersions());
         assertTrue(tableExists("pay_idempotency_records"));
         assertTrue(tableExists("pay_notification_installations"));
@@ -88,6 +88,10 @@ class PayMigrationPostgresIntegrationTest {
         assertTrue(columnExists("biometric_challenges", "challenge_value"));
         assertTrue(columnExists("pay_verified_checkout_evidence", "merchant_key_id"));
         assertTrue(columnExists("payment_reconciliation_jobs", "request_id"));
+        assertEquals(3, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM merchant_accounts WHERE merchant_id IN "
+                        + "('merchant-a', 'merchant-b', 'merchant-c')",
+                Integer.class));
     }
 
     @Test
@@ -97,7 +101,7 @@ class PayMigrationPostgresIntegrationTest {
         assertEquals("8", currentVersion());
         assertFalse(tableExists("pay_idempotency_records"));
 
-        assertEquals(3, flyway.migrate().migrationsExecuted);
+        assertEquals(4, flyway.migrate().migrationsExecuted);
         assertEquals(LATEST_MIGRATION_VERSION, currentVersion());
         assertEquals(MIGRATION_COUNT, appliedVersions().size());
         assertTrue(columnExists("payment_reconciliation_jobs", "request_id"));
@@ -106,11 +110,14 @@ class PayMigrationPostgresIntegrationTest {
     @Test
     void enforcesUniqueCheckAndForeignKeyConstraintsInPostgres() {
         flyway.migrate();
-        insertMerchant(MERCHANT_ACCOUNT_ID, "merchant-a");
+        // V12이 merchant-a/b/c를 이미 시드하므로, UNIQUE(merchant_id) 제약 자체를 검증하는 이 테스트는
+        // 시드되지 않은 merchant_id를 써야 "처음 삽입은 성공, 재삽입은 실패"가 이 테스트의 삽입만으로
+        // 결정된다.
+        insertMerchant(MERCHANT_ACCOUNT_ID, "merchant-constraint-test");
 
         assertThrows(
                 DataIntegrityViolationException.class,
-                () -> insertMerchant("00000000-0000-0000-0000-000000000011", "merchant-a"));
+                () -> insertMerchant("00000000-0000-0000-0000-000000000011", "merchant-constraint-test"));
 
         assertThrows(
                 DataIntegrityViolationException.class,

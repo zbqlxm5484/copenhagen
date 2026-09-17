@@ -8,6 +8,8 @@ import org.springframework.web.client.RestClientException;
 
 import com.copenhagen.core.checkout.MerchantCheckoutMessages.Checkout;
 import com.copenhagen.core.checkout.MerchantCheckoutMessages.CheckoutRequest;
+import com.copenhagen.core.checkout.MerchantCheckoutMessages.CompleteRequest;
+import com.copenhagen.core.checkout.MerchantCheckoutMessages.CompleteResult;
 import com.copenhagen.core.common.error.CoreErrorCode;
 import com.copenhagen.core.common.error.CoreException;
 import com.copenhagen.core.common.merchant.MerchantRestClients;
@@ -67,6 +69,36 @@ public class MerchantCheckoutClient {
             throw new CoreException(CoreErrorCode.PRODUCT_NOT_FOUND);
         } catch (RestClientException exception) {
             log.warn("Merchant Checkout 생성 실패: merchantId={}", merchantId, exception);
+            throw new CoreException(
+                    CoreErrorCode.MERCHANT_CHECKOUT_UNAVAILABLE,
+                    CoreErrorCode.MERCHANT_CHECKOUT_UNAVAILABLE.defaultMessage(),
+                    null,
+                    CoreErrorCode.MERCHANT_CHECKOUT_UNAVAILABLE.defaultNextAction(),
+                    exception);
+        }
+    }
+
+    /**
+     * Complete Checkout(이슈 410). 세 갈래(completed/ready_for_complete/complete_in_progress) 다
+     * HTTP 200으로 온다 — merchant가 실패로 갈래를 나누지 않는다. 여기서 예외는 merchant 자체를
+     * 부르지 못했을 때만 던진다.
+     */
+    public CompleteResult complete(String merchantCheckoutId, String credentialId, String idempotencyKey) {
+        try {
+            return client().post()
+                    .uri(
+                            (directory == null ? CHECKOUT_SESSIONS_PATH : "/checkout-sessions")
+                                    + "/{checkoutId}/complete",
+                            merchantCheckoutId)
+                    .header(IDEMPOTENCY_KEY_HEADER, idempotencyKey)
+                    .body(CompleteRequest.of(credentialId))
+                    .retrieve()
+                    .body(CompleteResult.class);
+        } catch (HttpClientErrorException.NotFound exception) {
+            throw new CoreException(CoreErrorCode.PRODUCT_NOT_FOUND);
+        } catch (RestClientException exception) {
+            log.warn("Merchant Complete Checkout 실패: merchantId={}, checkoutId={}",
+                    merchantId, merchantCheckoutId, exception);
             throw new CoreException(
                     CoreErrorCode.MERCHANT_CHECKOUT_UNAVAILABLE,
                     CoreErrorCode.MERCHANT_CHECKOUT_UNAVAILABLE.defaultMessage(),

@@ -1,5 +1,7 @@
 package com.copenhagen.contract.internalapi;
 
+import java.time.Instant;
+
 public record PaymentApprovalStatusResponse(
         String approvalId,
         ApprovalStatus approvalStatus,
@@ -7,5 +9,7 @@ public record PaymentApprovalStatusResponse(
         PaymentStatus paymentStatus,
         long amountMinor,
         String currency,
+        String credentialId,
+        Instant credentialExpiresAt,
         PaymentApprovalNextAction nextAction) {
 }

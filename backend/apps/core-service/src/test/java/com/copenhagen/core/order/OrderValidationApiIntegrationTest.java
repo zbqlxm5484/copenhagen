@@ -1,5 +1,6 @@
 package com.copenhagen.core.order;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -24,13 +25,21 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.copenhagen.core.auth.signup.SignupService;
 import com.copenhagen.core.checkout.MerchantCheckoutClient;
 import com.copenhagen.core.checkout.MerchantCheckoutMessages.Checkout;
+import com.copenhagen.core.checkout.MerchantCheckoutMessages.CompleteResult;
 import com.copenhagen.core.checkout.MerchantCheckoutMessages.FulfillmentResult;
 import com.copenhagen.core.checkout.MerchantCheckoutMessages.Item;
 import com.copenhagen.core.checkout.MerchantCheckoutMessages.LineItem;
 import com.copenhagen.core.checkout.MerchantCheckoutMessages.Message;
+import com.copenhagen.core.checkout.MerchantCheckoutMessages.OrderRef;
+import com.copenhagen.core.checkout.MerchantCheckoutMessages.PaymentRef;
 import com.copenhagen.core.checkout.MerchantCheckoutMessages.Total;
+import com.copenhagen.core.checkout.MerchantCheckoutRepository;
+import com.copenhagen.core.checkout.MerchantCheckoutRepository.AwaitingApprovalCheckout;
 import com.copenhagen.core.common.error.CoreErrorCode;
 import com.copenhagen.core.common.error.CoreException;
+import com.copenhagen.core.payment.PaymentApprovalClient;
+import com.copenhagen.core.payment.PaymentApprovalMessages.ApprovalCreatedResponse;
+import com.copenhagen.core.payment.PaymentCompletionRepository;
 import com.copenhagen.core.product.CartProductSnapshot;
 import com.copenhagen.core.product.ProductService;
 
@@ -74,11 +83,20 @@ class OrderValidationApiIntegrationTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private MerchantCheckoutRepository merchantCheckoutRepository;
+
+    @Autowired
+    private PaymentCompletionRepository paymentCompletionRepository;
+
     @MockitoBean
     private ProductService productService;
 
     @MockitoBean
     private Map<String, MerchantCheckoutClient> merchantCheckoutClients;
+
+    @MockitoBean
+    private PaymentApprovalClient paymentApprovalClient;
 
     private MerchantCheckoutClient checkoutClient;
 
@@ -100,6 +118,9 @@ class OrderValidationApiIntegrationTest {
 
         checkoutClient = mock(MerchantCheckoutClient.class);
         when(merchantCheckoutClients.get(MERCHANT_ID)).thenReturn(checkoutClient);
+        when(paymentApprovalClient.create(any(), any())).thenReturn(new ApprovalCreatedResponse(
+                "approval-1", "PAYMENT_METHOD_REQUIRED", null,
+                Instant.parse("2026-01-01T00:05:00Z"), "APPROVE_IN_APP"));
         when(productService.captureForCart(eq(MERCHANT_ID), eq("p-1"), any()))
                 .thenReturn(new CartProductSnapshot(
                         "p-1", "sku-1", "옵션상품", "http://ucp-merchant-mock:8080/products/p-1",
@@ -130,11 +151,41 @@ class OrderValidationApiIntegrationTest {
         String validationId = JsonPath.read(response, "$.validationId");
         assertEquals("CREATING_CHECKOUTS", jdbcTemplate.queryForObject(
                 "SELECT status FROM purchase_requests WHERE public_id = ?::uuid", String.class, validationId));
+        // Pay 승인 세션 생성까지 이어져서 CREATING이 아니라 AWAITING_APPROVAL로 반영된다(이슈 410).
         assertEquals(1, (int) jdbcTemplate.queryForObject("""
                 SELECT COUNT(*) FROM merchant_checkouts mc
                 JOIN purchase_requests pr ON pr.id = mc.purchase_request_id
-                WHERE pr.public_id = ?::uuid AND mc.status = 'CREATING'
+                WHERE pr.public_id = ?::uuid AND mc.status = 'AWAITING_APPROVAL'
+                  AND mc.payment_approval_id = 'approval-1'
+                  AND mc.payment_approval_expires_at = '2026-01-01T00:05:00Z'
                   AND LENGTH(TRIM(mc.checkout_digest)) = 64
+                """, Integer.class, validationId));
+    }
+
+    @Test
+    @DisplayName("Pay 승인 생성이 실패해도 검증 응답은 그대로 201이고 checkout은 CREATING으로 남는다(이슈 410)")
+    void validate_paymentApprovalUnavailable_stillReturns201AndKeepsCheckoutCreating() throws Exception {
+        String accessToken = signupAndLogin("ordervalid5", "홍길동");
+        addCartItem(accessToken);
+        String addressId = registerAddress(accessToken);
+        when(checkoutClient.create(any(), any())).thenReturn(readyCheckout());
+        when(paymentApprovalClient.create(any(), any()))
+                .thenThrow(new CoreException(CoreErrorCode.PAYMENT_APPROVAL_UNAVAILABLE));
+
+        String response = mockMvc.perform(post("/api/core/v1/orders/validations")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validationBody(1, addressId)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String validationId = JsonPath.read(response, "$.validationId");
+        assertEquals(1, (int) jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM merchant_checkouts mc
+                JOIN purchase_requests pr ON pr.id = mc.purchase_request_id
+                WHERE pr.public_id = ?::uuid AND mc.status = 'CREATING' AND mc.payment_approval_id IS NULL
                 """, Integer.class, validationId));
     }
 
@@ -257,6 +308,100 @@ class OrderValidationApiIntegrationTest {
 
         assertEquals(0, (int) jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM purchase_requests", Integer.class));
+    }
+
+    @Test
+    @DisplayName("승인 확인 후 Merchant Complete 결과를 orders/payment_transactions에 실제 DB로 반영한다(이슈 410)")
+    void paymentCompletionPipeline_realDatabase_persistsOrdersAndPaymentTransactions() throws Exception {
+        String accessToken = signupAndLogin("ordercomplete1", "홍길동");
+        addCartItem(accessToken);
+        String addressId = registerAddress(accessToken);
+        when(checkoutClient.create(any(), any())).thenReturn(readyCheckout());
+
+        mockMvc.perform(post("/api/core/v1/orders/validations")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validationBody(1, addressId)))
+                .andExpect(status().isCreated());
+
+        List<AwaitingApprovalCheckout> awaiting = merchantCheckoutRepository.findAwaitingApproval();
+        assertEquals(1, awaiting.size());
+        AwaitingApprovalCheckout row = awaiting.get(0);
+        assertEquals("approval-1", row.paymentApprovalId());
+        assertEquals(13000L, row.totalAmountMinor());
+        assertEquals("KRW", row.currency());
+
+        // beginCompleting은 조건부 UPDATE다 — 같은 행을 두 번 집으면 두 번째는 진다(워커 동시성 방어).
+        assertEquals(true, merchantCheckoutRepository.beginCompleting(row.id(), Instant.now()));
+        assertEquals(false, merchantCheckoutRepository.beginCompleting(row.id(), Instant.now()));
+
+        CompleteResult completed = new CompleteResult(
+                row.merchantCheckoutId(), "completed",
+                new OrderRef("merchant-order-1", "http://merchant-a/orders/1"),
+                new PaymentRef("pay-txn-1", "SUCCESS", null));
+        paymentCompletionRepository.recordCompleted(
+                row.checkoutSnapshotId(), row.userId(), row.paymentApprovalId(),
+                completed.order().id(), completed.payment().paymentId(),
+                row.totalAmountMinor(), row.currency(), Instant.now());
+        merchantCheckoutRepository.markCompleted(row.id(), Instant.now());
+
+        assertEquals(1, (int) jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM orders
+                WHERE checkout_snapshot_id = ? AND user_id = ? AND merchant_order_id = 'merchant-order-1'
+                  AND status = 'CREATED'
+                """, Integer.class, row.checkoutSnapshotId(), row.userId()));
+        assertEquals(1, (int) jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM payment_transactions pt
+                JOIN orders o ON o.id = pt.order_id
+                WHERE pt.checkout_snapshot_id = ? AND pt.authorization_session_id = 'approval-1'
+                  AND pt.pay_transaction_id = 'pay-txn-1' AND pt.status = 'PAID'
+                  AND pt.payment_amount = 13000 AND pt.currency = 'KRW'
+                  AND o.merchant_order_id = 'merchant-order-1'
+                """, Integer.class, row.checkoutSnapshotId()));
+        assertEquals("COMPLETED", jdbcTemplate.queryForObject(
+                "SELECT status FROM merchant_checkouts WHERE id = ?", String.class, row.id()));
+        assertEquals(0, (int) jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM merchant_checkouts WHERE id = ? AND completed_at IS NULL",
+                Integer.class, row.id()));
+    }
+
+    @Test
+    @DisplayName("승인 거부·만료·결제 실패가 각각 CANCELLED/EXPIRED/FAILED와 실패 payment_transactions로 반영된다(이슈 410)")
+    void paymentCompletionPipeline_failureBranches_updateCheckoutAndTransactionStatus() throws Exception {
+        String accessToken = signupAndLogin("ordercomplete2", "홍길동");
+        addCartItem(accessToken);
+        String addressId = registerAddress(accessToken);
+        when(checkoutClient.create(any(), any())).thenReturn(readyCheckout());
+
+        mockMvc.perform(post("/api/core/v1/orders/validations")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validationBody(1, addressId)))
+                .andExpect(status().isCreated());
+        AwaitingApprovalCheckout row = merchantCheckoutRepository.findAwaitingApproval().get(0);
+
+        paymentCompletionRepository.recordFailed(
+                row.checkoutSnapshotId(), row.paymentApprovalId(), "pay-txn-2",
+                row.totalAmountMinor(), row.currency(), "CARD_DECLINED", Instant.now());
+        merchantCheckoutRepository.markFailed(row.id(), "CARD_DECLINED", Instant.now());
+        assertEquals("FAILED", jdbcTemplate.queryForObject(
+                "SELECT status FROM merchant_checkouts WHERE id = ?", String.class, row.id()));
+        assertEquals(1, (int) jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM payment_transactions
+                WHERE checkout_snapshot_id = ? AND status = 'FAILED' AND failure_code = 'CARD_DECLINED'
+                  AND order_id IS NULL
+                """, Integer.class, row.checkoutSnapshotId()));
+
+        merchantCheckoutRepository.markCancelled(row.id(), "USER_REJECTED", Instant.now());
+        assertEquals("CANCELLED", jdbcTemplate.queryForObject(
+                "SELECT status FROM merchant_checkouts WHERE id = ?", String.class, row.id()));
+        assertEquals(0, (int) jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM merchant_checkouts WHERE id = ? AND cancelled_at IS NULL",
+                Integer.class, row.id()));
+
+        merchantCheckoutRepository.markExpired(row.id(), Instant.now());
+        assertEquals("EXPIRED", jdbcTemplate.queryForObject(
+                "SELECT status FROM merchant_checkouts WHERE id = ?", String.class, row.id()));
     }
 
     @Test

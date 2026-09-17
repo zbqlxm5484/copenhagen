@@ -21,6 +21,12 @@ public record MerchantCheckout(
         Instant checkoutExpiresAt) {
 
     public static final String STATUS_CREATING = "CREATING";
+    public static final String STATUS_AWAITING_APPROVAL = "AWAITING_APPROVAL";
+    public static final String STATUS_COMPLETING = "COMPLETING";
+    public static final String STATUS_COMPLETED = "COMPLETED";
+    public static final String STATUS_CANCELLED = "CANCELLED";
+    public static final String STATUS_EXPIRED = "EXPIRED";
+    public static final String STATUS_FAILED = "FAILED";
 
     /** 저장 전 행. {@code id}는 DB가 채운다. */
     public static MerchantCheckout creating(

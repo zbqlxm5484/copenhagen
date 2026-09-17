@@ -21,6 +21,11 @@ management:
 services:
   pay:
     base-url: ${PAY_SERVICE_URL:http://pay-service:8080}
+    # pay-service의 PAY_AUTH_CORE_SERVICE_TOKENS_JSON에 등록된 core-service 토큰과 정확히 같아야 한다.
+    # 기본값을 두지 않는다 — 미설정 시 Pay 내부 API 호출이 전부 401이 되는 것이 의도된 동작이다.
+    service-token: ${CORE_PAY_SERVICE_TOKEN:}
+    connect-timeout: PT1S
+    request-timeout: PT3S
   merchants:
     - id: ${MERCHANT_ID:merchant-a}
       # merchants.id. V7__seed_merchants.sql 이 넣는 고정 PK 와 맞춘다(cart_items.merchant_id FK).
@@ -50,6 +55,12 @@ services:
 # 개인정보 암호화 키. 기본값을 두지 않는다 — 미설정 시 기동을 실패시키는 것이 의도된 동작이다.
 # 로컬 개발은 application-local.yml, 테스트는 src/test/resources/application-test.yml이 값을 채운다.
 core:
+  payment:
+    worker:
+      # 배포 환경에서만 켠다(이슈 410). Pay·Merchant Mock이 없는 테스트 환경에서 조용히 실패 로그를
+      # 쌓지 않기 위해 기본값은 false다.
+      enabled: ${CORE_PAYMENT_WORKER_ENABLED:false}
+      poll-interval-seconds: ${CORE_PAYMENT_WORKER_POLL_INTERVAL_SECONDS:3}
   ucp:
     # Merchant가 외부에서 조회할 Core Platform Profile의 기준 URL. 운영은 HTTPS 공개 URL을 명시한다.
     public-base-url: ${CORE_UCP_PUBLIC_BASE_URL:http://core-service:8080}

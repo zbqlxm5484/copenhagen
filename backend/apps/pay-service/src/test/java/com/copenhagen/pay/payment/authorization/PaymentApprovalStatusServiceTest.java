@@ -170,6 +170,45 @@ class PaymentApprovalStatusServiceTest {
                         () -> service.find(APPROVAL_ID)));
     }
 
+    @Test
+    void passesThroughCredentialIdWhenIssued() {
+        PaymentApprovalStatusRepository repository =
+                org.mockito.Mockito.mock(PaymentApprovalStatusRepository.class);
+        PaymentApprovalStatusService service = new PaymentApprovalStatusService(repository);
+        java.time.Instant credentialExpiresAt = java.time.Instant.parse("2026-09-18T00:05:00Z");
+        when(repository.findByApprovalId(APPROVAL_ID)).thenReturn(Optional.of(
+                new PaymentApprovalStatusRepository.PaymentApprovalStatusView(
+                        APPROVAL_ID,
+                        AuthorizationSessionStatus.APPROVED,
+                        null,
+                        null,
+                        87000,
+                        "KRW",
+                        "33333333-3333-3333-3333-333333333333",
+                        credentialExpiresAt)));
+
+        PaymentApprovalStatusResponse response = service.find(APPROVAL_ID);
+
+        assertEquals("33333333-3333-3333-3333-333333333333", response.credentialId());
+        assertEquals(credentialExpiresAt, response.credentialExpiresAt());
+    }
+
+    @Test
+    void credentialFieldsAreNullBeforeApproval() {
+        PaymentApprovalStatusRepository repository =
+                org.mockito.Mockito.mock(PaymentApprovalStatusRepository.class);
+        PaymentApprovalStatusService service = new PaymentApprovalStatusService(repository);
+        when(repository.findByApprovalId(APPROVAL_ID)).thenReturn(Optional.of(view(
+                AuthorizationSessionStatus.PENDING,
+                null,
+                null)));
+
+        PaymentApprovalStatusResponse response = service.find(APPROVAL_ID);
+
+        assertNull(response.credentialId());
+        assertNull(response.credentialExpiresAt());
+    }
+
     private PaymentApprovalStatusRepository.PaymentApprovalStatusView view(
             AuthorizationSessionStatus approvalStatus,
             String paymentId,
@@ -180,6 +219,8 @@ class PaymentApprovalStatusServiceTest {
                 paymentId,
                 paymentStatus,
                 87000,
-                "KRW");
+                "KRW",
+                null,
+                null);
     }
 }

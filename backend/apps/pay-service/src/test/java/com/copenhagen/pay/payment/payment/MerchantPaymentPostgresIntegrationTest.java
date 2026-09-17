@@ -314,6 +314,9 @@ class MerchantPaymentPostgresIntegrationTest {
                 """
                 INSERT INTO merchant_accounts (id, merchant_id, display_name, auth_type, status)
                 VALUES (?, ?, 'Merchant A', 'TOKEN', 'ACTIVE')
+                ON CONFLICT (merchant_id) DO UPDATE SET
+                    id = EXCLUDED.id, display_name = EXCLUDED.display_name,
+                    auth_type = EXCLUDED.auth_type, status = EXCLUDED.status
                 """,
                 MERCHANT_ACCOUNT_ID,
                 MERCHANT_ID);
