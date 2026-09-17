@@ -60,10 +60,10 @@ http {
     listen 8080;
     default_type application/json;
     location /mcp {
-      return 401 '{"code":"AUTHENTICATION_REQUIRED","method":"$request_method","uri":"$request_uri","proto":"$http_x_forwarded_proto"}';
+      return 401 '{"code":"AUTHENTICATION_REQUIRED","method":"$request_method","uri":"$request_uri","proto":"$http_x_forwarded_proto","backend":"$hostname"}';
     }
     location / {
-      return 200 '{"method":"$request_method","uri":"$request_uri","proto":"$http_x_forwarded_proto"}';
+      return 200 '{"method":"$request_method","uri":"$request_uri","proto":"$http_x_forwarded_proto","backend":"$hostname"}';
     }
   }
 }
@@ -83,11 +83,12 @@ COPY www /var/www/certbot
                 name = prefix + '-' + role
                 containers.append(name)
                 options = [part for alias in aliases for part in ('--network-alias', alias)]
-                run('docker', 'run', '-d', '--name', name, '--network', network, *options,
+                run('docker', 'run', '-d', '--name', name, '--hostname', role, '--network', network, *options,
                     fixture, 'nginx', '-c', '/fixtures/' + config, '-g', 'daemon off;')
                 return name
 
-            backend = start('backend', 'backend.conf', ['core-service', 'mcp-server', 'pay-service'])
+            backends = [start(role, 'backend.conf', [role])
+                        for role in ('core-service', 'mcp-server', 'pay-service')]
             start('http', 'nginx.conf', ['plain'])
             https = start('https', 'nginx.https.conf', [DOMAIN])
             # The curl image cannot see the client's filesystem on a remote DinD daemon.
@@ -118,14 +119,26 @@ COPY www /var/www/certbot
                 raise AssertionError('TLS nginx did not become ready')
 
             for scheme, host in (('http', 'plain'), ('https', DOMAIN)):
-                for path in ('/mcp?test=1', '/api/core/probe', '/api/pay/probe',
-                             '/merchant/v1/probe', '/.well-known/ucp'):
+                for path, upstream in (
+                    ('/mcp?test=1', 'mcp-server'),
+                    ('/.well-known/oauth-protected-resource', 'mcp-server'),
+                    ('/.well-known/oauth-protected-resource/mcp', 'mcp-server'),
+                    ('/.well-known/oauth-authorization-server', 'core-service'),
+                    ('/.well-known/jwks.json', 'core-service'),
+                    ('/oauth/authorize?client_id=chatgpt-plugin&state=probe', 'core-service'),
+                    ('/oauth/authorize/test-request/decision', 'core-service'),
+                    ('/oauth/token', 'core-service'),
+                    ('/api/core/probe', 'core-service'), ('/api/pay/probe', 'pay-service'),
+                    ('/merchant/v1/probe', 'pay-service'), ('/.well-known/ucp', 'core-service')):
                     for method in ('GET', 'POST'):
                         body, status, _ = request(f'{scheme}://{host}{path}', method)
                         assert status == (401 if path.startswith('/mcp') else 200), (scheme, path, status)
                         data = json.loads(body)
-                        assert data == dict(data, uri=path, method=method, proto=scheme)
-                for path in ('/internal', '/internal/health', '/unknown'):
+                        assert data == dict(data, uri=path, method=method, proto=scheme, backend=upstream)
+                for path in ('/internal', '/internal/v1/catalog/products', '/unknown',
+                             '/.well-known/unknown', '/.well-known/jwks.json/extra',
+                             '/.well-known/oauth-protected-resource/extra', '/oauth/unknown',
+                             '/oauth/token/extra'):
                     assert request(f'{scheme}://{host}{path}')[1] == 404
             print('PASS HTTP/TLS routes, methods, query strings, forwarded protocol and internal blocking', flush=True)
 
@@ -136,7 +149,7 @@ COPY www /var/www/certbot
             assert request('http://' + DOMAIN + '/internal')[1] == 404
             print('PASS HTTPS redirect and direct HTTP ACME validation', flush=True)
 
-            run('docker', 'stop', backend)
+            run('docker', 'stop', *backends)
             run('docker', 'exec', https, 'nginx', '-t', '-c', '/fixtures/nginx.https.conf')
             run('docker', 'exec', https, 'nginx', '-s', 'reload', '-c', '/fixtures/nginx.https.conf')
             assert request('https://' + DOMAIN + '/internal')[1] == 404
