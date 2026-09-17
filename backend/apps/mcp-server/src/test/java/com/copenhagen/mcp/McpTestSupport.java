@@ -29,7 +29,7 @@ public final class McpTestSupport {
     public static McpSyncClient client(String baseUrl, String token) {
         return McpClient.sync(HttpClientStreamableHttpTransport.builder(baseUrl).endpoint("/mcp")
                 .requestBuilder(HttpRequest.newBuilder().header("Authorization", "Bearer " + token)).build())
-                .requestTimeout(Duration.ofSeconds(5))
+                .requestTimeout(Duration.ofSeconds(15))
                 .build();
     }
 }

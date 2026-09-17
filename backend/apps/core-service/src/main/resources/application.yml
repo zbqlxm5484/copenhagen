@@ -62,3 +62,16 @@ core:
       # pay-service의 PAY_AUTH_JWT_JWK_SET_JSON에 담긴 JWK의 kid와 반드시 같아야 한다.
       # pay-service는 kid로만 검증 키를 찾기 때문에 값이 어긋나면 서명이 맞아도 인증에 실패한다.
       key-id: ${CORE_AUTH_JWT_KEY_ID:A207}
+
+# Agent OAuth 인가 서버(이슈 S15P21A207-337). issuer/mcp-resource-audience는 기본값을 두지 않는다 —
+# 미설정 시 기동을 실패시키는 것이 의도된 동작이다(mcp-server가 이 값들로 발급 토큰을 검증하므로 잘못된
+# 값으로 조용히 기동하면 안 됨). 로컬은 application-local.yml, 테스트는 application-test.yml이 채운다.
+agent:
+  oauth:
+    issuer: ${AGENT_OAUTH_ISSUER}
+    mcp-resource-audience: ${AGENT_OAUTH_MCP_AUDIENCE}
+    jwt:
+      # Agent Access/Service Token 서명 키. 로그인 토큰(core.auth.jwt)과 별도 키를 쓴다(공개 JWKS 노출
+      # 범위를 분리하기 위함 — 설계서 §4.1). 미설정 시 기동마다 새 키 쌍을 생성한다(재기동 전 발급 토큰 무효화).
+      signing-key: ${AGENT_OAUTH_JWT_PRIVATE_KEY:}
+      key-id: ${AGENT_OAUTH_JWT_KEY_ID:agent-oauth-dev}

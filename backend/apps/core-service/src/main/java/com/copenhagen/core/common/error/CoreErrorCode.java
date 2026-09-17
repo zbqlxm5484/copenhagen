@@ -124,6 +124,46 @@ public enum CoreErrorCode {
             "MERCHANT_CHECKOUT_UNAVAILABLE",
             "판매자 주문 서비스에 일시적으로 연결할 수 없습니다.",
             "RETRY_LATER"),
+    AGENT_CONNECTION_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "AGENT_CONNECTION_NOT_FOUND",
+            "연동을 찾을 수 없습니다.",
+            "CHECK_REQUEST"),
+    OAUTH_CLIENT_UNKNOWN(
+            HttpStatus.BAD_REQUEST,
+            "OAUTH_CLIENT_UNKNOWN",
+            "알 수 없는 클라이언트입니다.",
+            "CHECK_CLIENT_ID"),
+    OAUTH_REDIRECT_URI_MISMATCH(
+            HttpStatus.BAD_REQUEST,
+            "OAUTH_REDIRECT_URI_MISMATCH",
+            "등록되지 않은 리다이렉트 URI입니다.",
+            "CHECK_REDIRECT_URI"),
+    OAUTH_INVALID_SCOPE(
+            HttpStatus.BAD_REQUEST,
+            "OAUTH_INVALID_SCOPE",
+            "허용되지 않은 scope가 포함되어 있습니다.",
+            "CHECK_SCOPE"),
+    OAUTH_INVALID_REQUEST(
+            HttpStatus.BAD_REQUEST,
+            "OAUTH_INVALID_REQUEST",
+            "요청 값이 올바르지 않습니다.",
+            "CHECK_REQUEST"),
+    OAUTH_INVALID_GRANT(
+            HttpStatus.BAD_REQUEST,
+            "OAUTH_INVALID_GRANT",
+            "유효하지 않거나 만료·소비된 코드입니다.",
+            "RESTART_AUTHORIZATION"),
+    OAUTH_INVALID_CLIENT(
+            HttpStatus.UNAUTHORIZED,
+            "OAUTH_INVALID_CLIENT",
+            "클라이언트 인증에 실패했습니다.",
+            "CHECK_CLIENT_CREDENTIALS"),
+    OAUTH_UNSUPPORTED_GRANT_TYPE(
+            HttpStatus.BAD_REQUEST,
+            "OAUTH_UNSUPPORTED_GRANT_TYPE",
+            "지원하지 않는 grant_type입니다.",
+            "CHECK_GRANT_TYPE"),
     REQUEST_METHOD_NOT_ALLOWED(
             HttpStatus.METHOD_NOT_ALLOWED,
             "REQUEST_METHOD_NOT_ALLOWED",
