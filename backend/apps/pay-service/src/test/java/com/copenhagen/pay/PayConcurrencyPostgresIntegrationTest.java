@@ -69,7 +69,7 @@ class PayConcurrencyPostgresIntegrationTest {
     private static final String CREDENTIAL_ID = "00000000-0000-0000-0000-000000000008";
     private static final String PAYMENT_ID = "00000000-0000-0000-0000-000000000009";
     private static final String ATTEMPT_ID = "00000000-0000-0000-0000-000000000010";
-    private static final String PAYMENT_IDEMPOTENCY_KEY = "payment-key-001";
+    private static final String PAYMENT_IDEMPOTENCY_KEY = "550e8400-e29b-41d4-a716-446655440501";
     private static final String REQUEST_HASH = "a".repeat(64);
     private static final String DIGEST = "b".repeat(64);
     private static final String ENCRYPTION_KEY =

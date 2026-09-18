@@ -91,7 +91,7 @@ class AuthorizationSessionControllerTest {
         if (withIdempotencyKey) {
             PayRequestContext.setIdempotencyKey(
                     request,
-                    new IdempotencyKey("selection-001"));
+                    new IdempotencyKey("550e8400-e29b-41d4-a716-446655440013"));
         }
         return request;
     }

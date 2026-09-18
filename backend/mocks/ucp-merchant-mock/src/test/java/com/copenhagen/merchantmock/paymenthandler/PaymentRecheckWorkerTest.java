@@ -91,7 +91,9 @@ class PaymentRecheckWorkerTest {
         // then
         assertEquals(1, client.requests.size());
         PaymentRequest sent = client.requests.get(0);
-        assertEquals("merchant-payment-cred-1", sent.idempotencyKey());
+        assertEquals(new PaymentRequest(
+                "merchant-a", "checkout-1", CheckoutDigest.of(JWS), 92000L, "KRW", "cred-1")
+                .idempotencyKey(), sent.idempotencyKey());
         assertEquals("merchant-a", sent.merchantId());
         assertEquals("checkout-1", sent.businessCheckoutId());
         assertEquals(CheckoutDigest.of(JWS), sent.checkoutHash(), "checkoutHash 는 JWS 에서 다시 계산한다");

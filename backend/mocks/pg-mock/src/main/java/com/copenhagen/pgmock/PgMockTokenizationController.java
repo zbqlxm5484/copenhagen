@@ -3,6 +3,7 @@ package com.copenhagen.pgmock;
 import com.copenhagen.pgmock.PgMockTokenizationService.IdempotencyConflictException;
 import com.copenhagen.pgmock.PgMockTokenizationService.InvalidCardDataException;
 import com.copenhagen.pgmock.PgMockTokenizationService.InvalidIdempotencyKeyException;
+import com.copenhagen.pgmock.PgMockTokenizationService.MissingIdempotencyKeyException;
 import com.copenhagen.pgmock.PgMockTokenizationService.TokenizationInternalException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,9 +32,12 @@ public class PgMockTokenizationController {
         } catch (InvalidCardDataException exception) {
             return ResponseEntity.badRequest().body(
                     new ErrorResponse("INVALID_CARD_DATA", "카드 정보가 올바르지 않습니다."));
-        } catch (InvalidIdempotencyKeyException exception) {
+        } catch (MissingIdempotencyKeyException exception) {
             return ResponseEntity.badRequest().body(
                     new ErrorResponse("IDEMPOTENCY_KEY_REQUIRED", "유효한 Idempotency-Key가 필요합니다."));
+        } catch (InvalidIdempotencyKeyException exception) {
+            return ResponseEntity.badRequest().body(
+                    new ErrorResponse("IDEMPOTENCY_KEY_INVALID", "Idempotency-Key는 UUID 형식이어야 합니다."));
         } catch (IdempotencyConflictException exception) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(
                     new ErrorResponse(

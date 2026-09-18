@@ -87,7 +87,7 @@ class HttpPayClientTest {
         // given
         server.expect(requestTo(PAYMENTS_URL))
                 .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer test-token"))
-                .andExpect(header(HttpPayClient.IDEMPOTENCY_KEY_HEADER, "merchant-payment-cred-1"))
+                .andExpect(header(HttpPayClient.IDEMPOTENCY_KEY_HEADER, request().idempotencyKey()))
                 .andExpect(request -> {
                     assertNotNull(request.getHeaders().getFirst(HttpPayClient.REQUEST_ID_HEADER),
                             "X-Request-Id 는 Pay 가 필수로 요구한다");

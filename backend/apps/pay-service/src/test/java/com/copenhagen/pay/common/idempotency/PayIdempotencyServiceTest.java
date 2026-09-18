@@ -35,6 +35,9 @@ class PayIdempotencyServiceTest {
 
     private static final String ENCRYPTION_KEY =
             "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String REQUEST_KEY = "550e8400-e29b-41d4-a716-446655440010";
+    private static final String CONCURRENT_KEY = "550e8400-e29b-41d4-a716-446655440011";
+    private static final String SCOPE_KEY = "550e8400-e29b-41d4-a716-446655440012";
     private static final Instant NOW = Instant.parse("2026-09-15T00:00:00Z");
 
     @Test
@@ -81,7 +84,7 @@ class PayIdempotencyServiceTest {
     void directServiceConflictUsesContractError() {
         InMemoryIdempotencyRepository repository = new InMemoryIdempotencyRepository();
         PayIdempotencyService service = service(repository);
-        IdempotencyScope scope = scope("key-001");
+        IdempotencyScope scope = scope(REQUEST_KEY);
 
         assertTrue(service.acquire(scope, "a".repeat(64)).owner());
         service.complete(scope, 204, null, new byte[0]);
@@ -97,7 +100,7 @@ class PayIdempotencyServiceTest {
     void concurrentSameRequestClaimsBusinessExecutionOnce() throws Exception {
         InMemoryIdempotencyRepository repository = new InMemoryIdempotencyRepository();
         PayIdempotencyService service = service(repository);
-        IdempotencyScope scope = scope("concurrent-001");
+        IdempotencyScope scope = scope(CONCURRENT_KEY);
         CountDownLatch start = new CountDownLatch(1);
         AtomicInteger owners = new AtomicInteger();
 
@@ -119,7 +122,7 @@ class PayIdempotencyServiceTest {
         InMemoryIdempotencyRepository repository = new InMemoryIdempotencyRepository();
         PayIdempotencyService service = service(repository);
         String requestHash = "a".repeat(64);
-        IdempotencyScope original = scope("scope-001");
+        IdempotencyScope original = scope(SCOPE_KEY);
 
         assertTrue(service.acquire(original, requestHash).owner());
         service.complete(original, 204, null, new byte[0]);
@@ -156,7 +159,7 @@ class PayIdempotencyServiceTest {
         MockHttpServletRequest request = new MockHttpServletRequest(
                 "POST",
                 "/api/pay/v1/payment-methods/cards/");
-        request.addHeader("Idempotency-Key", "key-001");
+        request.addHeader("Idempotency-Key", REQUEST_KEY);
         request.setContent(body.getBytes(StandardCharsets.UTF_8));
         PayRequestContext.setPrincipal(request, new PayPrincipal(PayPrincipal.Type.USER, "user-001"));
         return request;

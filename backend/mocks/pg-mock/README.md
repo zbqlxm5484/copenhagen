@@ -16,8 +16,11 @@
 ```http
 POST /api/pg/v1/payment-methods/tokenize
 Content-Type: application/json
-Idempotency-Key: tokenize-{uuid}
+Idempotency-Key: <uuid>
 ```
+
+`Idempotency-Key`는 UUID 단독 형식만 허용합니다. `tokenize-{uuid}`처럼 작업명 접두사가
+포함된 값은 `400 IDEMPOTENCY_KEY_INVALID`로 거절합니다.
 
 ```json
 {

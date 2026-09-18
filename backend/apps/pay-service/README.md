@@ -132,6 +132,13 @@ PIN·생체인증·카드 결제수단 API는 `/api/pay/v1` 사용자 인증 영
 - 배포 환경에서는 `PAY_PIN_PEPPER`를 Secret Manager 또는 환경변수로 주입합니다. Pepper는 Pay DB에 저장하지 않습니다.
 - 카드 결제수단은 PG의 `provider_token_ref`만 저장하고, 삭제는 Soft Delete로 처리합니다.
 
+상태 변경 API의 `Idempotency-Key`는 `Idempotency-Key: <uuid>` 형식으로 전달합니다. 같은 요청을
+재시도할 때는 최초 UUID를 재사용하고, 작업명 접두사는 붙이지 않습니다. 적용 API와 예외 API는
+[Pay API 멱등성 키 계약](../../../docs/api/pay-idempotency.md)에 정리되어 있습니다.
+
+Pay API는 UUID가 아닌 멱등성 키를 `400 IDEMPOTENCY_KEY_INVALID`로 거절합니다. 이미 저장된
+과거 멱등성 기록은 변경하지 않으며, 새 요청부터 UUID 계약을 적용합니다.
+
 ## 서비스 간 인증
 
 Pay는 경로별 호출 주체를 구분합니다.

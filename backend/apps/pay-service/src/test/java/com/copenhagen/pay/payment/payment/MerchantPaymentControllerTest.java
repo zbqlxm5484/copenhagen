@@ -24,6 +24,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 class MerchantPaymentControllerTest {
 
     private static final Instant NOW = Instant.parse("2026-09-15T00:00:00Z");
+    private static final String IDEMPOTENCY_KEY = "550e8400-e29b-41d4-a716-446655440201";
 
     @Test
     void createsPaymentAndReturnsSuccessContract() {
@@ -182,7 +183,7 @@ class MerchantPaymentControllerTest {
                         PayPrincipal.ServiceType.MERCHANT_SERVICE));
         PayRequestContext.setIdempotencyKey(
                 request,
-                new IdempotencyKey("merchant-payment-credential-001"));
+                new IdempotencyKey(IDEMPOTENCY_KEY));
         return request;
     }
 
@@ -206,7 +207,7 @@ class MerchantPaymentControllerTest {
                 87000,
                 "KRW",
                 status,
-                "merchant-payment-credential-001",
+                IDEMPOTENCY_KEY,
                 "request-hash");
     }
 }

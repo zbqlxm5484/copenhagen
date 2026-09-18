@@ -43,7 +43,7 @@ ${PG_MOCK_BASE_URL}/api/pg/v1/payment-methods/tokenize
 ```http
 POST /api/pg/v1/payment-methods/tokenize
 Content-Type: application/json
-Idempotency-Key: tokenize-{uuid}
+Idempotency-Key: <uuid>
 ```
 
 PG Mock 로컬·개발 API이므로 별도 사용자 Access Token은 요구하지 않습니다. 개발 게이트웨이에서 별도 인증을 추가하는 경우 앱 환경별 연동 문서에 인증 헤더를 추가합니다.
@@ -96,6 +96,18 @@ PG Mock 로컬·개발 API이므로 별도 사용자 Access Token은 요구하�
 
 ## 4. 오류 응답
 
+### 멱등성 키 누락 또는 형식 오류: `400 Bad Request`
+
+헤더가 없으면 `IDEMPOTENCY_KEY_REQUIRED`, 작업명 접두사가 포함되거나 UUID 형식이 아니면
+`IDEMPOTENCY_KEY_INVALID`를 반환합니다.
+
+```json
+{
+  "code": "IDEMPOTENCY_KEY_INVALID",
+  "message": "Idempotency-Key는 UUID 형식이어야 합니다."
+}
+```
+
 ### 잘못된 카드 정보: `400 Bad Request`
 
 ```json
@@ -128,6 +140,7 @@ PG Mock 로컬·개발 API이므로 별도 사용자 Access Token은 요구하�
 ## 5. 멱등성 사용법
 
 - 하나의 토큰화 작업마다 새로운 `Idempotency-Key`를 생성합니다.
+- `Idempotency-Key`는 작업명 접두사 없이 UUID 문자열 하나만 사용합니다.
 - 같은 키와 같은 요청 본문을 재전송하면 최초 토큰화 응답을 재사용합니다.
 - 같은 키로 다른 카드 정보를 보내면 `409 IDEMPOTENCY_CONFLICT`를 반환합니다.
 - Mock의 멱등성 기록은 메모리에만 유지되며 PG Mock 재시작 시 사라집니다.
@@ -140,7 +153,7 @@ PG Mock 로컬·개발 API이므로 별도 사용자 Access Token은 요구하�
 ```http
 POST /api/pay/v1/payment-methods/cards
 Authorization: Bearer <user-access-token>
-Idempotency-Key: register-card-{uuid}
+Idempotency-Key: <uuid>
 Content-Type: application/json
 ```
 

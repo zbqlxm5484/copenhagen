@@ -7,6 +7,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import com.copenhagen.contract.internalapi.PaymentStatus;
 import com.copenhagen.merchantmock.checkout.CheckoutRepository;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -85,7 +87,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    @DisplayName("보내는 요청에 merchant.id 와 credentialId 기반 멱등 키가 실린다")
+    @DisplayName("보내는 요청에 UUID 멱등 키가 실린다")
     void charge_anyCharge_buildsRequestFromMerchantIdAndCredential() {
         // given
         client.result = new PaymentResult(PaymentStatus.SUCCESS, "pay-1", "pg-1", null, null);
@@ -100,7 +102,7 @@ class PaymentServiceTest {
         assertEquals("sha256:abc", sent.checkoutHash());
         assertEquals(92000L, sent.amountMinor());
         assertEquals("KRW", sent.currency());
-        assertEquals("merchant-payment-cred-1", sent.idempotencyKey());
+        assertDoesNotThrow(() -> UUID.fromString(sent.idempotencyKey()));
     }
 
     @Test

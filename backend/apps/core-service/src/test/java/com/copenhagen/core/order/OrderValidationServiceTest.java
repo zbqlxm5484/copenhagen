@@ -302,7 +302,8 @@ class OrderValidationServiceTest {
         assertThat(request.getValue().amountMinor()).isEqualTo(13000L);
         assertThat(request.getValue().currency()).isEqualTo("KRW");
         assertThat(idempotencyKey.getValue())
-                .isEqualTo("payment-approval-create-" + VALIDATION_ID + "-" + MERCHANT_ID);
+                .isEqualTo(OrderValidationService.approvalIdempotencyKey(VALIDATION_ID, MERCHANT_ID));
+        assertThat(UUID.fromString(idempotencyKey.getValue())).isNotNull();
 
         verify(merchantCheckoutRepository).markAwaitingApproval(
                 MERCHANT_CHECKOUT_ROW_ID, APPROVAL_ID, NOW.plusSeconds(300), NOW);

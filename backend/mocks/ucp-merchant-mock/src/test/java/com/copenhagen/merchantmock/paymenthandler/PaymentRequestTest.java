@@ -1,25 +1,30 @@
 package com.copenhagen.merchantmock.paymenthandler;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** 멱등 키 형식(DESIGN.md 8.2절)과 본문 순서. */
 class PaymentRequestTest {
 
     @Test
-    @DisplayName("멱등 키는 merchant-payment-{credentialId} 다")
-    void idempotencyKey_anyRequest_isDerivedFromCredentialId() {
+    @DisplayName("멱등 키는 credentialId에 대해 안정적인 UUID다")
+    void idempotencyKey_sameCredential_isStableUuid() {
         // given
         PaymentRequest request = new PaymentRequest("merchant-a", "checkout-1", "sha256:abc", 92000L, "KRW",
                 "3f2b6a8e-1c2d-4e5f-8a9b-0c1d2e3f4a5b");
 
         // when & then
-        assertEquals("merchant-payment-3f2b6a8e-1c2d-4e5f-8a9b-0c1d2e3f4a5b", request.idempotencyKey());
+        assertDoesNotThrow(() -> UUID.fromString(request.idempotencyKey()));
+        assertEquals(request.idempotencyKey(), new PaymentRequest(
+                "merchant-a", "checkout-1", "sha256:abc", 92000L, "KRW",
+                "3f2b6a8e-1c2d-4e5f-8a9b-0c1d2e3f4a5b").idempotencyKey());
     }
 
     @Test

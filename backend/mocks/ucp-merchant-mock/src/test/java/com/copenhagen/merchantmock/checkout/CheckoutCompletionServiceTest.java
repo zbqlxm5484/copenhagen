@@ -134,7 +134,9 @@ class CheckoutCompletionServiceTest {
         assertEquals(92000L, sent.amountMinor());
         assertEquals("KRW", sent.currency());
         assertEquals(CREDENTIAL, sent.credentialId());
-        assertEquals("merchant-payment-" + CREDENTIAL, sent.idempotencyKey());
+        assertEquals(new PaymentRequest(
+                "merchant-a", id, CheckoutDigest.of(jws), 92000L, "KRW", CREDENTIAL)
+                .idempotencyKey(), sent.idempotencyKey());
     }
 
     @Test
@@ -189,7 +191,11 @@ class CheckoutCompletionServiceTest {
         // then
         assertEquals("completed", retry.status());
         assertEquals(2, pay.requests.size());
-        assertEquals("merchant-payment-credential-0002", pay.requests.get(1).idempotencyKey());
+        assertEquals(new PaymentRequest(
+                "merchant-a", id, CheckoutDigest.of(
+                        checkout.repository().findById(id).orElseThrow().merchantAuthorizationJws()),
+                92000L, "KRW", "credential-0002").idempotencyKey(),
+                pay.requests.get(1).idempotencyKey());
     }
 
     @Test

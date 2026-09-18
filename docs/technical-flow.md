@@ -345,7 +345,7 @@ payment
       └─ credential
            └─ credentialId
 
-Idempotency-Key
+Idempotency-Key: <uuid>
 ```
 
 Core는 `amount`와 `currency`를 Complete Checkout 요청에 중복 전달하지 않는다.
@@ -358,7 +358,7 @@ checkoutId
 credentialId
 amount
 currency
-Idempotency-Key
+Idempotency-Key: <uuid>
 ```
 
 Merchant가 Pay에 Payment를 요청한다.
@@ -519,7 +519,7 @@ GET /checkout-sessions/{checkoutId}
 
 Merchant Checkout이 이미 완료되었다면 기존 결과를 사용한다.
 
-새 Complete 요청이 필요한 경우 동일 요청에 대해서는 기존 Idempotency-Key를 재사용한다.
+새 Complete 요청이 필요한 경우 동일 요청에 대해서는 기존 UUID 형식의 `Idempotency-Key`를 재사용한다.
 
 ## Payment Timeout / UNKNOWN
 
