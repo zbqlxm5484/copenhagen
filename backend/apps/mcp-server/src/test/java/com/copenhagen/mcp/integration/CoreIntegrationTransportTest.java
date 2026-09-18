@@ -104,9 +104,20 @@ class CoreIntegrationTransportTest {
         try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application), token)) {
             client.initialize();
             var tools = client.listTools().tools();
+            var selectedArgs = Map.of("merchantId", "merchant-c", "merchantProductId", "onion-1");
+            var prepared = client.callTool(McpSchema.CallToolRequest.builder().name("prepare_widget_action")
+                    .arguments(Map.of("tool", "get_product_detail", "arguments", selectedArgs)).build());
+            assertFalse(prepared.isError());
+            Map<?, ?> referenceData = (Map<?, ?>) ((Map<?, ?>) prepared.structuredContent()).get("data");
+            var resolved = client.callTool(McpSchema.CallToolRequest.builder().name("resolve_widget_action")
+                    .arguments(Map.of("reference", referenceData.get("reference"))).build());
+            assertFalse(resolved.isError());
+            assertEquals(Map.of("tool", "get_product_detail", "arguments", selectedArgs),
+                    ((Map<?, ?>) resolved.structuredContent()).get("data"));
             assertEquals(Set.of("search_products", "get_product_detail", "get_cart", "add_cart_item",
                     "update_cart_item", "delete_cart_item", "prepare_purchase_handoff", "open_copenhagen",
-                    "display_products", "get_purchase_status", "resend_purchase_notification", "prepare_cart"),
+                    "display_products", "get_purchase_status", "resend_purchase_notification", "prepare_cart",
+                    "prepare_widget_action", "resolve_widget_action"),
                     tools.stream().map(McpSchema.Tool::name).collect(Collectors.toSet()));
             var result = client.callTool(McpSchema.CallToolRequest.builder().name("open_copenhagen")
                     .arguments(Map.of("query", "삼성")).build());
@@ -129,9 +140,11 @@ class CoreIntegrationTransportTest {
                 assertFalse(html.text().contains("로컬 Mock 안내 시나리오"));
             }
             for (var tool : tools) {
-                if ("search_products".equals(tool.name())) {
+                if (Set.of("search_products", "prepare_widget_action", "resolve_widget_action").contains(tool.name())) {
                     assertFalse(tool.meta().containsKey("openai/outputTemplate"));
-                    assertFalse(((Map<?, ?>) tool.meta().get("ui")).containsKey("resourceUri"));
+                    if (tool.meta().get("ui") instanceof Map<?, ?> ui) {
+                        assertFalse(ui.containsKey("resourceUri"));
+                    }
                     continue;
                 }
                 String view = switch (tool.name()) {

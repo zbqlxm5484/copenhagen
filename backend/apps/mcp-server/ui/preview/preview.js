@@ -1,5 +1,6 @@
 const products = await (await fetch('/products.json')).json();
 const thread = document.getElementById('thread'), frames = new Map(), mutations = new Map();
+const actionReferences = new Map();
 let items = [], version = 1, count = 0;
 const result = (kind, data) => ({ structuredContent: { kind, data } });
 const checkedAt = new Date().toISOString();
@@ -15,6 +16,7 @@ const product = p => ({ name: p.name, imageUrl: document.getElementById('scenari
 function cart() { const total = items.reduce((n,i)=>n+i.lineTotalAmount,0);return {cartId:'preview-cart',version,items:structuredClone(items),
  merchantSummaries:[...new Set(items.map(i=>i.merchantId))].map(id=>({merchantId:id,merchantName:merchantName(id)})),summary:{itemSubtotalAmount:total,totalAmount:null,discountAmount:null,shippingAmount:null}}; }
 function execute(name, args = {}) {
+ if(name==='prepare_widget_action'){const reference=crypto.randomUUID();actionReferences.set(reference,structuredClone(args));return result('action.reference',{reference});}
  if(mutations.has(args.idempotencyKey))return mutations.get(args.idempotencyKey);
  let response;
  if(name==='search_products') {
@@ -51,7 +53,7 @@ window.addEventListener('message',event=>{if(event.origin!==location.origin||!ev
  else if(m.method==='size')frame.style.height=Math.ceil(m.params.height+2)+'px';
  else if(m.method==='call')send(execute(m.params.name,m.params.arguments));
  else if(m.method==='context'){stored.context=m.params;send({});}
- else if(m.method==='message'){const text=m.params.content[0].text;const intent=JSON.parse(text.slice(text.lastIndexOf('\n')+1));
+ else if(m.method==='message'){const text=m.params.content[0].text;const reference=text.match(/코펜하겐 요청번호: ([0-9a-f-]{36})/)?.[1];const intent=actionReferences.get(reference);if(!intent)throw Error('선택 요청을 확인할 수 없어요.');
  const bubble=document.createElement('p');bubble.className='bubble user';bubble.textContent=m.params.content[0].text;thread.append(bubble);
  const output=execute(intent.tool,intent.arguments);appendCard(intent.tool,intent.arguments,output);send({});}
  }catch(e){send(null,e.message);}
