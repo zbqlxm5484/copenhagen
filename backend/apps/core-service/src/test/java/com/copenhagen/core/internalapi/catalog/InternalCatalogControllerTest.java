@@ -100,7 +100,8 @@ class InternalCatalogControllerTest {
         when(productService.searchForInternal(any(), any(), any(), any())).thenReturn(new CatalogSearchResult(
                 List.of(
                         item("merchant-a", "Copenhagen Demo Store", "prod-1001", "갤럭시 S25", 1200000L),
-                        item("merchant-b", "노을상점", "b-9", "갤럭시 S25", 1150000L),
+                        new CatalogSearchItem("merchant-b", "노을상점", "b-9", "갤럭시 S25", 1150000L,
+                                "KRW", "IN_STOCK", "https://cdn.daisomall.co.kr/test.jpg"),
                         item("merchant-a", "Copenhagen Demo Store", "prod-1002", "아이폰 17", 1500000L)),
                 List.of()));
 
@@ -109,6 +110,7 @@ class InternalCatalogControllerTest {
                 .andExpect(jsonPath("$.products.length()").value(2))
                 .andExpect(jsonPath("$.products[0].offers.length()").value(2))
                 .andExpect(jsonPath("$.products[0].brand").doesNotExist())
+                .andExpect(jsonPath("$.products[0].imageUrl").value("https://cdn.daisomall.co.kr/test.jpg"))
                 .andExpect(jsonPath("$.products[0].category.id").value("all"))
                 .andExpect(jsonPath("$.filters.merchants.length()").value(2))
                 .andExpect(jsonPath("$.checkedAt").value(NOW.toString()))
@@ -238,12 +240,14 @@ class InternalCatalogControllerTest {
                 "merchant-a", "prod-1001", "갤럭시 S25", 1200000L, "KRW", "IN_STOCK",
                 List.of(new CatalogProductView.OptionGroup("색상", List.of(
                         new CatalogProductView.OptionValue("sku-1001-black", "블랙"),
-                        new CatalogProductView.OptionValue("sku-1001-white", "화이트"))))));
+                        new CatalogProductView.OptionValue("sku-1001-white", "화이트")))),
+                "https://cdn.daisomall.co.kr/test.jpg"));
 
         String body = mockMvc.perform(get("/internal/v1/merchants/merchant-a/products/prod-1001"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.merchantId").value("merchant-a"))
                 .andExpect(jsonPath("$.merchantProductId").value("prod-1001"))
+                .andExpect(jsonPath("$.imageUrl").value("https://cdn.daisomall.co.kr/test.jpg"))
                 .andExpect(jsonPath("$.optionGroups[0].values.length()").value(2))
                 .andExpect(jsonPath("$.variants.length()").value(2))
                 .andExpect(jsonPath("$.variants[0].merchantVariantId").value("sku-1001-black"))

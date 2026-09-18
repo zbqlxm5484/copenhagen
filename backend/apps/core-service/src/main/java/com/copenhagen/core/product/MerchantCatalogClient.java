@@ -131,7 +131,10 @@ class MerchantCatalogClient {
     record CatalogItemsResponse(List<CatalogItem> items) {
     }
 
-    record CatalogItem(String productId, String title, CatalogPrice price, String availability) {
+    record CatalogItem(String productId, String title, CatalogPrice price, String availability, String imageUrl) {
+        CatalogItem(String productId, String title, CatalogPrice price, String availability) {
+            this(productId, title, price, availability, null);
+        }
     }
 
     record CatalogPrice(long amount, String currency) {
@@ -143,7 +146,12 @@ class MerchantCatalogClient {
             String description,
             CatalogPrice price,
             List<CatalogOption> options,
-            String availability) {
+            String availability,
+            String imageUrl) {
+        CatalogProductDetail(String productId, String title, String description, CatalogPrice price,
+                List<CatalogOption> options, String availability) {
+            this(productId, title, description, price, options, availability, null);
+        }
     }
 
     record CatalogOption(String name, List<CatalogOptionValue> values) {

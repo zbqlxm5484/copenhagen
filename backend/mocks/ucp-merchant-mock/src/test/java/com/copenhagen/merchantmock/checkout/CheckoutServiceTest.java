@@ -49,6 +49,34 @@ class CheckoutServiceTest {
     }
 
     @Test
+    @DisplayName("동일 몰의 여러 상품과 수량에도 배송비는 주문서에 한 번만 부과한다")
+    void create_multipleProducts_chargesShippingOnce() {
+        Checkout checkout = harness().service().create("merchant-a",
+                request(SEOUL, line("product-101", "product-101-270", 2),
+                        line("product-104", "product-104-single", 3)), "shipping-once");
+
+        assertEquals("ready_for_complete", checkout.status());
+        assertEquals(259000L, total(checkout, "subtotal"));
+        assertEquals(3000L, total(checkout, "fulfillment"));
+        assertEquals(262000L, total(checkout, "total"));
+        assertEquals(1L, checkout.totals().stream().filter(t -> "fulfillment".equals(t.type())).count());
+    }
+
+    @Test
+    @DisplayName("무료배송 몰의 다품목 주문은 도서산간 추가금도 한 번만 부과한다")
+    void create_multipleProducts_chargesRemoteSurchargeOnce() {
+        CheckoutRequest.Destination jeju = new CheckoutRequest.Destination(
+                "홍길동", "63000", "제주특별자치도 제주시 1", "101호");
+        Checkout checkout = CheckoutTestSupport.harnessWithFlatFee(0L).service().create("merchant-a",
+                request(jeju, line("product-101", "product-101-270", 2),
+                        line("product-104", "product-104-single", 3)), "remote-once");
+
+        assertEquals(3000L, total(checkout, "fulfillment"));
+        assertEquals(262000L, total(checkout, "total"));
+        assertEquals(List.of("CHECKOUT_REMOTE_AREA_SURCHARGE"), codes(checkout));
+    }
+
+    @Test
     @DisplayName("조건이 다 차면 ready_for_complete 이고 금액을 확정한다")
     void create_allConditionsMet_returnsReadyForCompleteWithTotals() {
         // given & when

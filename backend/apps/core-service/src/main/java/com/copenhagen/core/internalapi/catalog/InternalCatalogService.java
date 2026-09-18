@@ -119,7 +119,7 @@ public class InternalCatalogService {
                 product.merchantId(),
                 product.merchantProductId(),
                 product.name(),
-                null,
+                product.imageUrl(),
                 List.copyOf(optionGroups),
                 List.copyOf(variants),
                 new InternalDetailResponse.Shipping(null, AVAILABILITY_UNKNOWN),
@@ -148,7 +148,8 @@ public class InternalCatalogService {
                     ComparisonGroups.comparisonGroupId(group.get(0).name()),
                     group.get(0).name(),
                     null,
-                    null,
+                    group.stream().map(CatalogSearchItem::imageUrl)
+                            .filter(image -> image != null && !image.isBlank()).findFirst().orElse(null),
                     new InternalNamedId(CATEGORY_ALL_ID, CATEGORY_ALL_NAME),
                     offers));
         }

@@ -46,14 +46,15 @@ class MerchantCatalogClientTest {
                         {"query":"셔츠","filters":{"maxPrice":10000,"currency":"KRW"}}
                         """))
                 .andRespond(withSuccess("""
-                        {"items":[{"productId":"p-1","title":"린넨 셔츠",
+                        {"items":[{"productId":"p-1","title":"린넨 셔츠","imageUrl":"https://cdn.daisomall.co.kr/test.jpg",
                           "price":{"amount":9900,"currency":"KRW"},"availability":"IN_STOCK"}]}
                         """, MediaType.APPLICATION_JSON));
 
         List<MerchantCatalogClient.CatalogItem> items = client.search("셔츠", 10_000L, "KRW");
 
         assertThat(items).containsExactly(new MerchantCatalogClient.CatalogItem(
-                "p-1", "린넨 셔츠", new MerchantCatalogClient.CatalogPrice(9900, "KRW"), "IN_STOCK"));
+                "p-1", "린넨 셔츠", new MerchantCatalogClient.CatalogPrice(9900, "KRW"), "IN_STOCK",
+                "https://cdn.daisomall.co.kr/test.jpg"));
         server.verify();
     }
 
@@ -76,6 +77,7 @@ class MerchantCatalogClientTest {
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withSuccess("""
                         {"productId":"p-1","title":"린넨 셔츠","description":"여름용",
+                          "imageUrl":"https://cdn.daisomall.co.kr/test.jpg",
                           "price":{"amount":9900,"currency":"KRW"},
                           "options":[{"name":"색상","values":[{"optionValueId":"sku-1","label":"화이트"}]}],
                           "availability":"IN_STOCK"}
@@ -84,6 +86,7 @@ class MerchantCatalogClientTest {
         MerchantCatalogClient.CatalogProductDetail detail = client.product("p-1");
 
         assertThat(detail.productId()).isEqualTo("p-1");
+        assertThat(detail.imageUrl()).isEqualTo("https://cdn.daisomall.co.kr/test.jpg");
         assertThat(detail.options()).hasSize(1);
         server.verify();
     }
