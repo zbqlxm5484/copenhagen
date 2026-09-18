@@ -61,6 +61,15 @@ core:
       # 쌓지 않기 위해 기본값은 false다.
       enabled: ${CORE_PAYMENT_WORKER_ENABLED:false}
       poll-interval-seconds: ${CORE_PAYMENT_WORKER_POLL_INTERVAL_SECONDS:3}
+  internal:
+    # MCP 내부 업무 API(순서 34, 이슈 417). app-link-base만 기본값을 두지 않는다 — App Link origin이
+    # 아직 확정되지 않았고(구현순서.md §4), 잘못된 링크를 조용히 만들면 mcp-server가 응답 전체를 버린다.
+    # 미설정 시 POST /internal/v1/purchase-requests만 503이고 나머지 6개 엔드포인트는 정상 동작한다.
+    # 설정할 때는 mcp-server의 MCP_APP_LINK_BASE와 문자 단위로 같아야 한다(HTTPS, '/'로 끝남).
+    app-link-base: ${CORE_INTERNAL_APP_LINK_BASE:}
+    # 인계 링크 만료. mcp-server는 생성 시각 +31분을 넘는 응답을 거부한다.
+    handoff-ttl: ${CORE_INTERNAL_HANDOFF_TTL:PT30M}
+    default-page-size: ${CORE_INTERNAL_DEFAULT_PAGE_SIZE:10}
   ucp:
     # Merchant가 외부에서 조회할 Core Platform Profile의 기준 URL. 운영은 HTTPS 공개 URL을 명시한다.
     public-base-url: ${CORE_UCP_PUBLIC_BASE_URL:http://core-service:8080}

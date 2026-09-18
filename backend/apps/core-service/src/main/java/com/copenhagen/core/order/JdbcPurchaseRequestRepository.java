@@ -17,6 +17,14 @@ public class JdbcPurchaseRequestRepository implements PurchaseRequestRepository 
             RETURNING id
             """;
 
+    private static final String INSERT_PENDING_ADDRESS_SQL = """
+            INSERT INTO purchase_requests
+                (public_id, user_id, cart_id, agent_connection_id, request_channel, status, policy_version,
+                    cart_version, expires_at, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING id
+            """;
+
     private static final String MARK_FAILED_SQL = """
             UPDATE purchase_requests
             SET status = ?, updated_at = ?
@@ -53,6 +61,37 @@ public class JdbcPurchaseRequestRepository implements PurchaseRequestRepository 
                 userId,
                 cartId,
                 PurchaseRequest.STATUS_CREATING_CHECKOUTS);
+    }
+
+    @Override
+    public PurchaseRequest insertPendingAddress(
+            UUID publicId,
+            long userId,
+            long cartId,
+            long agentConnectionId,
+            String policyVersion,
+            int cartVersion,
+            Instant expiresAt,
+            Instant now) {
+        Long id = jdbcTemplate.queryForObject(
+                INSERT_PENDING_ADDRESS_SQL,
+                Long.class,
+                publicId,
+                userId,
+                cartId,
+                agentConnectionId,
+                PurchaseRequest.CHANNEL_MCP,
+                PurchaseRequest.STATUS_PENDING_ADDRESS,
+                policyVersion,
+                cartVersion,
+                Timestamp.from(expiresAt),
+                Timestamp.from(now));
+        return new PurchaseRequest(
+                id == null ? 0L : id,
+                publicId,
+                userId,
+                cartId,
+                PurchaseRequest.STATUS_PENDING_ADDRESS);
     }
 
     @Override

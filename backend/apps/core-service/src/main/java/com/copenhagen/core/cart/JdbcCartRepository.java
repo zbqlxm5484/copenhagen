@@ -45,6 +45,10 @@ public class JdbcCartRepository implements CartRepository {
             WHERE cart_id = ? AND merchant_product_id = ? AND merchant_variant_id = ?
             """;
 
+    private static final String FIND_ITEM_BY_PUBLIC_ID_SQL = SELECT_ITEM_COLUMNS + """
+            WHERE public_id = ? AND cart_id = ?
+            """;
+
     private static final String FIND_ITEMS_BY_CART_ID_SQL = SELECT_ITEM_COLUMNS + """
             WHERE cart_id = ?
             ORDER BY added_at, id
@@ -62,6 +66,19 @@ public class JdbcCartRepository implements CartRepository {
             UPDATE cart_items
             SET quantity = ?, product_name = ?, product_url = ?, image_url = ?, selected_options = ?::jsonb,
                 unit_price_amount = ?, currency = ?, price_captured_at = ?, updated_at = ?
+            WHERE id = ?
+            """;
+
+    private static final String UPDATE_ITEM_VARIANT_SQL = """
+            UPDATE cart_items
+            SET merchant_variant_id = ?, quantity = ?, product_name = ?, product_url = ?, image_url = ?,
+                selected_options = ?::jsonb, unit_price_amount = ?, currency = ?, price_captured_at = ?,
+                updated_at = ?
+            WHERE id = ?
+            """;
+
+    private static final String DELETE_ITEM_BY_ID_SQL = """
+            DELETE FROM cart_items
             WHERE id = ?
             """;
 
@@ -120,6 +137,16 @@ public class JdbcCartRepository implements CartRepository {
     }
 
     @Override
+    public Optional<CartItem> findItemByPublicId(UUID publicId, long cartId) {
+        try {
+            return Optional.ofNullable(jdbcTemplate.queryForObject(
+                    FIND_ITEM_BY_PUBLIC_ID_SQL, ITEM_ROW_MAPPER, publicId, cartId));
+        } catch (EmptyResultDataAccessException exception) {
+            return Optional.empty();
+        }
+    }
+
+    @Override
     public void insertItem(UUID publicId, CartItem item, Instant now) {
         jdbcTemplate.update(
                 INSERT_ITEM_SQL,
@@ -153,6 +180,28 @@ public class JdbcCartRepository implements CartRepository {
                 Timestamp.from(now),
                 Timestamp.from(now),
                 itemId);
+    }
+
+    @Override
+    public void updateItemVariant(long itemId, CartItem item, Instant now) {
+        jdbcTemplate.update(
+                UPDATE_ITEM_VARIANT_SQL,
+                item.merchantVariantId(),
+                item.quantity(),
+                item.productName(),
+                item.productUrl(),
+                item.imageUrl(),
+                item.selectedOptions(),
+                item.unitPriceAmount(),
+                item.currency(),
+                Timestamp.from(now),
+                Timestamp.from(now),
+                itemId);
+    }
+
+    @Override
+    public int deleteItemById(long itemId) {
+        return jdbcTemplate.update(DELETE_ITEM_BY_ID_SQL, itemId);
     }
 
     @Override
