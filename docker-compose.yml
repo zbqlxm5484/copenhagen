@@ -48,6 +48,10 @@ services:
       CORE_PAY_SERVICE_TOKEN: ${CORE_PAY_SERVICE_TOKEN:-}
       CORE_PAYMENT_WORKER_ENABLED: ${CORE_PAYMENT_WORKER_ENABLED:-false}
       CORE_PAYMENT_WORKER_POLL_INTERVAL_SECONDS: ${CORE_PAYMENT_WORKER_POLL_INTERVAL_SECONDS:-3}
+      # MCP 구매 인계 링크(이슈 417). mcp-server의 MCP_APP_LINK_BASE와 문자 단위로 같아야 해서
+      # 아예 같은 변수를 쓴다. 비어 있으면 POST /internal/v1/purchase-requests만 503이고
+      # 나머지 내부 API 6개는 정상 동작한다.
+      CORE_INTERNAL_APP_LINK_BASE: ${MCP_APP_LINK_BASE:-}
     depends_on:
       core-db:
         condition: service_healthy

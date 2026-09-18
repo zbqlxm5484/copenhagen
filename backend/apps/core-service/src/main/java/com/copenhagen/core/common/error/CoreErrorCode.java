@@ -84,6 +84,12 @@ public enum CoreErrorCode {
             "CART_ITEM_NOT_FOUND",
             "장바구니 항목을 찾을 수 없습니다.",
             "CHECK_REQUEST"),
+    /** 줄당 수량 상한은 내부 API(순서 34)에만 있다. 앱 경로는 상한을 두지 않는다. */
+    CART_QUANTITY_LIMIT_EXCEEDED(
+            HttpStatus.CONFLICT,
+            "CART_QUANTITY_LIMIT_EXCEEDED",
+            "한 항목에 담을 수 있는 수량을 초과했습니다.",
+            "REDUCE_QUANTITY"),
     CART_OPTION_REQUIRED(
             HttpStatus.BAD_REQUEST,
             "CART_OPTION_REQUIRED",

@@ -37,6 +37,9 @@ public class CartService {
     /** 장바구니가 아직 없는 상태의 논리적 버전. 첫 담기 요청은 이 값을 보내야 한다. */
     private static final int NO_CART_VERSION = 0;
 
+    /** 앱 경로는 줄당 수량 상한이 없다. 상한은 내부 API(순서 34)에만 적용한다(설계서 D-G). */
+    public static final int NO_QUANTITY_LIMIT = 0;
+
     private static final TypeReference<List<CartProductSnapshot.SelectedOption>> SELECTED_OPTIONS_TYPE =
             new TypeReference<>() { };
 
@@ -69,6 +72,16 @@ public class CartService {
         return toView(cart.get(), cartRepository.findItemsByCartId(cart.get().id()));
     }
 
+    /**
+     * 내부 API(순서 34)는 {@code cartId}가 항상 있어야 해서 ACTIVE 장바구니가 없으면 만들어서 돌려준다
+     * (설계서 D-F). 앱 경로의 {@link #get}은 지금처럼 빈 응답을 그대로 쓴다.
+     */
+    @Transactional
+    public Cart getOrCreateActiveCart(long userId) {
+        return cartRepository.findActiveByUserId(userId)
+                .orElseGet(() -> createCart(userId, clock.instant()));
+    }
+
     @Transactional
     public CartAddResult add(
             long userId,
@@ -77,9 +90,29 @@ public class CartService {
             String productId,
             List<String> optionValueIds,
             int quantity) {
+        return add(
+                userId,
+                cartVersion,
+                merchantId,
+                productService.captureForCart(merchantId, productId, optionValueIds),
+                quantity,
+                NO_QUANTITY_LIMIT);
+    }
+
+    /**
+     * 스냅샷을 미리 뜬 담기. 내부 API는 Catalog 오류를 자기 오류 코드로 바꿔야 해서(설계서 §8)
+     * 캡처를 직접 하고 결과만 넘긴다. 줄당 수량 상한도 내부 경로에서만 쓴다.
+     */
+    @Transactional
+    public CartAddResult add(
+            long userId,
+            int cartVersion,
+            String merchantId,
+            CartProductSnapshot snapshot,
+            int quantity,
+            int maxQuantityPerItem) {
         Instant now = clock.instant();
         long merchantRefId = cartMerchants.requireRefId(merchantId);
-        CartProductSnapshot snapshot = productService.captureForCart(merchantId, productId, optionValueIds);
 
         Cart cart = cartRepository.findActiveByUserId(userId).orElse(null);
         int newVersion;
@@ -102,6 +135,7 @@ public class CartService {
             // CART-01의 "합산 또는 갱신 정책" 중 합산이고, 응답이 cartItemId 하나를 요구하는 것과도 맞는다.
             CartItem item = existing.get();
             int mergedQuantity = item.quantity() + quantity;
+            requireWithinQuantityLimit(mergedQuantity, maxQuantityPerItem);
             cartRepository.updateItemOnMerge(
                     item.id(),
                     toRow(cart.id(), merchantRefId, snapshot, selectedOptions, mergedQuantity),
@@ -124,6 +158,49 @@ public class CartService {
         if (cartRepository.updateItemQuantity(cartItemId, cart.id(), quantity, now) == 0) {
             throw new CoreException(CoreErrorCode.CART_ITEM_NOT_FOUND);
         }
+        return newVersion;
+    }
+
+    /**
+     * 옵션(variant) 변경(순서 34, 설계서 §4.5). 스냅샷은 호출자가 새 variant로 다시 떠서 넘긴다 —
+     * 상품명·단가·옵션 표시값이 옵션에 따라 달라질 수 있기 때문이다.
+     *
+     * <p>바꾸려는 variant가 이미 다른 줄에 있으면({@code uq_cart_items_cart_product_variant})
+     * 두 줄을 합친다. 남는 줄의 수량은 요청 수량 + 상대 줄 수량이고 편집한 줄은 지운다.
+     * 담기의 합산 정책(CART-01)과 같은 규칙이다.
+     */
+    @Transactional
+    public int replaceVariant(
+            long userId,
+            UUID cartItemId,
+            int cartVersion,
+            CartProductSnapshot snapshot,
+            int quantity,
+            int maxQuantityPerItem) {
+        Instant now = clock.instant();
+        Cart cart = requireCart(userId);
+        int newVersion = bumpVersion(cart, cartVersion, now);
+
+        CartItem item = cartRepository.findItemByPublicId(cartItemId, cart.id())
+                .orElseThrow(() -> new CoreException(CoreErrorCode.CART_ITEM_NOT_FOUND));
+        String selectedOptions = writeSelectedOptions(snapshot.selectedOptions());
+        Optional<CartItem> target = cartRepository.findItemByProductVariant(
+                cart.id(), snapshot.merchantProductId(), snapshot.merchantVariantId());
+
+        if (target.isPresent() && target.get().id() != item.id()) {
+            int mergedQuantity = quantity + target.get().quantity();
+            requireWithinQuantityLimit(mergedQuantity, maxQuantityPerItem);
+            cartRepository.updateItemOnMerge(
+                    target.get().id(),
+                    toRow(cart.id(), item.merchantId(), snapshot, selectedOptions, mergedQuantity),
+                    now);
+            cartRepository.deleteItemById(item.id());
+            return newVersion;
+        }
+
+        requireWithinQuantityLimit(quantity, maxQuantityPerItem);
+        cartRepository.updateItemVariant(
+                item.id(), toRow(cart.id(), item.merchantId(), snapshot, selectedOptions, quantity), now);
         return newVersion;
     }
 
@@ -152,6 +229,12 @@ public class CartService {
     private Cart requireCart(long userId) {
         return cartRepository.findActiveByUserId(userId)
                 .orElseThrow(() -> new CoreException(CoreErrorCode.CART_VERSION_CONFLICT));
+    }
+
+    private void requireWithinQuantityLimit(int quantity, int maxQuantityPerItem) {
+        if (maxQuantityPerItem > NO_QUANTITY_LIMIT && quantity > maxQuantityPerItem) {
+            throw new CoreException(CoreErrorCode.CART_QUANTITY_LIMIT_EXCEEDED);
+        }
     }
 
     private int bumpVersion(Cart cart, int expectedVersion, Instant now) {

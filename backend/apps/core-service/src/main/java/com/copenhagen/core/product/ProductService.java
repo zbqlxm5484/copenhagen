@@ -28,11 +28,7 @@ public class ProductService {
     }
 
     public SearchEnvelope search(UUID principal, SearchQuery query) {
-        List<MerchantCatalogClient> targets = query.merchantId().isBlank()
-                ? List.copyOf(clients.values())
-                : clients.containsKey(query.merchantId())
-                        ? List.of(clients.get(query.merchantId()))
-                        : List.of();
+        List<MerchantCatalogClient> targets = targets(query.merchantId());
 
         List<CatalogProduct> products = new ArrayList<>();
         List<String> failedMerchants = new ArrayList<>();
@@ -110,6 +106,68 @@ public class ProductService {
                 "catalog.detail", "LIVE", "FOUND",
                 requestEcho(productId, merchantId, optionId), product, clock.instant().toString());
         return new DetailEnvelope(principal.toString(), DEFAULT_CONNECTION_REF, data);
+    }
+
+    /**
+     * 내부 API(순서 34, 이슈 S15P21A207-417)용 검색. 앱용 {@link #search}와 데이터 원본은 같지만
+     * 봉투·페이지네이션 없이 merchant별 항목만 돌려준다 — 비교 묶음·커서는 내부 계약 쪽에서 만든다.
+     *
+     * <p>{@link MerchantCatalogClient}가 package-private이라 {@code internalapi} 패키지가 Catalog를
+     * 직접 부를 수 없어 여기에 둔다({@link #captureForCart}와 같은 이유다).
+     */
+    public CatalogSearchResult searchForInternal(
+            String query, String merchantId, Long minPrice, Long maxPrice) {
+        List<CatalogSearchItem> items = new ArrayList<>();
+        List<String> failedMerchants = new ArrayList<>();
+        for (MerchantCatalogClient client : targets(merchantId)) {
+            try {
+                for (MerchantCatalogClient.CatalogItem item : client.search(query, maxPrice, KRW)) {
+                    if (!KRW.equals(item.price().currency())) {
+                        continue;
+                    }
+                    if (minPrice != null && item.price().amount() < minPrice) {
+                        continue;
+                    }
+                    items.add(new CatalogSearchItem(
+                            client.merchantId(), client.merchantName(), item.productId(), item.title(),
+                            item.price().amount(), KRW, item.availability()));
+                }
+            } catch (CoreException exception) {
+                failedMerchants.add(client.merchantId());
+            }
+        }
+        return new CatalogSearchResult(List.copyOf(items), List.copyOf(failedMerchants));
+    }
+
+    /**
+     * 내부 API용 상세. 등록되지 않은 merchant도 {@code PRODUCT_NOT_FOUND}(404)다 — 내부 계약에는
+     * merchant 오류 코드가 따로 없고, 호출자 입장에서 "그 merchant의 그 상품이 없다"와 같은 결과다.
+     */
+    public CatalogProductView detailForInternal(String merchantId, String merchantProductId) {
+        MerchantCatalogClient client = clients.get(merchantId);
+        if (client == null) {
+            throw new CoreException(CoreErrorCode.PRODUCT_NOT_FOUND);
+        }
+        MerchantCatalogClient.CatalogProductDetail detail = client.product(merchantProductId);
+        if (detail == null) {
+            throw new CoreException(CoreErrorCode.MERCHANT_CATALOG_UNAVAILABLE);
+        }
+        List<CatalogProductView.OptionGroup> optionGroups = detail.options().stream()
+                .map(option -> new CatalogProductView.OptionGroup(
+                        option.name(),
+                        option.values().stream()
+                                .map(value -> new CatalogProductView.OptionValue(
+                                        value.optionValueId(), value.label()))
+                                .toList()))
+                .toList();
+        return new CatalogProductView(
+                merchantId,
+                merchantProductId,
+                detail.title(),
+                detail.price().amount(),
+                detail.price().currency(),
+                detail.availability(),
+                optionGroups);
     }
 
     /**
@@ -260,6 +318,15 @@ public class ProductService {
         int fromIndex = Math.min((page - 1) * pageSize, products.size());
         int toIndex = Math.min(fromIndex + pageSize, products.size());
         return List.copyOf(products.subList(fromIndex, toIndex));
+    }
+
+    /** merchant 필터가 비어 있으면 전부, 등록되지 않은 id면 아무 것도 조회하지 않는다(빈 결과). */
+    private List<MerchantCatalogClient> targets(String merchantId) {
+        if (merchantId == null || merchantId.isBlank()) {
+            return List.copyOf(clients.values());
+        }
+        MerchantCatalogClient client = clients.get(merchantId);
+        return client == null ? List.of() : List.of(client);
     }
 
     private List<MerchantRef> merchantRefs(List<MerchantCatalogClient> targets) {
