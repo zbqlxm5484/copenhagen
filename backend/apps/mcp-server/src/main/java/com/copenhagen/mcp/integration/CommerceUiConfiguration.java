@@ -21,54 +21,96 @@ import org.springframework.core.io.ClassPathResource;
 @ConditionalOnProperty(name = {"mcp.integration.enabled", "mcp.ui.enabled"}, havingValue = "true")
 public class CommerceUiConfiguration {
     @Bean
-    CommerceResource commerceResource() throws IOException, NoSuchAlgorithmException {
-        String html = new ClassPathResource("mcp-ui/integration.html").getContentAsString(StandardCharsets.UTF_8)
-                .replace("__CART_ENABLED__", "true").replace("__HANDOFF_ENABLED__", "true");
-        String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                .digest(html.getBytes(StandardCharsets.UTF_8))).substring(0, 16);
-        return new CommerceResource("ui://copenhagen/core-" + hash + ".html", html);
+    CommerceViews commerceViews() throws IOException, NoSuchAlgorithmException {
+        Map<String, CommerceResource> views = new java.util.LinkedHashMap<>();
+        for (String view : List.of("search", "detail", "cart", "purchase")) {
+            String html = new ClassPathResource("mcp-ui/commerce-" + view + ".html")
+                    .getContentAsString(StandardCharsets.UTF_8);
+            String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(html.getBytes(StandardCharsets.UTF_8))).substring(0, 16);
+            views.put(view, new CommerceResource("ui://copenhagen/" + view + "-" + hash + ".html", html));
+        }
+        return new CommerceViews(Map.copyOf(views));
     }
 
     @Bean
-    SyncResourceSpecification commerceResourceSpecification(CommerceResource resource) {
+    SyncResourceSpecification searchResourceSpecification(CommerceViews views) {
+        return specification(views.resources().get("search"), "상품 검색 결과");
+    }
+
+    @Bean
+    SyncResourceSpecification detailResourceSpecification(CommerceViews views) {
+        return specification(views.resources().get("detail"), "상품 상세 및 옵션 선택");
+    }
+
+    @Bean
+    SyncResourceSpecification cartResourceSpecification(CommerceViews views) {
+        return specification(views.resources().get("cart"), "장바구니와 결제 요청");
+    }
+
+    @Bean
+    SyncResourceSpecification purchaseResourceSpecification(CommerceViews views) {
+        return specification(views.resources().get("purchase"), "앱 결제 승인 요청 상태");
+    }
+
+    private SyncResourceSpecification specification(CommerceResource resource, String title) {
         String mime = "text/html;profile=mcp-app";
         List<String> images = List.of("https://3p-image.kurly.com", "https://cdn.daisomall.co.kr",
                 "https://img-cf.kurly.com", "https://img.danuri.io", "https://product-image.kurly.com");
-        Map<String, Object> metadata = Map.of("ui", Map.of("prefersBorder", true,
+        Map<String, Object> metadata = Map.of("ui", Map.of("prefersBorder", false,
                 "csp", Map.of("connectDomains", List.of(), "resourceDomains", images)),
                 "openai/widgetCSP", Map.of("connect_domains", List.of(), "resource_domains", images),
-                "openai/widgetDescription", "상품 검색·판매처 비교·장바구니와 앱 결제 승인 상태 화면입니다.");
-        return new SyncResourceSpecification(McpSchema.Resource.builder(resource.uri(), "copenhagen-core")
+                "openai/widgetDescription", title + ". 다음 행동은 대화에서 별도 도구와 새 카드로 이어집니다.");
+        return new SyncResourceSpecification(McpSchema.Resource.builder(resource.uri(), title)
                 .mimeType(mime).meta(metadata).build(), (exchange, request) -> {
-                    McpIdentity.from(exchange).requireScopes(Set.of("catalog:read"));
+                    // 정적 UI에는 사용자 데이터가 없다. 데이터 권한은 각 도구에서 별도로 검증한다.
+                    McpIdentity.from(exchange);
                     return new McpSchema.ReadResourceResult(List.of(
                             new McpSchema.TextResourceContents(resource.uri(), mime, resource.html(), metadata)));
                 });
     }
 
     @Bean
-    McpToolDefinition coreOpenCopenhagen(CommerceResource resource, CoreCommerceService service) {
-        return display("open_copenhagen", resource, service);
+    McpToolDefinition coreOpenCopenhagen(CommerceViews views, CoreCommerceService service) {
+        return display("open_copenhagen", views, service);
     }
 
     @Bean
-    McpToolDefinition coreDisplayProducts(CommerceResource resource, CoreCommerceService service) {
-        return display("display_products", resource, service);
+    McpToolDefinition coreDisplayProducts(CommerceViews views, CoreCommerceService service) {
+        return display("display_products", views, service);
     }
 
-    private McpToolDefinition display(String name, CommerceResource resource, CoreCommerceService service) {
+    private McpToolDefinition display(String name, CommerceViews views, CoreCommerceService service) {
         return new McpToolDefinition(McpSchema.Tool.builder(name, CommerceSchemas.SEARCH)
-                .title("코펜하겐 상품 화면 열기")
-                .description("전체 카테고리 상품 탐색과 판매처 비교 화면을 표시합니다. 선택된 검색 조건으로 한 번만 호출하세요.")
+                .title("코펜하겐 상품 검색 카드")
+                .description(CommerceConfiguration.SEARCH_GUIDANCE
+                        + " search_products와 중복 호출하지 말고 이 도구 또는 search_products 중 하나만 호출합니다.")
                 .outputSchema(CommerceSchemas.OUTPUT)
-                .meta(Map.of("ui", Map.of("resourceUri", resource.uri(), "visibility", List.of("model")),
-                        "securitySchemes", List.of(Map.of("type", "oauth2", "scopes", List.of("catalog:read"))),
-                        "openai/outputTemplate", resource.uri(), "openai/widgetAccessible", true))
+                .meta(views.metadata(name, "catalog:read"))
                 .annotations(McpSchema.ToolAnnotations.builder().readOnlyHint(true).destructiveHint(false)
                         .idempotentHint(true).openWorldHint(true).build()).build(), Set.of("catalog:read"),
                 (identity, request) -> service.search(identity, request.arguments()));
     }
 
     record CommerceResource(String uri, String html) {
+    }
+
+    record CommerceViews(Map<String, CommerceResource> resources) {
+        Map<String, Object> metadata(String tool, String scope) {
+            return metadata(tool, Set.of(scope));
+        }
+
+        Map<String, Object> metadata(String tool, Set<String> scopes) {
+            String view = switch (tool) {
+                case "get_product_detail" -> "detail";
+                case "get_cart", "add_cart_item", "update_cart_item", "delete_cart_item", "prepare_cart" -> "cart";
+                case "prepare_purchase_handoff", "get_purchase_status", "resend_purchase_notification" -> "purchase";
+                default -> "search";
+            };
+            String uri = resources.get(view).uri();
+            return Map.of("ui", Map.of("resourceUri", uri, "visibility", List.of("model", "app")),
+                    "securitySchemes", List.of(Map.of("type", "oauth2", "scopes", scopes.stream().sorted().toList())),
+                    "openai/outputTemplate", uri, "openai/widgetAccessible", true);
+        }
     }
 }

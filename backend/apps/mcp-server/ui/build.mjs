@@ -31,3 +31,19 @@ if (process.argv.includes('--check')) {
   console.log(`Built ${destination}.html (${Buffer.byteLength(html)} bytes).`);
 }
 }
+
+const commerceStyles = (await readFile('src/commerce.css', 'utf8')).replaceAll('\r\n', '\n');
+for (const view of ['search', 'detail', 'cart', 'purchase']) {
+  const bundle = await build({ entryPoints: ['src/commerce-app.js'], bundle: true, minify: true,
+    platform: 'browser', format: 'iife', target: ['es2022'], write: false, legalComments: 'eof' });
+  const html = (await readFile('src/commerce.html', 'utf8')).replaceAll('\r\n', '\n')
+    .replace('/* FONTS */', () => fonts.join('\n'))
+    .replace('/* STYLES */', () => commerceStyles)
+    .replace('__VIEW__', view).replace('__LOGO__', () => 'data:image/png;base64,' + logo)
+    .replace('/* SCRIPT */', () => bundle.outputFiles[0].text.replaceAll('</script', '<\\/script'));
+  const output = `../src/main/resources/mcp-ui/commerce-${view}.html`;
+  if (process.argv.includes('--check')) {
+    if ((await readFile(output, 'utf8')).replaceAll('\r\n', '\n') !== html) throw new Error(`Stale ${view} UI`);
+    console.log(`Commerce ${view} bundle matches source.`);
+  } else { await writeFile(output, html); console.log(`Built commerce-${view}.html`); }
+}

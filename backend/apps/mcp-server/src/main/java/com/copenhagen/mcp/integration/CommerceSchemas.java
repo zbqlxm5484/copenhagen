@@ -40,6 +40,9 @@ public final class CommerceSchemas {
     private static Map<String, Object> search() {
         Map<String, Object> properties = new LinkedHashMap<>();
         properties.put("query", Map.of("type", "string", "maxLength", 120));
+        properties.put("relatedQueries", Map.of("type", "array", "maxItems", 2, "uniqueItems", true,
+                "items", Map.of("type", "string", "minLength", 1, "maxLength", 120),
+                "description", "대화에서 확인한 유사 객체 검색어. 직접 조건은 query에 유지. 예: 머그컵, 텀블러"));
         properties.put("categoryId", ID);
         properties.put("merchantId", ID);
         properties.put("brand", Map.of("type", "string", "maxLength", 120));
