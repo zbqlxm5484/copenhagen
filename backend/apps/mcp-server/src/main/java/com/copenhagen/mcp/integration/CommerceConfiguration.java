@@ -58,6 +58,14 @@ public class CommerceConfiguration {
     }
 
     @Bean
+    McpToolDefinition corePrepareCart(CoreCommerceService service) {
+        return tool("prepare_cart", "장바구니 이용 준비", "사용자가 장바구니 이용을 요청하면 먼저 호출합니다. "
+                + "조회·변경 권한을 함께 확인하고 현재 장바구니만 조회합니다. 항목을 변경하지 않습니다.",
+                CommerceSchemas.EMPTY, Set.of("cart:read", "cart:write"), true,
+                (identity, request) -> service.cart(identity));
+    }
+
+    @Bean
     McpToolDefinition coreGetCart(CoreCommerceService service) {
         return tool("get_cart", "장바구니 조회", "현재 사용자의 Core 장바구니를 조회합니다. 미확정 금액은 null입니다.",
                 CommerceSchemas.EMPTY, "cart:read", true, (identity, request) -> service.cart(identity));
@@ -116,12 +124,20 @@ public class CommerceConfiguration {
             String scope, boolean readOnly,
             java.util.function.BiFunction<com.copenhagen.mcp.auth.McpIdentity,
                     McpSchema.CallToolRequest, Map<String, Object>> handler) {
+        return tool(name, title, description, input, Set.of(scope), readOnly, handler);
+    }
+
+    static McpToolDefinition tool(String name, String title, String description, Map<String, Object> input,
+            Set<String> scopes, boolean readOnly,
+            java.util.function.BiFunction<com.copenhagen.mcp.auth.McpIdentity,
+                    McpSchema.CallToolRequest, Map<String, Object>> handler) {
         return new McpToolDefinition(McpSchema.Tool.builder(name, input).title(title).description(description)
                 .outputSchema(CommerceSchemas.OUTPUT)
-                .meta(Map.of("securitySchemes", List.of(Map.of("type", "oauth2", "scopes", List.of(scope))),
+                .meta(Map.of("securitySchemes", List.of(Map.of("type", "oauth2", "scopes",
+                        scopes.stream().sorted().toList())),
                         "ui", Map.of("visibility", List.of("model", "app")), "openai/widgetAccessible", true))
                 .annotations(McpSchema.ToolAnnotations.builder().readOnlyHint(readOnly)
                         .destructiveHint(!readOnly).idempotentHint(true).openWorldHint(true).build()).build(),
-                Set.of(scope), handler);
+                scopes, handler);
     }
 }

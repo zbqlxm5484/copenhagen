@@ -94,3 +94,9 @@ agent:
       # 범위를 분리하기 위함 — 설계서 §4.1). 미설정 시 기동마다 새 키 쌍을 생성한다(재기동 전 발급 토큰 무효화).
       signing-key: ${AGENT_OAUTH_JWT_PRIVATE_KEY:}
       key-id: ${AGENT_OAUTH_JWT_KEY_ID:agent-oauth-dev}
+
+# MCP 내부 검색 전용. Core HTTP 제한(기본 5초)보다 짧게 유지한다.
+catalog-search:
+  concurrency: ${CORE_CATALOG_SEARCH_CONCURRENCY:6}
+  queue-capacity: ${CORE_CATALOG_SEARCH_QUEUE_CAPACITY:24}
+  budget: ${CORE_CATALOG_SEARCH_BUDGET:4s}

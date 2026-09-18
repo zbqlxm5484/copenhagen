@@ -29,6 +29,13 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
 
+    private final CatalogSearchFanout fanout = new CatalogSearchFanout(3, 12, java.time.Duration.ofSeconds(2));
+
+    @org.junit.jupiter.api.AfterEach
+    void closeFanout() {
+        fanout.close();
+    }
+
     private static final UUID PRINCIPAL = UUID.randomUUID();
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
 
@@ -52,7 +59,7 @@ class ProductServiceTest {
         for (MerchantCatalogClient client : clients) {
             map.put(client.merchantId(), client);
         }
-        return new ProductService(map, CLOCK);
+        return new ProductService(map, CLOCK, fanout);
     }
 
     private static SearchQuery query(String query) {

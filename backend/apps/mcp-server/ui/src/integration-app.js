@@ -1,16 +1,20 @@
 import { App } from '@modelcontextprotocol/ext-apps';
+import { measuredCall, requestDiagnostics } from './request-diagnostics.js';
 import { createHostSizing } from './host-sizing.js';
 import { purchaseProgress } from './purchase-progress.js';
-import { safeImage, availability, timedCall } from './catalog.js';
-import { amount, payload, searchArguments, variantLabel, pendingRequest, restorablePending } from './live-state.js';
+import { safeImage, availability } from './catalog.js';
+import { amount, payload, searchArguments, variantLabel, pendingRequest, restorablePending, failedPending, canDiscardPending } from './live-state.js';
 
+import { createReadCoalescer, liveTimedCall, requestTimeout } from './live-requests.js';
+const coalesce = createReadCoalescer();
+let cartPrepared = false, localSearchStarted = false, mutationGeneration = 0;
 const $ = id => document.getElementById(id);
 const el = (tag, text, className) => { const node = document.createElement(tag); node.textContent = text ?? ''; if (className) node.className = className; return node; };
-const button = (text, action, secondary = false) => { const node = el('button', text, secondary ? 'secondary' : ''); node.onclick = () => void action(); return node; };
+const button = (text, action, secondary = false) => { const node = el('button', text, secondary ? 'secondary' : ''); node.onclick = () => Promise.resolve().then(action).catch(error => note(error.message)); return node; };
 const note = text => { $('status').textContent = text; $('cart-message').textContent = text; const detailNote = $('live-detail-note'); if (detailNote) detailNote.textContent = text; };
 let app, ready = false, currentSearch, currentCart, query = {}, cursors = [null], page = 0, busy = false;
 let pending = restorablePending(window.openai?.widgetState?.livePending), receipt = window.openai?.widgetState?.liveReceipt;
-let progressTimer, progressBusy = false, resendKey;
+let progressTimer, progressBusy = false, resendKey, restartBusy = false, expiredReceiptId;
 let generation = 0, detailGeneration = 0, cartGeneration = 0, observedMode;
 const sizing = createHostSizing({ getApp: () => ready ? app : null,
   getDisplayState: () => ({ mode: observedMode, confirmed: observedMode !== undefined }),
@@ -24,15 +28,20 @@ observeHostMode(window.openai);
 window.addEventListener('resize', () => sizing.notify(), { passive: true });
 function save() { window.openai?.setWidgetState?.({ version: 4, livePending: pending, liveQuery: query, liveReceipt: receipt }); }
 function controls() {
-  for (const id of ['cart-retry', 'cart-dialog-retry', 'handoff-retry']) { $(id).hidden = !pending; $(id).disabled = busy; }
+  for (const id of ['cart-retry', 'cart-dialog-retry', 'handoff-retry', 'detail-retry']) { const node = $(id); if (!node) continue; node.hidden = !pending; node.disabled = busy; node.textContent = pending?.phase === 'AUTH_REQUIRED' ? '인증 후 이어서 처리' : '같은 요청으로 결과 확인'; }
+  for (const node of document.querySelectorAll('[data-discard-pending]')) { node.hidden = !canDiscardPending(pending); node.disabled = !canDiscardPending(pending); }
   $('previous').disabled = busy || page === 0;
   $('next').disabled = busy || !currentSearch?.nextCursor;
-  $('cart-continue').disabled = busy || !!pending || !currentCart?.items?.length;
+  $('cart-continue').disabled = busy || restartBusy || !!pending || !currentCart?.items?.length;
+  const restart = $('purchase-restart');
+  if (restart) { restart.hidden = expiredReceiptId !== receipt?.purchaseRequestId || !expiredReceiptId; restart.disabled = busy || restartBusy || progressBusy || !!pending; }
 }
 async function raw(name, args) {
-  return timedCall(() => ready ? app.callServerTool({ name, arguments: args })
-    : window.openai?.callTool ? window.openai.callTool(name, args) : Promise.reject(new Error('연결을 기다려주세요.')));
+  return coalesce(name, args, () => measuredCall(name, () => liveTimedCall(() => ready
+    ? app.callServerTool({ name, arguments: args }, { timeout: requestTimeout(name) + 1000 })
+    : window.openai?.callTool ? window.openai.callTool(name, args) : Promise.reject(new Error('연결을 기다려주세요.')), name)));
 }
+window.copenhagenDiagnostics = requestDiagnostics;
 async function call(name, args, kind) { return payload(await raw(name, args), kind); }
 function show(id) { for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close(); if (!$(id).open) $(id).showModal(); }
 function picture(url) {
@@ -61,6 +70,7 @@ function renderSearch(data) {
   $('cards').scrollLeft = 0; controls(); sizing.notify();
 }
 async function search(nextQuery, nextPage = 0) {
+  localSearchStarted = true;
   const id = ++generation; note('상품을 조회하고 있습니다.');
   try {
     const args = { ...nextQuery }; if (cursors[nextPage]) args.cursor = cursors[nextPage];
@@ -109,14 +119,13 @@ async function detail(offer, product, item = null) {
       if (busy || pending) { note('이전 변경 결과를 먼저 확인해주세요.'); return; }
       const variant = data.variants.find(v => v.merchantVariantId === select.value), count = Number(quantity.value);
       if (!variant?.purchasable || !Number.isInteger(count) || count < variant.minQuantity || count > variant.maxQuantity) { stock.textContent = '구매 가능한 옵션과 수량을 선택해주세요.'; return; }
-      if (!currentCart) await refreshCart(false);
-      if (!currentCart) return;
-      await mutate(item ? 'update_cart_item' : 'add_cart_item', { cartVersion: currentCart.version,
+      await mutate(item ? 'update_cart_item' : 'add_cart_item', { ...(currentCart ? { cartVersion: currentCart.version } : {}),
         ...(item ? { cartItemId: item.cartItemId } : { merchantId: offer.merchantId, merchantProductId: offer.merchantProductId }),
         merchantVariantId: variant.merchantVariantId, quantity: count });
     }));
     const detailNote = el('p', '', 'sub'); detailNote.id = 'live-detail-note'; detailNote.setAttribute('role', 'status');
-    $('comparison-actions').replaceChildren(actions, detailNote); show('comparison');
+    const retry = button('같은 요청으로 결과 확인', retryPending, true); retry.id = 'detail-retry';
+    $('comparison-actions').replaceChildren(actions, detailNote, retry, discardButton()); controls(); show('comparison');
   } catch (error) { note(error.message); }
 }
 function renderCart() {
@@ -143,7 +152,8 @@ function renderCart() {
 }
 async function refreshCart(open = true) {
   const request = ++cartGeneration;
-  try { const data = await call('get_cart', {}, 'cart.view'); if (request !== cartGeneration) return;
+  try { const data = await call(cartPrepared ? 'get_cart' : 'prepare_cart', {}, 'cart.view'); if (request !== cartGeneration) return;
+    cartPrepared = true;
     acceptCart(data); if (open) show('cart-dialog'); }
   catch (error) { note(error.message); throw error; }
 }
@@ -159,23 +169,50 @@ async function retryPending() {
   if (!pending || busy) return;
   if (Date.now() - pending.createdAt >= 86400000) { note('요청 확인 기한이 지났습니다. 중복 처리를 막기 위해 Core 담당자에게 결과 확인을 요청해주세요.'); return; }
   busy = true; controls();
-  const request = pending;
+  const operation = ++mutationGeneration;
+  let request = pending;
+  const wasUncertain = request.uncertain;
+  let dispatched = false;
   try {
     const purchase = request.tool === 'prepare_purchase_handoff';
+    if (!purchase && !request.uncertain && (!cartPrepared || request.args.cartVersion === undefined)) {
+      pending = { ...request, phase: 'PREPARING' }; save(); controls();
+      note('장바구니 이용 권한을 확인하고 있습니다. 동의 창이 열리면 완료해주세요.');
+      const cart = await call('prepare_cart', {}, 'cart.view');
+      if (operation !== mutationGeneration) return;
+      cartPrepared = true; acceptCart(cart);
+      if (request.args.cartVersion === undefined) request = { ...request, args: { ...request.args, cartVersion: cart.version } };
+    }
+    pending = { ...request, phase: 'SENDING', uncertain: true }; save(); controls();
+    dispatched = true;
     const data = await call(request.tool, request.args, purchase ? 'purchase.handoff' : 'cart.mutation');
     if (!purchase && data.outcome !== 'APPLIED') throw new Error('변경 결과를 확인하지 못했습니다.');
     pending = null; save();
-    if (purchase) { receipt = data; save(); renderHandoff(); }
+    if (purchase) { receipt = data; expiredReceiptId = undefined; resendKey = undefined; save(); renderHandoff(); }
     else {
       note('장바구니에 반영했습니다.');
       if (data.cart) { cartGeneration++; acceptCart(data.cart); show('cart-dialog'); }
       else { try { await refreshCart(); } catch { note('변경은 완료됐습니다. 장바구니 조회만 다시 시도해주세요.'); } }
     }
   } catch (error) {
-    if (error.outcome === 'NOT_APPLIED') { pending = null; save(); }
-    note(error.message); $('handoff-status').textContent = error.message;
+    if (operation !== mutationGeneration) return;
+    if (error.authRequired) cartPrepared = false;
+    const rejected = error.outcome === 'NOT_APPLIED';
+    request = { ...request, uncertain: wasUncertain || (dispatched && !rejected) };
+    pending = failedPending(request, error);
+    if (!dispatched && pending && !wasUncertain) pending = { ...pending, phase: error.authRequired ? 'AUTH_REQUIRED' : 'PREPARING', uncertain: false };
+    save();
+    const message = error.authRequired ? '연결 또는 권한 동의를 완료한 뒤 인증 후 이어서 처리를 눌러주세요. 선택한 상품과 수량은 유지됩니다.' : error.message;
+    note(message); $('handoff-status').textContent = message;
     if (error.code === 'CART_VERSION_CONFLICT') { try { await refreshCart(); } catch { /* 조회 버튼 유지 */ } }
-  } finally { busy = false; controls(); }
+  } finally { if (operation === mutationGeneration) { busy = false; controls(); } }
+}
+function discardButton() {
+  const node = button('이 요청 취소', () => {
+    if (!canDiscardPending(pending)) return;
+    mutationGeneration++; busy = false; pending = null; save(); controls(); note('전송되지 않은 요청을 취소했습니다.');
+  }, true);
+  node.dataset.discardPending = ''; return node;
 }
 function renderHandoff() {
   $('handoff-title').textContent = '앱에서 결제 승인';
@@ -185,25 +222,41 @@ function renderHandoff() {
   if (!$('purchase-refresh')) {
     const refresh = button('결제 상태 확인', () => refreshPurchase()); refresh.id = 'purchase-refresh';
     const resend = button('알림 다시 보내기', () => refreshPurchase(true), true); resend.id = 'purchase-resend';
-    $('handoff-status').after(refresh, resend);
+    const restart = button('다시 구매 요청', restartPurchase); restart.id = 'purchase-restart'; restart.hidden = true;
+    $('handoff-status').after(refresh, resend, restart);
   }
   void refreshPurchase();
 }
 
 async function refreshPurchase(resend = false) {
   if (progressBusy || !receipt?.purchaseRequestId) return;
-  progressBusy = true; clearTimeout(progressTimer);
+  const purchaseRequestId = receipt.purchaseRequestId;
+  progressBusy = true; expiredReceiptId = undefined; controls(); clearTimeout(progressTimer);
   try {
-    const args = { purchaseRequestId: receipt.purchaseRequestId };
+    const args = { purchaseRequestId };
     if (resend) args.idempotencyKey = resendKey ??= crypto.randomUUID();
     const data = await call(resend ? 'resend_purchase_notification' : 'get_purchase_status', args, 'purchase.status');
     if (resend) resendKey = undefined;
     const progress = purchaseProgress(data);
-    $('handoff-status').textContent = progress.text;
+    if (receipt?.purchaseRequestId !== purchaseRequestId) return;
+    expiredReceiptId = data.status === 'EXPIRED' ? purchaseRequestId : undefined;
+    $('handoff-status').textContent = progress.text + (expiredReceiptId ? ' 상품을 변경하지 않고 다시 구매 요청할 수 있습니다.' : '');
     $('purchase-resend').hidden = progress.terminal;
     if (!progress.terminal && $('handoff-dialog').open && !document.hidden) progressTimer = setTimeout(() => void refreshPurchase(), 5000);
+    return data;
   } catch (error) { $('handoff-status').textContent = '현재 상태를 확인하지 못했습니다. 결제 상태 확인을 다시 눌러주세요.'; }
-  finally { progressBusy = false; }
+  finally { progressBusy = false; controls(); }
+}
+async function restartPurchase() {
+  if (busy || pending || restartBusy || progressBusy || !receipt?.purchaseRequestId) return;
+  restartBusy = true; controls();
+  const previous = receipt;
+  try {
+    // 로컬 시각이나 저장된 상태만으로 새 결제를 만들지 않는다.
+    const status = await refreshPurchase();
+    if (status?.status !== 'EXPIRED' || receipt !== previous || pending || busy) return;
+    await mutate('prepare_purchase_handoff', { cartId: previous.cartId, cartVersion: previous.cartVersion });
+  } finally { restartBusy = false; controls(); }
 }
 $('search-form').onsubmit = event => {
   event.preventDefault(); try { const fields = Object.fromEntries(['query', 'merchantId', 'brand', 'sort', 'minPrice', 'maxPrice'].map(id => [id, $(id).value]));
@@ -219,7 +272,7 @@ $('cart-continue').textContent = '구매 진행'; $('cart-continue').onclick = (
   if (receipt?.cartId === currentCart.cartId && receipt?.cartVersion === currentCart.version) { renderHandoff(); return; }
   void mutate('prepare_purchase_handoff', { cartId: currentCart.cartId, cartVersion: currentCart.version });
 };
-for (const id of ['cart-retry', 'cart-dialog-retry', 'handoff-retry']) $(id).onclick = () => void retryPending();
+for (const id of ['cart-retry', 'cart-dialog-retry', 'handoff-retry']) { $(id).onclick = () => void retryPending(); $(id).after(discardButton()); }
 $('handoff-back').onclick = () => void refreshCart().catch(() => {});
 for (const [id, direction] of [['slide-previous', -1], ['slide-next', 1]]) $(id).onclick = () => $('cards').scrollBy({ left: direction * $('cards').clientWidth * .84, behavior: 'smooth' });
 $('cards').onscroll = () => { $('slide-position').textContent = `${Math.round($('cards').scrollLeft / Math.max(1, $('cards').firstElementChild?.getBoundingClientRect().width ?? 1)) + 1} / ${currentSearch?.products.length ?? 0}`; };
@@ -227,7 +280,7 @@ function hostQuery(input) {
   query = { ...input }; page = 0; cursors = [input.cursor ?? null];
   for (const id of ['query', 'merchantId', 'brand', 'sort', 'minPrice', 'maxPrice']) $(id).value = input[id] ?? '';
 }
-const accept = result => { try { const data = payload(result, 'catalog.search'); cursors[page + 1] = data.nextCursor; renderSearch(data); } catch { /* 다른 도구 결과는 무시 */ } };
+const accept = result => { if (localSearchStarted) return; try { const data = payload(result, 'catalog.search'); cursors[page + 1] = data.nextCursor; renderSearch(data); } catch { /* 다른 도구 결과는 무시 */ } };
 app = new App({ name: 'Copenhagen', version: '1.0.0' }); app.ontoolresult = accept;
 app.onhostcontextchanged = observeHostMode;
 app.ontoolinput = input => hostQuery(input.arguments ?? {});
@@ -236,3 +289,5 @@ if (window.openai?.toolInput) hostQuery(window.openai.toolInput);
 if (window.openai?.toolOutput) accept(window.openai.toolOutput);
 window.addEventListener('openai:set_globals', event => { observeHostMode(event.detail?.globals); if (event.detail?.globals?.toolOutput) accept(event.detail.globals.toolOutput); });
 controls();
+
+if (pending) note('이전 요청이 남아 있습니다. 같은 요청으로 결과를 확인해주세요.');

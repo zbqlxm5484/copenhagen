@@ -42,6 +42,12 @@ public final class McpAuthResponses {
         return Map.of();
     }
 
+    public Map<String, Object> toolBody(McpAuthException exception, boolean rejectedBeforeExecution) {
+        return Map.of("error", Map.of("code", exception.error().name(), "message", exception.error().message(),
+                "nextAction", exception.error().nextAction(),
+                "outcome", rejectedBeforeExecution ? "NOT_APPLIED" : "UNKNOWN"));
+    }
+
     private String challenge(McpAuthException exception) {
         StringBuilder challenge = new StringBuilder("Bearer");
         String separator = " ";
