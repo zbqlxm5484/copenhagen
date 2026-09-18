@@ -10,13 +10,15 @@
 | `/oauth/authorize`, `/oauth/authorize/**`, `/oauth/token` | `core-service` |
 | `/api/core/**` | `core-service` |
 | `/api/pay/**` | `pay-service` |
-| `/api/pg/v1/payment-methods/tokenize` | `pg-mock` (개발 환경 전용) |
+| `/api/pg/**` | `pg-mock` (개발 환경 전용) |
 | `/.well-known/ucp` | `core-service` |
 | `/merchant/v1/**` | `pay-service` |
 
 `/internal`과 `/internal/**`는 명시적으로 차단합니다. 새 공개 경로를 추가할 때는 먼저 책임 서비스와 인증·인가 정책을 정하고, 내부 endpoint가 노출되지 않는지 확인합니다.
 
-`/api/pg/v1/payment-methods/tokenize`는 테스트 카드 토큰화를 위한 개발 전용 경로입니다. 운영 환경에서는 PG Mock을 외부에 공개하지 않습니다.
+`/api/pg/`로 시작하는 요청은 경로와 query를 그대로 보존하여 `pg-mock:8080`으로 전달합니다. 예를 들어 `POST /api/pg/v1/payment-methods/tokenize`의 upstream 경로도 `/api/pg/v1/payment-methods/tokenize`입니다. `proxy_pass`에는 URI나 끝의 `/`를 붙이지 않습니다. 기존 `/v1/payment-methods/tokenize`는 외부에 노출하지 않으며, `/api/pgx/` 같은 유사 접두사도 전달하지 않습니다.
+
+개발 환경의 토큰화 호출 예정 URL은 `https://j15a207.p.ssafy.io/api/pg/v1/payment-methods/tokenize`입니다. Nginx 라우팅 제공과 백엔드 API 준비는 별개이며, 실제 토큰화 연동은 담당 팀원의 엔드포인트 구현 및 개발 환경 반영 후 확인합니다. 이 경로는 개발용 테스트 카드에만 사용하며 운영 환경에서는 PG Mock을 외부에 공개하지 않습니다.
 
 ## 로컬 HTTP와 개발 서버 HTTPS
 
@@ -61,4 +63,4 @@ sudo /usr/local/sbin/copenhagen-renew-tls --dry-run --run-deploy-hooks
 
 ## 검증
 
-`python3 scripts/test-nginx-config.py`는 별도 Docker 네트워크, 합성 백엔드, 임시 자체 서명 인증서를 사용합니다. 개발 서버 인증서·DB에는 접근하지 않으며 HTTP/HTTPS 경로, POST와 query 전달, forwarded protocol, 리다이렉트, ACME, 내부 경로 차단, 백엔드 중단 중 TLS reload를 확인합니다. Docker daemon, Compose v2, Python 3, OpenSSL이 필요합니다.
+`python3 scripts/test-nginx-config.py`는 별도 Docker 네트워크, 합성 백엔드, 임시 자체 서명 인증서를 사용합니다. 개발 서버 인증서·DB에는 접근하지 않으며 HTTP/HTTPS 경로, PG 접두사와 하위 경로, POST 본문과 query·헤더 전달, 리다이렉트, ACME, 기존 토큰화·내부 경로 차단, 백엔드 중단 중 TLS reload를 확인합니다. 실제 토큰화 API가 준비되지 않아도 실행할 수 있으며, 토큰화 기능 자체를 검증하지는 않습니다. Docker daemon, Compose v2, Python 3, OpenSSL이 필요합니다.
