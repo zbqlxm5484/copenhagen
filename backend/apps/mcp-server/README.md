@@ -23,6 +23,10 @@ Dockerfile              독립 이미지 빌드 정의
 
 서버 통합 배포 설정·토큰 구분·CI 업데이트 절차는 [배포 준비 문서](docs/deployment.md)를 참고하세요.
 
+ChatGPT 등록·계정 연결을 먼저 진행하려면 `oauth-registration` 프로필을 사용합니다.
+Core OAuth 인증과 연결 확인 UI만 제공하며 App Link·Core 업무 API·MCP 서비스 개인키는 필요 없습니다.
+최신 서버 설정과 전체 기능 전환은 [OAuth 배포 절차](../../../infra/docker/mcp-oauth-deployment.md)를 따릅니다.
+
 `backend/`에서 실행합니다.
 
 ```bash

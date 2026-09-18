@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Profile;
 
 /** 배포 프로필에서 인증 준비 누락을 HTTP 요청 이전에 검출한다. */
 @Configuration(proxyBeanMethods = false)
-@Profile("deployment")
+@Profile({"deployment", "oauth-registration"})
 @EnableConfigurationProperties(McpAuthProperties.class)
 public class McpDeploymentConfiguration {
 
