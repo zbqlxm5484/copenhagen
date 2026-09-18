@@ -14,6 +14,9 @@ import org.erdtman.jcs.JsonCanonicalizer;
 @Component
 public class RequestHashGenerator {
 
+    /** 본문 없는 요청이 언제나 같은 해시를 갖도록 쓰는 고정 표현. */
+    private static final String EMPTY_BODY = "null";
+
     private final ObjectMapper objectMapper;
 
     public RequestHashGenerator(ObjectMapper objectMapper) {
@@ -41,11 +44,13 @@ public class RequestHashGenerator {
     }
 
     public String generateBody(byte[] body) {
-        byte[] json = body == null || body.length == 0
-                ? "null".getBytes(StandardCharsets.UTF_8)
-                : body;
+        // JCS는 최상위가 객체나 배열이 아니면 거부한다. 본문 없는 상태 변경 요청
+        // (카드 기본 지정·삭제)이 canonicalizer에 걸려 400이 나던 원인이다.
+        if (body == null || body.length == 0) {
+            return sha256(EMPTY_BODY.getBytes(StandardCharsets.UTF_8));
+        }
         try {
-            JsonCanonicalizer canonicalizer = new JsonCanonicalizer(json);
+            JsonCanonicalizer canonicalizer = new JsonCanonicalizer(body);
             return sha256(canonicalizer.getEncodedUTF8());
         } catch (IOException | RuntimeException exception) {
             throw invalidBodyHash(exception);

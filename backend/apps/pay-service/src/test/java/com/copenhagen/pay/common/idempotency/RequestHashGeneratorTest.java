@@ -47,6 +47,22 @@ class RequestHashGeneratorTest {
     }
 
     @Test
+    void emptyBodyIsHashedInsteadOfRejected() {
+        String hash = generator.generateBody(new byte[0]);
+
+        assertEquals(64, hash.length());
+        assertEquals(hash, generator.generateBody((byte[]) null));
+    }
+
+    @Test
+    void emptyBodyHashDiffersFromEmptyObjectBody() {
+        String empty = generator.generateBody(new byte[0]);
+        String emptyObject = generator.generateBody("{}".getBytes(StandardCharsets.UTF_8));
+
+        assertNotEquals(empty, emptyObject);
+    }
+
+    @Test
     void rawJsonUsesJcsBeforeSha256() {
         String first = generator.generateBody(
                 "{ \"amount\": 1.0, \"items\": [true, null] }"

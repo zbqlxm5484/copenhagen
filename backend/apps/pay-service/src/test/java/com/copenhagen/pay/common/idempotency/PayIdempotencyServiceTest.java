@@ -27,6 +27,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import tools.jackson.databind.ObjectMapper;
@@ -137,6 +139,48 @@ class PayIdempotencyServiceTest {
         assertTrue(service.acquire(differentCaller, requestHash).owner());
     }
 
+    @ParameterizedTest
+    @CsvSource({
+        "PATCH, /api/pay/v1/payment-methods/cards/method-001/default, 200",
+        "DELETE, /api/pay/v1/payment-methods/cards/method-001, 204"
+    })
+    void bodylessStateChangeReachesTheChainInsteadOfFailingToHash(
+            String method, String path, int status) throws Exception {
+        InMemoryIdempotencyRepository repository = new InMemoryIdempotencyRepository();
+        PayIdempotencyFilter filter = filter(repository);
+        AtomicInteger invocations = new AtomicInteger();
+        FilterChain chain = (request, response) -> {
+            invocations.incrementAndGet();
+            ((HttpServletResponse) response).setStatus(status);
+        };
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(bodylessRequest(method, path), response, chain);
+
+        assertEquals(1, invocations.get());
+        assertEquals(status, response.getStatus());
+    }
+
+    @Test
+    void bodylessRetryWithSameKeyReplaysTheFirstResponse() throws Exception {
+        InMemoryIdempotencyRepository repository = new InMemoryIdempotencyRepository();
+        PayIdempotencyFilter filter = filter(repository);
+        AtomicInteger invocations = new AtomicInteger();
+        String path = "/api/pay/v1/payment-methods/cards/method-001/default";
+        FilterChain chain = (request, response) -> {
+            invocations.incrementAndGet();
+            ((HttpServletResponse) response).setStatus(200);
+        };
+
+        MockHttpServletResponse first = new MockHttpServletResponse();
+        filter.doFilter(bodylessRequest("PATCH", path), first, chain);
+        MockHttpServletResponse replay = new MockHttpServletResponse();
+        filter.doFilter(bodylessRequest("PATCH", path), replay, chain);
+
+        assertEquals(1, invocations.get());
+        assertEquals(200, replay.getStatus());
+    }
+
     private PayIdempotencyFilter filter(InMemoryIdempotencyRepository repository) {
         return new PayIdempotencyFilter(
                 new IdempotencyKeyResolver(),
@@ -161,6 +205,15 @@ class PayIdempotencyServiceTest {
                 "/api/pay/v1/payment-methods/cards/");
         request.addHeader("Idempotency-Key", REQUEST_KEY);
         request.setContent(body.getBytes(StandardCharsets.UTF_8));
+        PayRequestContext.setPrincipal(request, new PayPrincipal(PayPrincipal.Type.USER, "user-001"));
+        return request;
+    }
+
+    /** 카드 기본 지정·삭제처럼 본문이 없는 것이 정상인 상태 변경 요청. */
+    private MockHttpServletRequest bodylessRequest(String method, String path) {
+        MockHttpServletRequest request = new MockHttpServletRequest(method, path);
+        request.addHeader("Idempotency-Key", REQUEST_KEY);
+        request.setContent(new byte[0]);
         PayRequestContext.setPrincipal(request, new PayPrincipal(PayPrincipal.Type.USER, "user-001"));
         return request;
     }
