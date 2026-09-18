@@ -18,6 +18,7 @@ import com.copenhagen.core.common.error.GlobalExceptionHandler;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -37,11 +38,11 @@ class UserProfileControllerTest {
     private UserProfileService userProfileService;
 
     @Test
-    @DisplayName("인증된 요청이면 200과 userId/loginId/name 3필드를 반환한다")
+    @DisplayName("인증된 요청이면 200과 userId/loginId/name/email 4필드를 반환한다")
     void me_authenticated_returns200WithExpectedFields() throws Exception {
         UUID userId = UUID.randomUUID();
         when(userProfileService.getProfile(eq(userId)))
-                .thenReturn(new UserProfileResult(userId, "user1234", "홍길동"));
+                .thenReturn(new UserProfileResult(userId, "user1234", "홍길동", "user@example.com"));
 
         mockMvc.perform(get("/api/core/v1/users/me")
                         .with(request -> {
@@ -51,7 +52,9 @@ class UserProfileControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value(userId.toString()))
                 .andExpect(jsonPath("$.loginId").value("user1234"))
-                .andExpect(jsonPath("$.name").value("홍길동"));
+                .andExpect(jsonPath("$.name").value("홍길동"))
+                .andExpect(jsonPath("$.email").value("user@example.com"))
+                .andExpect(jsonPath("$.*", hasSize(4)));
     }
 
     @Test

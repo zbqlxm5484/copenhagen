@@ -26,10 +26,14 @@ public class UserProfileController {
         return UserProfileResponse.from(userProfileService.getProfile(principal));
     }
 
-    public record UserProfileResponse(UUID userId, String loginId, String name) {
+    /**
+     * 앱은 {@code name}/{@code loginId}/{@code email}을 필수로 역직렬화한다(APK 계약 역분석, 이슈 412).
+     * {@code userId}는 앱이 쓰지 않지만 기존 계약(순서 10, D-9)을 깨지 않으려고 그대로 둔다.
+     */
+    public record UserProfileResponse(UUID userId, String loginId, String name, String email) {
 
         static UserProfileResponse from(UserProfileResult result) {
-            return new UserProfileResponse(result.userId(), result.loginId(), result.name());
+            return new UserProfileResponse(result.userId(), result.loginId(), result.name(), result.email());
         }
     }
 }
