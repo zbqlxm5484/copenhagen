@@ -30,6 +30,89 @@ class CoreCommerceServiceTest {
             Instant.now().plusSeconds(300));
 
     @Test
+    void relatedSearch_preservesFiltersAndSkipsDuplicateOffers() throws Exception {
+        Map<String, Object> response = json("""
+                {"products":[{"name":"컵","category":{"id":"cup","name":"컵"},
+                "offers":[{"merchantId":"m1","merchantName":"상점","merchantProductId":"p1",
+                "priceAmount":2000,"currency":"KRW","availability":"IN_STOCK"}]}],
+                "filters":{"categories":[],"merchants":[]},"nextCursor":null,"failedMerchants":[],
+                "checkedAt":"2026-09-17T00:00:00Z"}
+                """);
+        when(client.exchange(eq(identity), eq("GET"), eq("/internal/v1/catalog/products"), any(), isNull(), isNull()))
+                .thenReturn(response);
+        Map<?, ?> data = (Map<?, ?>) service.search(identity, Map.of("query", "물컵",
+                "relatedQueries", java.util.List.of("텀블러"), "maxPrice", 10000)).get("data");
+        Map<?, ?> related = (Map<?, ?>) ((java.util.List<?>) data.get("relatedSearches")).getFirst();
+        assertEquals(java.util.List.of(), related.get("products"));
+        verify(client).exchange(eq(identity), eq("GET"), eq("/internal/v1/catalog/products"),
+                eq(Map.of("query", "텀블러", "maxPrice", 10000)), isNull(), isNull());
+    }
+
+    @Test
+    void relatedSearch_isBoundedAndNotRepeatedForCursor() throws Exception {
+        Map<String, Object> empty = json("""
+                {"products":[],"filters":{"categories":[],"merchants":[]},"nextCursor":null,
+                "failedMerchants":[],"checkedAt":"2026-09-17T00:00:00Z"}
+                """);
+        when(client.exchange(eq(identity), eq("GET"), eq("/internal/v1/catalog/products"), any(), isNull(), isNull()))
+                .thenReturn(empty);
+        assertThrows(CoreApiException.class, () -> service.search(identity,
+                Map.of("relatedQueries", java.util.List.of("a", "b", "c"))));
+        service.search(identity, Map.of("query", "컵", "cursor", "next",
+                "relatedQueries", java.util.List.of("텀블러")));
+        verify(client, org.mockito.Mockito.times(1)).exchange(any(), any(), any(), any(), isNull(), isNull());
+    }
+
+    @Test
+    void relatedSearch_partialFailureKeepsPrimaryResultsButAuthFailurePropagates() throws Exception {
+        Map<String, Object> response = json("""
+                {"products":[],"filters":{"categories":[],"merchants":[]},"nextCursor":"primary-next",
+                "failedMerchants":[],"checkedAt":"2026-09-17T00:00:00Z"}
+                """);
+        when(client.exchange(eq(identity), eq("GET"), eq("/internal/v1/catalog/products"), any(), isNull(), isNull()))
+                .thenReturn(response).thenThrow(new CoreApiException("CORE_UNAVAILABLE", "NOT_APPLIED", "test"));
+        Map<?, ?> data = (Map<?, ?>) service.search(identity, Map.of("query", "컵",
+                "relatedQueries", java.util.List.of("텀블러"))).get("data");
+        assertEquals("primary-next", data.get("nextCursor"));
+        Map<?, ?> related = (Map<?, ?>) ((java.util.List<?>) data.get("relatedSearches")).getFirst();
+        assertEquals(true, related.get("unavailable"));
+        org.mockito.Mockito.reset(client);
+        when(client.exchange(eq(identity), eq("GET"), eq("/internal/v1/catalog/products"), any(), isNull(), isNull()))
+                .thenReturn(response).thenThrow(new CoreApiException("AUTHENTICATION_REQUIRED", "NOT_APPLIED", "test"));
+        assertEquals("AUTHENTICATION_REQUIRED", assertThrows(CoreApiException.class,
+                () -> service.search(identity, Map.of("query", "컵",
+                        "relatedQueries", java.util.List.of("텀블러")))).getMessage());
+    }
+
+    @Test
+    void relatedSearch_keepsDistinctProductsAndPerQueryCursors() throws Exception {
+        Map<String, Object> direct = json("""
+                {"products":[{"name":"물컵","category":{"id":"cup","name":"컵"},
+                "offers":[{"merchantId":"m1","merchantName":"상점","merchantProductId":"p1",
+                "priceAmount":2000,"currency":"KRW","availability":"IN_STOCK"}]}],
+                "filters":{"categories":[],"merchants":[]},"nextCursor":"direct-next","failedMerchants":[],
+                "checkedAt":"2026-09-17T00:00:00Z"}
+                """);
+        Map<String, Object> related = json("""
+                {"products":[{"name":"텀블러","category":{"id":"cup","name":"컵"},
+                "offers":[{"merchantId":"m1","merchantName":"상점","merchantProductId":"p2",
+                "priceAmount":3000,"currency":"KRW","availability":"IN_STOCK"}]}],
+                "filters":{"categories":[],"merchants":[]},"nextCursor":"related-next","failedMerchants":[],
+                "checkedAt":"2026-09-17T00:00:00Z"}
+                """);
+        when(client.exchange(eq(identity), eq("GET"), eq("/internal/v1/catalog/products"), any(), isNull(), isNull()))
+                .thenReturn(direct, related);
+        Map<?, ?> data = (Map<?, ?>) service.search(identity, Map.of("query", "물컵",
+                "relatedQueries", java.util.List.of("텀블러"))).get("data");
+        Map<?, ?> alternative = (Map<?, ?>) ((java.util.List<?>) data.get("relatedSearches")).getFirst();
+        assertEquals("direct-next", data.get("nextCursor"));
+        assertEquals("related-next", alternative.get("nextCursor"));
+        assertEquals(Map.of("query", "텀블러"), alternative.get("query"));
+        assertEquals(1, ((java.util.List<?>) alternative.get("products")).size());
+        assertEquals("물컵", ((Map<?, ?>) ((java.util.List<?>) data.get("products")).getFirst()).get("name"));
+    }
+
+    @Test
     void search_allCategories_keepsCursorAndPartialResultsWithoutPrivateFields() throws Exception {
         Map<String, Object> response = json("""
                 {"products":[{"name":"신발","brand":"브랜드","category":{"id":"shoes","name":"신발"},

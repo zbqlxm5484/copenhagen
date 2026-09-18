@@ -119,13 +119,41 @@ class CoreIntegrationTransportTest {
             assertEquals("Bearer test-service-token", service.get());
             assertFalse(result.structuredContent().toString().contains(token));
             var resources = client.listResources().resources();
-            assertEquals(1, resources.size());
+            assertEquals(4, resources.size());
+            for (var resource : resources) {
+                var html = (McpSchema.TextResourceContents) client.readResource(
+                        new McpSchema.ReadResourceRequest(resource.uri())).contents().getFirst();
+                assertFalse(html.text().contains("__VIEW__"));
+                assertFalse(html.text().contains("__HANDOFF_LINK_BASE__"));
+                assertFalse(html.meta().toString().contains("redirect_domains"));
+                assertFalse(html.text().contains("로컬 Mock 안내 시나리오"));
+            }
+            for (var tool : tools) {
+                String view = switch (tool.name()) {
+                    case "get_product_detail" -> "detail";
+                    case "get_cart", "prepare_cart", "add_cart_item", "update_cart_item", "delete_cart_item"
+                            -> "cart";
+                    case "prepare_purchase_handoff", "get_purchase_status", "resend_purchase_notification"
+                            -> "purchase";
+                    default -> "search";
+                };
+                String uri = (String) tool.meta().get("openai/outputTemplate");
+                assertTrue(uri.startsWith("ui://copenhagen/" + view + "-"));
+                assertEquals(uri, ((Map<?, ?>) tool.meta().get("ui")).get("resourceUri"));
+                assertTrue(resources.stream().anyMatch(resource -> resource.uri().equals(uri)));
+            }
+        }
+    }
+
+    @Test
+    void authenticatedIdentity_canReadStaticCartTemplateWithoutCartDataScope() throws Exception {
+        try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application), token("catalog:read"))) {
+            client.initialize();
+            var resource = client.listResources().resources().stream()
+                    .filter(value -> value.uri().startsWith("ui://copenhagen/cart-")).findFirst().orElseThrow();
             var html = (McpSchema.TextResourceContents) client.readResource(
-                    new McpSchema.ReadResourceRequest(resources.getFirst().uri())).contents().getFirst();
-            assertFalse(html.text().contains("id=\"handoff-open\""));
-            assertFalse(html.text().contains("__HANDOFF_LINK_BASE__"));
-            assertFalse(html.meta().toString().contains("redirect_domains"));
-            assertFalse(html.text().contains("로컬 Mock 안내 시나리오"));
+                    new McpSchema.ReadResourceRequest(resource.uri())).contents().getFirst();
+            assertTrue(html.text().contains("data-view=\"cart\""));
         }
     }
 

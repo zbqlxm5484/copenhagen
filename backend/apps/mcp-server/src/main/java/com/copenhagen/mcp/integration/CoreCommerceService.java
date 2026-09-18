@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class CoreCommerceService {
@@ -25,13 +26,76 @@ public final class CoreCommerceService {
                 && min.longValue() > max.longValue()) {
             throw failure("INVALID_ARGUMENT", false);
         }
-        Map<String, Object> data = client.exchange(identity, "GET", "/internal/v1/catalog/products", input, null, null);
-        // 비교 묶음은 Core가 반환한 경계를 유지한다. 이름으로 합치거나 실패 판매처를 제거하지 않는다.
+        Map<String, Object> query = new LinkedHashMap<>(input);
+        Object related = query.remove("relatedQueries");
+        Map<String, Object> data = searchOne(identity, query);
+        data.put("query", query);
+        List<Map<String, Object>> alternatives = new java.util.ArrayList<>();
+        Set<String> seen = new java.util.HashSet<>();
+        rememberOffers(data, seen);
+        // 유사 검색은 첫 페이지에서만 수행한다. 각각의 후속 페이지는 그 검색어의 커서를 사용한다.
+        if (!query.containsKey("cursor") && related instanceof List<?> terms) {
+            Set<String> searched = new java.util.HashSet<>();
+            searched.add(String.valueOf(query.getOrDefault("query", "")).trim());
+            for (Object term : terms) {
+                String text = ((String) term).trim();
+                if (text.isEmpty() || !searched.add(text)) {
+                    continue;
+                }
+                Map<String, Object> alternative = new LinkedHashMap<>(query);
+                alternative.put("query", text);
+                try {
+                    Map<String, Object> found = searchOne(identity, alternative);
+                    found.put("query", alternative);
+                    removeSeenOffers(found, seen);
+                    alternatives.add(found);
+                } catch (CoreApiException exception) {
+                    if (Set.of("AUTHENTICATION_REQUIRED", "ACCESS_DENIED", "INSUFFICIENT_SCOPE")
+                            .contains(exception.getMessage())) {
+                        throw exception;
+                    }
+                    alternatives.add(Map.of("query", alternative, "products", List.of(),
+                            "unavailable", true));
+                }
+            }
+        }
+        data.put("relatedSearches", alternatives);
+        return output("catalog.search", data);
+    }
+
+    private Map<String, Object> searchOne(McpIdentity identity, Map<String, Object> query) {
+        Map<String, Object> data = client.exchange(identity, "GET", "/internal/v1/catalog/products", query, null, null);
         if (!(data.get("products") instanceof List<?>) || !(data.get("filters") instanceof Map<?, ?>)
                 || !(data.get("failedMerchants") instanceof List<?>) || !data.containsKey("nextCursor")) {
             throw failure("CORE_INVALID_RESPONSE", false);
         }
-        return output("catalog.search", CommerceProjection.search(data));
+        return CommerceProjection.search(data);
+    }
+
+    private static void rememberOffers(Map<String, Object> data, Set<String> seen) {
+        for (Object product : (List<?>) data.get("products")) {
+            for (Object offer : (List<?>) ((Map<?, ?>) product).get("offers")) {
+                seen.add(offerKey((Map<?, ?>) offer));
+            }
+        }
+    }
+
+    private static void removeSeenOffers(Map<String, Object> data, Set<String> seen) {
+        List<Map<String, Object>> products = new java.util.ArrayList<>();
+        for (Object value : (List<?>) data.get("products")) {
+            Map<String, Object> product = new LinkedHashMap<>(stringMap((Map<?, ?>) value));
+            List<?> offers = ((List<?>) product.get("offers")).stream()
+                    .filter(offer -> seen.add(offerKey((Map<?, ?>) offer))).toList();
+            if (!offers.isEmpty()) {
+                product.put("offers", offers);
+                products.add(product);
+            }
+        }
+        data.put("products", products);
+    }
+
+    private static String offerKey(Map<?, ?> offer) {
+        return offer.get("merchantId") + "/" + offer.get("merchantProductId");
     }
 
     public Map<String, Object> detail(McpIdentity identity, Map<String, Object> input) {

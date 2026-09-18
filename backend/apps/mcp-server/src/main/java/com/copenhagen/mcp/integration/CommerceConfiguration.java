@@ -24,6 +24,20 @@ import org.springframework.context.annotation.Configuration;
 @ConditionalOnProperty(name = "mcp.integration.enabled", havingValue = "true")
 @EnableConfigurationProperties({AgentJwtProperties.class, ServiceAuthProperties.class})
 public class CommerceConfiguration {
+    static final String SEARCH_GUIDANCE = "상품 검색 조건이 모호하면 먼저 용도·예산·종류 중 중요한 조건을 "
+            + "1~2개 질문하고 사용자의 답으로 범위를 좁히세요. 충분히 구체적이거나 바로 검색 요청이면 "
+            + "추가 질문 없이 실행합니다. query에는 직접 검색어를, relatedQueries에는 용도에 맞는 유사 객체 "
+            + "최대 2개를 넣으세요. 예: 물컵 → 머그컵·텀블러. 사용자가 제외한 종류는 추가하지 않습니다. "
+            + "결과의 직접 상품과 유사 상품을 구분하고 확인되지 않은 추천 근거를 만들지 마세요. "
+            + "categoryId 생략 시 전체 상품군입니다. 후속 페이지는 해당 검색어의 nextCursor를 사용합니다.";
+
+    private final org.springframework.beans.factory.ObjectProvider<CommerceUiConfiguration.CommerceViews> views;
+
+    public CommerceConfiguration(
+            org.springframework.beans.factory.ObjectProvider<CommerceUiConfiguration.CommerceViews> views) {
+        this.views = views;
+    }
+
     @Bean
     CoreCommerceService coreCommerceService(CoreProperties core, HttpClient coreHttpClient,
             ServiceTokenProvider tokens, McpJsonMapper mapper, JsonSchemaValidator validator,
@@ -44,8 +58,7 @@ public class CommerceConfiguration {
 
     @Bean
     McpToolDefinition coreSearchProducts(CoreCommerceService service) {
-        return tool("search_products", "상품 검색", "전체 상품군을 검색합니다. categoryId 생략 시 전체 검색입니다. "
-                + "다음 결과는 nextCursor를 cursor로 전달합니다. 비교 그룹은 Core가 반환한 것만 사용합니다.",
+        return tool("search_products", "상품 검색", SEARCH_GUIDANCE,
                 CommerceSchemas.SEARCH, "catalog:read", true,
                 (identity, request) -> service.search(identity, request.arguments()));
     }
@@ -67,7 +80,9 @@ public class CommerceConfiguration {
 
     @Bean
     McpToolDefinition coreGetCart(CoreCommerceService service) {
-        return tool("get_cart", "장바구니 조회", "현재 사용자의 Core 장바구니를 조회합니다. 미확정 금액은 null입니다.",
+        return tool("get_cart", "장바구니 조회", "사용자가 텍스트 또는 음성으로 장바구니 보여줘, 담은 상품 확인 등 "
+                + "장바구니 조회를 요청하면 호출하여 상품 카드와 결제 요청 UI를 표시합니다. 검색 UI를 먼저 열 필요가 "
+                + "없습니다. 조회만 하며 변경하거나 결제를 요청하지 않습니다. 미확정 금액은 null입니다.",
                 CommerceSchemas.EMPTY, "cart:read", true, (identity, request) -> service.cart(identity));
     }
 
@@ -120,22 +135,24 @@ public class CommerceConfiguration {
                 (identity, request) -> service.purchaseStatus(identity, request.arguments(), true));
     }
 
-    static McpToolDefinition tool(String name, String title, String description, Map<String, Object> input,
+    McpToolDefinition tool(String name, String title, String description, Map<String, Object> input,
             String scope, boolean readOnly,
             java.util.function.BiFunction<com.copenhagen.mcp.auth.McpIdentity,
                     McpSchema.CallToolRequest, Map<String, Object>> handler) {
         return tool(name, title, description, input, Set.of(scope), readOnly, handler);
     }
 
-    static McpToolDefinition tool(String name, String title, String description, Map<String, Object> input,
+    private McpToolDefinition tool(String name, String title, String description, Map<String, Object> input,
             Set<String> scopes, boolean readOnly,
             java.util.function.BiFunction<com.copenhagen.mcp.auth.McpIdentity,
                     McpSchema.CallToolRequest, Map<String, Object>> handler) {
         return new McpToolDefinition(McpSchema.Tool.builder(name, input).title(title).description(description)
                 .outputSchema(CommerceSchemas.OUTPUT)
-                .meta(Map.of("securitySchemes", List.of(Map.of("type", "oauth2", "scopes",
-                        scopes.stream().sorted().toList())),
-                        "ui", Map.of("visibility", List.of("model", "app")), "openai/widgetAccessible", true))
+                .meta(views.getIfAvailable() == null
+                        ? Map.of("securitySchemes", List.of(Map.of("type", "oauth2", "scopes",
+                                scopes.stream().sorted().toList())),
+                                "ui", Map.of("visibility", List.of("model", "app")), "openai/widgetAccessible", true)
+                        : views.getObject().metadata(name, scopes))
                 .annotations(McpSchema.ToolAnnotations.builder().readOnlyHint(readOnly)
                         .destructiveHint(!readOnly).idempotentHint(true).openWorldHint(true).build()).build(),
                 scopes, handler);
