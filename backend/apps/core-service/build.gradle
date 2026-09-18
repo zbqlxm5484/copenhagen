@@ -23,3 +23,10 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testImplementation project(':libs:test-support')
 }
+
+tasks.withType(Test).configureEach {
+    // CI 콘솔에도 DB 연결 실패 등 최하위 예외의 메시지를 남긴다.
+    testLogging {
+        exceptionFormat = 'full'
+    }
+}
