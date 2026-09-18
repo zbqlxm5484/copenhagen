@@ -58,7 +58,9 @@ public class CommerceConfiguration {
 
     @Bean
     McpToolDefinition coreSearchProducts(CoreCommerceService service) {
-        return tool("search_products", "상품 검색", SEARCH_GUIDANCE,
+        return tool("search_products", "상품 검색", SEARCH_GUIDANCE
+                + " 먼저 이 도구로 조회하세요. 오류 또는 직접·유사 상품이 모두 없으면 짧은 텍스트로만 안내하고 "
+                + "표시 도구를 호출하지 마세요. 상품이 있으면 같은 조건으로 display_products를 한 번 호출하세요.",
                 CommerceSchemas.SEARCH, "catalog:read", true,
                 (identity, request) -> service.search(identity, request.arguments()));
     }
@@ -148,7 +150,7 @@ public class CommerceConfiguration {
                     McpSchema.CallToolRequest, Map<String, Object>> handler) {
         return new McpToolDefinition(McpSchema.Tool.builder(name, input).title(title).description(description)
                 .outputSchema(CommerceSchemas.OUTPUT)
-                .meta(views.getIfAvailable() == null
+                .meta(views.getIfAvailable() == null || "search_products".equals(name)
                         ? Map.of("securitySchemes", List.of(Map.of("type", "oauth2", "scopes",
                                 scopes.stream().sorted().toList())),
                                 "ui", Map.of("visibility", List.of("model", "app")), "openai/widgetAccessible", true)

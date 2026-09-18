@@ -51,7 +51,7 @@ window.addEventListener('message',event=>{if(event.origin!==location.origin||!ev
  else if(m.method==='size')frame.style.height=Math.ceil(m.params.height+2)+'px';
  else if(m.method==='call')send(execute(m.params.name,m.params.arguments));
  else if(m.method==='context'){stored.context=m.params;send({});}
- else if(m.method==='message'){const text=stored.context.content[0].text;const intent=JSON.parse(text.slice(text.lastIndexOf('\n')+1));
+ else if(m.method==='message'){const text=m.params.content[0].text;const intent=JSON.parse(text.slice(text.lastIndexOf('\n')+1));
  const bubble=document.createElement('p');bubble.className='bubble user';bubble.textContent=m.params.content[0].text;thread.append(bubble);
  const output=execute(intent.tool,intent.arguments);appendCard(intent.tool,intent.arguments,output);send({});}
  }catch(e){send(null,e.message);}

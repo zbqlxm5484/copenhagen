@@ -129,6 +129,11 @@ class CoreIntegrationTransportTest {
                 assertFalse(html.text().contains("로컬 Mock 안내 시나리오"));
             }
             for (var tool : tools) {
+                if ("search_products".equals(tool.name())) {
+                    assertFalse(tool.meta().containsKey("openai/outputTemplate"));
+                    assertFalse(((Map<?, ?>) tool.meta().get("ui")).containsKey("resourceUri"));
+                    continue;
+                }
                 String view = switch (tool.name()) {
                     case "get_product_detail" -> "detail";
                     case "get_cart", "prepare_cart", "add_cart_item", "update_cart_item", "delete_cart_item"

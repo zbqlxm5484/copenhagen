@@ -4,8 +4,9 @@ import { amount, payload, variantLabel } from './live-state.js';
 import { availability } from './catalog.js';
 import { purchaseProgress } from './purchase-progress.js';
 import { createHostSizing } from './host-sizing.js';
-import { actionMessage, actionLabel, actionSession, createCartPreparation, isCartWrite, viewAccepts } from './commerce-actions.js';
+import { sendAction, actionSession, createCartPreparation, isCartWrite, viewAccepts } from './commerce-actions.js';
 import { sortedOffers } from './offer-selection.js';
+import { resultDisposition } from './card-result.js';
 import { createReadCoalescer, liveTimedCall, requestTimeout } from './live-requests.js';
 import { measuredCall, requestDiagnostics } from './request-diagnostics.js';
 import { createCardProgress, createActionGate, awaitDelivery } from './card-progress.js';
@@ -14,6 +15,12 @@ const $ = id => document.getElementById(id);
 const el = (tag, text, cls) => { const n = document.createElement(tag); if (text != null) n.textContent = text; if (cls) n.className = cls; return n; };
 const view = document.body.dataset.view;
 let app, ready = false, sending = false, internalReads = 0, latest, latestInput = window.openai?.toolInput ?? {};
+let resultTimer, terminal = false;
+function collapseResult() {
+  clearTimeout(resultTimer); terminal = true; progress.show('idle', '');
+  if (!latest) document.body.classList.add('result-collapsed');
+  sizing.notify();
+}
 let selection = window.openai?.widgetState?.commerceSelection;
 function saveSelection() { window.openai?.setWidgetState?.({ version: 5, commercePending: session.pending, commerceSelection: selection }); }
 const session = actionSession(window.openai?.widgetState?.commercePending,
@@ -42,7 +49,8 @@ const button = (label, fn, secondary = false) => { const n = el('button', label,
 }; return n; };
 const sizing = createHostSizing({ getApp: () => ready ? app : null,
   getDisplayState: () => ({ mode: 'inline', confirmed: true }),
-  measure: () => ({ width: innerWidth, height: document.querySelector('main').getBoundingClientRect().height }) });
+  measure: () => ({ width: innerWidth, height: document.body.classList.contains('result-collapsed')
+    ? 1 : document.querySelector('main').getBoundingClientRect().height }) });
 new ResizeObserver(() => sizing.notify()).observe(document.querySelector('main'));
 async function read(name, args, kind) {
   internalReads++;
@@ -57,13 +65,10 @@ async function deliver(intent) {
   if (sending) return;
   sending = true;
   const token = progress.begin('sending', '새 결과 카드를 요청하고 있어요.', '요청 전달이 늦어지고 있어요. 대화의 후속 결과를 기다려주세요.');
-  const prompt = actionMessage(intent.tool, intent.args);
   try {
     let result;
-    if (!ready || typeof app.updateModelContext !== 'function') throw new Error('연결을 확인한 뒤 다시 눌러주세요. 이 환경에서는 채팅으로 상품을 선택할 수 있어요.');
-    const context = await awaitDelivery(() => app.updateModelContext({ content: [{ type: 'text', text: prompt }] }));
-    if (context?.isError) throw new Error('선택 정보를 전달하지 못했어요. 채팅에서 원하는 상품을 알려주세요.');
-    result = await awaitDelivery(() => app.sendMessage({ role: 'user', content: [{ type: 'text', text: actionLabel(intent.tool) }] }));
+    if (!ready) throw new Error('연결을 확인한 뒤 다시 눌러주세요.');
+    result = await sendAction(app, intent, awaitDelivery);
     if (result?.isError) throw new Error('요청 전달 결과를 확인하지 못했어요. 대화의 후속 결과를 확인해주세요.');
     progress.finish(token, 'delivered', '요청을 전달했어요. 새 결과가 대화에 표시됩니다.');
   } finally { sending = false; }
@@ -215,12 +220,9 @@ function renderPurchase(data, kind) {
 function accept(result) {
   if (internalReads) return;
   const value = result?.structuredContent ?? result;
-  if (result?.isError || value?.error) {
-    heading('요청 결과를 확인해주세요', '오류가 발생해도 이전 대화의 상품과 장바구니 카드는 남아 있어요.', 'COPENHAGEN');
-    if (!latest) $('content').replaceChildren();
-    progress.show('error', value?.error?.message ?? '요청을 완료하지 못했어요. 이전 카드의 선택 정보는 유지됩니다.'); return;
-  }
+  if (resultDisposition(result, view) !== 'render') { collapseResult(); return; }
   if (!viewAccepts(view, value?.kind) || !value.data) return;
+  clearTimeout(resultTimer); terminal = true; document.body.classList.remove('result-collapsed');
   latest = value; $('content').replaceChildren(); $('actions').replaceChildren(); status('');
   try {
     if (view === 'search') renderSearch({ ...value.data, query: value.data.query ?? latestInput });
@@ -241,7 +243,8 @@ function applyTheme(theme) {
 applyTheme(window.openai?.theme);
 app.onhostcontextchanged = context => applyTheme(context.theme);
 function waiting() {
-  if (internalReads || latest || gate.active) return;
+  if (internalReads || latest || gate.active || terminal) return;
+  if (!resultTimer) resultTimer = setTimeout(collapseResult, 30000);
   progress.begin('loading', '상품 정보를 준비하고 있어요.');
 }
 app.ontoolresult = accept;
@@ -249,11 +252,10 @@ app.ontoolinput = input => { if (!internalReads) latestInput = input.arguments ?
 app.ontoolinputpartial = waiting;
 app.ontoolcancelled = () => {
   if (internalReads || gate.active) return;
-  if (!latest) $('content').replaceChildren();
-  progress.show('cancelled', '요청이 중단됐어요. 이전 대화의 결과는 그대로 볼 수 있어요.');
+  collapseResult();
 };
 waiting();
-window.addEventListener('pagehide', () => progress.dispose(), { once: true });
+window.addEventListener('pagehide', () => { clearTimeout(resultTimer); progress.dispose(); }, { once: true });
 app.connect().then(() => { ready = true; applyTheme(app.getHostContext?.()?.theme); sizing.notify(); }).catch(() => { if (!latest) status('ChatGPT 연결을 기다리고 있어요.'); });
 if (window.openai?.toolOutput) accept(window.openai.toolOutput);
 window.addEventListener('openai:set_globals', event => { applyTheme(event.detail?.globals?.theme); if (event.detail?.globals?.toolOutput) accept(event.detail.globals.toolOutput); });
