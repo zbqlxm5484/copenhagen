@@ -38,6 +38,7 @@ import com.copenhagen.core.product.CatalogSearchResult;
 import com.copenhagen.core.product.ProductService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -64,7 +65,6 @@ class InternalApiIntegrationTest {
     private static final String PASSWORD = "Password1!";
     private static final String MERCHANT_ID = "merchant-a";
     private static final String PRODUCT_ID = "prod-1001";
-    private static final String APP_LINK_BASE = "https://app.example/purchases/";
     private static final String CART_PATH = "/internal/v1/carts/current";
     private static final String ITEMS_PATH = CART_PATH + "/items";
     private static final TypeReference<Map<String, Object>> JSON_OBJECT = new TypeReference<>() { };
@@ -74,7 +74,6 @@ class InternalApiIntegrationTest {
         registry.add("spring.datasource.url", () -> System.getenv("CORE_TEST_DB_URL"));
         registry.add("spring.datasource.username", () -> System.getenv("CORE_TEST_DB_USER"));
         registry.add("spring.datasource.password", () -> System.getenv("CORE_TEST_DB_PASSWORD"));
-        registry.add("core.internal.app-link-base", () -> APP_LINK_BASE);
     }
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -261,7 +260,7 @@ class InternalApiIntegrationTest {
                 .andExpect(jsonPath("$.nextAction").value("SELECT_SHIPPING_ADDRESS"))
                 .andReturn().getResponse().getContentAsString();
         String purchaseRequestId = JsonPath.read(handoff, "$.purchaseRequestId");
-        assertEquals(APP_LINK_BASE + purchaseRequestId, JsonPath.read(handoff, "$.appLink"));
+        assertFalse(objectMapper.readTree(handoff).has("appLink"));
 
         Map<String, Object> row = jdbcTemplate.queryForMap("""
                 SELECT status, request_channel, cart_version, expires_at, agent_connection_id

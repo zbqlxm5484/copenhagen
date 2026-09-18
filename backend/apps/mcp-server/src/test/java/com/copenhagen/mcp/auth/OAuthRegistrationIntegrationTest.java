@@ -62,7 +62,7 @@ class OAuthRegistrationIntegrationTest {
                         "--mcp.auth.issuer=" + ISSUER, "--mcp.auth.resource=" + RESOURCE,
                         "--mcp.auth.jwt.jwks-uri=http://127.0.0.1:" + jwks.getAddress().getPort() + "/jwks",
                         "--mcp.server.allowed-hosts=127.0.0.1:*",
-                        "--mcp.integration.app-link-base=", "--services.core.auth.token-uri=",
+                        "--services.core.auth.token-uri=",
                         "--services.core.auth.private-jwk-file=");
     }
 

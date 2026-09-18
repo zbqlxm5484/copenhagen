@@ -22,12 +22,12 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(name = "mcp.integration.enabled", havingValue = "true")
-@EnableConfigurationProperties({CommerceProperties.class, AgentJwtProperties.class, ServiceAuthProperties.class})
+@EnableConfigurationProperties({AgentJwtProperties.class, ServiceAuthProperties.class})
 public class CommerceConfiguration {
     @Bean
     CoreCommerceService coreCommerceService(CoreProperties core, HttpClient coreHttpClient,
             ServiceTokenProvider tokens, McpJsonMapper mapper, JsonSchemaValidator validator,
-            CommerceProperties properties, AgentJwtProperties jwt, ServiceAuthProperties serviceAuth,
+            AgentJwtProperties jwt, ServiceAuthProperties serviceAuth,
             McpAuthProperties auth, @Value("${mcp.catalog.enabled:false}") boolean legacyCatalog,
             @Value("${mcp.cart.enabled:false}") boolean legacyCart,
             @Value("${mcp.handoff.enabled:false}") boolean legacyHandoff,
@@ -39,7 +39,7 @@ public class CommerceConfiguration {
             throw new IllegalArgumentException("Core integration requires JWT authentication and disables QA adapters");
         }
         return new CoreCommerceService(new InternalCoreClient(core, coreHttpClient, tokens, mapper),
-                properties, validator);
+                validator);
     }
 
     @Bean

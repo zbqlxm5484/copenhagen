@@ -85,9 +85,10 @@ Core 서비스 인증이 필요한 내부 API다.
 - `PAY_FCM_ENABLED=true` 및 실제 Firebase 프로젝트·서비스 계정 설정: 실기기 푸시.
 - Merchant의 `PAY_MERCHANT_TOKENS_JSON`과 Pay의 `PAY_AUTH_MERCHANT_SERVICE_TOKENS_JSON`은
   동일한 merchantId→token 매핑이어야 한다. 실제 값은 배포 비밀정보로 주입한다.
-- `MCP_APP_LINK_BASE=https://<host>/<path>/`는 별도 앱에 등록된 딥링크의 호스트·경로와 일치해야 한다.
-- 해당 HTTPS 호스트의 `/.well-known/assetlinks.json`에 앱 package와 실제 서명 인증서 SHA-256을
-  등록해야 Android App Link가 검증된다. 앱 링크 도메인과 배포 인증서는 임의 값으로 대체하지 않는다.
+- Pay 푸시의 구매 요청·승인 식별자로 별도 앱의 주문 확인·결제 승인 화면을 연다.
+  사용자가 알림을 선택하면 앱에서 로그인 상태와 요청 소유권을 확인하고 화면을 복원한다.
+- MCP 웹 화면은 결제 상태 확인과 알림 재전송을 제공한다. HTTPS App Link 설정은 필요 없다.
+- 실제 상품 검색에는 `core-integration` 프로필과 MCP 서비스 개인키·Core 공개키 등록이 필요하다.
 
 DB migration과 Merchant 옵션 가격 응답을 먼저 배포한 뒤 Core·Pay·MCP를 배포하고 별도 앱과 연동을 확인한다.
 기존 Merchant 응답에 옵션별 가격이 없으면 이전 base price fallback을 유지하므로 구버전 Merchant가

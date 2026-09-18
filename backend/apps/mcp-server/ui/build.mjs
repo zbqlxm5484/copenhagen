@@ -20,7 +20,8 @@ let html = (await readFile(`src/${template}.html`, 'utf8')).replaceAll('\r\n', '
   .replace('/* SCRIPT */', () => script)
   .replace('__LOGO__', () => 'data:image/png;base64,' + logo);
 if (destination === 'integration') html = html.replace(/      <details><summary>앱이 열리지 않나요\?[\s\S]*?<\/label>\n/, '')
-  .replace('QA에서는 실제 앱 설치·로그인 상태를 감지하지 않습니다.', '앱에서 로그인 후 구매 요청을 이어갈 수 있습니다.');
+  .replace(' data-handoff-link-base="__HANDOFF_LINK_BASE__"', '')
+  .replace('<button id="handoff-open" hidden>앱 열기</button>', '');
 const output = `../src/main/resources/mcp-ui/${destination}.html`;
 if (process.argv.includes('--check')) {
   if ((await readFile(output, 'utf8')).replaceAll('\r\n', '\n') !== html) throw new Error('UI bundle is stale. Run npm run build.');

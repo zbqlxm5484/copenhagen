@@ -77,7 +77,7 @@ class InternalCatalogControllerTest {
 
         @Bean
         InternalApiProperties internalApiProperties() {
-            return new InternalApiProperties("https://app.example/purchases/", Duration.ofMinutes(30), 10);
+            return new InternalApiProperties(Duration.ofMinutes(30), 10);
         }
 
         @Bean

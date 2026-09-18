@@ -1,14 +1,14 @@
 # MCP OAuth 서버 연결 (S15P21A207-405)
 
 Core OAuth(S15P21A207-337)와 MCP 실제 연동(S15P21A207-400)이 develop에 병합된 이후의
-배포 절차다. 코드 병합과 운영 환경 설정을 구분한다. 실제 콜백·키·App Link를 등록하기
+배포 절차다. 코드 병합과 운영 환경 설정을 구분한다. 실제 콜백·서비스 키와 공개키를 등록하기
 전에는 `MCP_SPRING_PROFILES_ACTIVE=core-integration`을 활성화하지 않는다.
 
 ## ChatGPT 등록·계정 연결을 먼저 진행하는 경우 (S15P21A207-415)
 
 `oauth-registration` 프로필은 실제 Core OAuth 사용자 토큰을 검증하면서 기존 연결 확인
 UI와 `open_copenhagen`, `check_connection` 두 도구만 제공한다. 상품·장바구니·구매 API를
-호출하지 않으므로 App Link, MCP 서비스 개인키, 서비스 토큰 발급 설정은 이 단계에 필요 없다.
+호출하지 않으므로 MCP 서비스 개인키, 서비스 토큰 발급 설정은 이 단계에 필요 없다.
 Core가 제공하는 OAuth 로그인·동의·토큰 발급·공개키와 실제 ChatGPT callback 등록은 필요하다.
 OpenAI API 키나 로컬 터널 키는 사용하지 않는다.
 
@@ -50,9 +50,9 @@ ChatGPT 등록에는 공개 HTTPS `/mcp`와 OAuth를 사용한다. 사전 등록
 등록 완료 후 새 대화에서 `코펜하겐 열어줘`를 요청하여 연결 확인 UI와 버튼 호출을 검증한다.
 상품 검색·장바구니·결제는 등록 프로필의 검증 범위가 아니다.
 
-추후 Core 업무 API, MCP 서비스 키/공개키 등록, App Link가 준비되면 프로필을
+추후 Core 업무 API와 MCP 서비스 키/공개키 등록이 준비되면 프로필을
 `core-integration`으로 교체하고 재배포한 뒤 ChatGPT 도구를 Refresh한다.
-아래 서비스 키·App Link 준비 절차는 이 전체 기능 연동 단계에 적용한다.
+아래 서비스 키 준비 절차는 이 전체 기능 연동 단계에 적용한다.
 
 ## 주소와 역할
 
@@ -65,17 +65,16 @@ ChatGPT 등록에는 공개 HTTPS `/mcp`와 OAuth를 사용한다. 사전 등록
 | Agent 공개키 | `https://j15a207.p.ssafy.io/.well-known/jwks.json` |
 | Core 업무 API origin | `http://core-service:8080` (Docker 내부) |
 | ChatGPT 콜백 | ChatGPT 연결 설정에서 확인한 정확한 callback URL |
-| App Link | 앱 담당자가 확정할 구매 화면의 HTTPS 기본 경로 (끝에 `/` 필요) |
+| 앱 결제 승인 진입 | Pay 푸시 알림을 사용자가 선택하면 별도 앱이 구매·승인 ID로 화면을 연다 |
 
-App Link는 MCP 연결 주소가 아니다. 구매 요청 ID를 붙여 코펜하겐 앱을 열면 앱이 Core에서
-구매 요청을 조회한다. Core가 제공하는 OAuth 로그인·동의 HTML은 기존 앱 계정으로
-로그인하여 ChatGPT 연결 권한을 부여하는 별도 진입 화면이다.
+MCP에서 구매를 요청하면 Core가 기본 배송지·재고·금액을 검증하고 Pay가 결제 승인 요청과
+푸시 알림을 생성한다. 사용자는 알림을 선택해 별도 앱에서 주문을 확인하고 결제를 승인한다.
+배송지가 없으면 앱에서 같은 구매 요청의 배송지를 보완한다. MCP 웹 화면은 상태 확인과
+알림 재전송을 제공하며, 앱을 여는 HTTPS URL을 요구하지 않는다.
 
-현재 `mobile/app/src/main/AndroidManifest.xml`에는 MAIN/LAUNCHER 진입점만 있으며,
-구매 화면을 외부에서 여는 VIEW/BROWSABLE intent-filter는 없다. APK 설치와 외부 구매
-화면 진입은 별도 설정이다. 앱 담당자가 HTTPS App Link 수신 경로, purchaseRequestId
-전달 방식, 로그인 후 구매 화면 복원을 구현해야 한다. 도메인·경로는 아직 미정이며
-현재 MCP의 HTTPS URL 검증을 임의의 intent 또는 커스텀 스킴으로 우회하지 않는다.
+앱 담당자는 Pay 알림 설치 등록과 수신 payload의 식별자 처리, 로그인 후 구매·승인 화면
+복원을 구현한다. 실기기 푸시에는 Pay FCM 설정과 등록된 설치 토큰이 필요하다.
+Core의 OAuth 로그인·동의 HTML은 ChatGPT 연결 권한을 부여하는 별도 웹 화면이다.
 
 `CORE_TOKEN_URI`는 위 공개 HTTPS 토큰 주소를 사용한다. MCP는 이 URL을 client assertion의
 audience에도 사용하므로 임의로 `http://core-service:8080/oauth/token`으로 바꾸면 Core의
@@ -197,7 +196,7 @@ ChatGPT 계정과 본인 앱 계정으로 연결한다. 고정 콜백 등록이 
 
 ## 3. 적용 순서
 
-1. 고정 Core 키, MCP 키·공개키 등록, 실제 callback과 App Link를 준비한다.
+1. 고정 Core 키, MCP 키·공개키 등록과 실제 callback을 준비한다.
 2. Core의 `AGENT_OAUTH_ISSUER`·`AGENT_OAUTH_MCP_AUDIENCE`를 공개 주소로 지정하고 Core를 배포한다.
 3. Nginx 변경을 배포하여 OAuth discovery·JWKS·로그인·토큰 요청을 Core로 전달한다.
 4. 서버 `.env`에서 `MCP_SPRING_PROFILES_ACTIVE=core-integration`을 활성화하고 MCP를 재배포한다.
@@ -206,8 +205,11 @@ ChatGPT 계정과 본인 앱 계정으로 연결한다. 고정 콜백 등록이 
 기존 develop CI/CD를 사용한다. 작업 브랜치 수동 배포 job은 추가하지 않는다.
 `.env`만 변경하면 실행 중인 컨테이너에는 적용되지 않으므로 재생성이 필요하다.
 누락된 필수값이 있으면 MCP는 시작을 거부하며 기존 배포 스크립트가 롤백을 시도한다.
-App Link는 OAuth 프로토콜에는 필요 없지만 현재 `core-integration` 프로필의 구매 인계
-초기화에서 요구하므로, 앱 담당자 확정 전 임의의 URL로 대체하지 않는다.
+`MCP_APP_LINK_BASE`와 `CORE_INTERNAL_APP_LINK_BASE`는 더 이상 사용하지 않는다.
+이 변경은 Core와 MCP를 함께 배포한다. Core 구매 응답은 `appLink` 없이 생성 스냅샷을 반환하고,
+MCP는 이전 멱등 응답에 남은 `appLink`도 사용자에게 전달하지 않는다.
+구매 후속 처리에는 `CORE_PAYMENT_WORKER_ENABLED`, Pay 알림 worker·FCM 설정이 필요하다.
+새 이미지 배포 후 ChatGPT 도구를 Refresh하고 새 대화에서 확인한다.
 
 ## 4. 외부 연결 검증
 

@@ -65,15 +65,18 @@ class CoreIntegrationTransportTest {
                      "nextCursor":null,"failedMerchants":[],"checkedAt":"2026-09-17T00:00:00Z"}
                     """);
         });
+        core.createContext("/internal/v1/purchase-requests", exchange -> reply(exchange, """
+                {"purchaseRequestId":"request1","status":"PENDING_ADDRESS","cartId":"cart1",
+                 "cartVersion":12,"expiresAt":"%s","nextAction":"SELECT_SHIPPING_ADDRESS"}
+                """.formatted(Instant.now().plusSeconds(1800))));
         core.start();
         String base = "http://127.0.0.1:" + core.getAddress().getPort();
         application = new SpringApplicationBuilder(McpServerApplication.class)
-                .run("--server.port=0", "--spring.main.banner-mode=off", "--mcp.integration.enabled=true",
-                        "--mcp.ui.enabled=true", "--mcp.integration.app-link-base=https://app.example/purchase/",
-                        "--mcp.auth.jwt.enabled=true", "--mcp.auth.jwt.jwks-uri=" + base + "/jwks",
+                .profiles("core-integration")
+                .run("--server.port=0", "--spring.main.banner-mode=off",
+                        "--mcp.server.allowed-hosts=127.0.0.1:*", "--mcp.auth.jwt.jwks-uri=" + base + "/jwks",
                         "--mcp.auth.issuer=https://core.example", "--mcp.auth.resource=" + RESOURCE,
-                        "--mcp.auth.required-scopes=catalog:read", "--services.core.base-url=" + base,
-                        "--services.core.auth.enabled=true", "--services.core.auth.token-uri=" + base + "/token",
+                        "--services.core.base-url=" + base, "--services.core.auth.token-uri=" + base + "/token",
                         "--services.core.auth.private-jwk-file=" + privateKey);
     }
 
@@ -110,8 +113,24 @@ class CoreIntegrationTransportTest {
             assertEquals(1, resources.size());
             var html = (McpSchema.TextResourceContents) client.readResource(
                     new McpSchema.ReadResourceRequest(resources.getFirst().uri())).contents().getFirst();
-            assertTrue(html.text().contains("https://app.example/purchase/"));
+            assertFalse(html.text().contains("id=\"handoff-open\""));
+            assertFalse(html.text().contains("__HANDOFF_LINK_BASE__"));
+            assertFalse(html.meta().toString().contains("redirect_domains"));
             assertFalse(html.text().contains("로컬 Mock 안내 시나리오"));
+        }
+    }
+
+    @Test
+    void purchase_withoutAppLink_returnsReceiptForPushApproval() throws Exception {
+        try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application),
+                token("catalog:read purchase:handoff"))) {
+            client.initialize();
+            var result = client.callTool(McpSchema.CallToolRequest.builder().name("prepare_purchase_handoff")
+                    .arguments(Map.of("cartId", "cart1", "cartVersion", 12,
+                            "idempotencyKey", java.util.UUID.randomUUID().toString())).build());
+            assertFalse(result.isError());
+            assertTrue(result.structuredContent().toString().contains("request1"));
+            assertFalse(result.structuredContent().toString().contains("appLink"));
         }
     }
 

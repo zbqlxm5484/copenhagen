@@ -2,7 +2,7 @@ import { App } from '@modelcontextprotocol/ext-apps';
 import { createHostSizing } from './host-sizing.js';
 import { purchaseProgress } from './purchase-progress.js';
 import { safeImage, availability, timedCall } from './catalog.js';
-import { amount, payload, searchArguments, variantLabel, purchaseLink, pendingRequest, restorablePending } from './live-state.js';
+import { amount, payload, searchArguments, variantLabel, pendingRequest, restorablePending } from './live-state.js';
 
 const $ = id => document.getElementById(id);
 const el = (tag, text, className) => { const node = document.createElement(tag); node.textContent = text ?? ''; if (className) node.className = className; return node; };
@@ -138,7 +138,7 @@ function renderCart() {
   const total = currentCart.summary;
   $('cart-summary').replaceChildren(el('div', `예상 결제금액 ${amount(total.totalAmount)}`, 'cart-total'),
     el('p', `할인 ${amount(total.discountAmount)} · 배송비 ${amount(total.shippingAmount)}`),
-    el('p', '배송지 선택 후 앱에서 최종 금액과 재고를 확인해주세요.'));
+    el('p', '기본 배송지로 주문을 확인한 뒤 앱에 승인 알림을 보냅니다. 최종 금액은 앱에서 확인해주세요.'));
   $('cart-open').textContent = `장바구니 (${currentCart.items.reduce((n, i) => n + i.quantity, 0)})`; controls();
 }
 async function refreshCart(open = true) {
@@ -178,12 +178,10 @@ async function retryPending() {
   } finally { busy = false; controls(); }
 }
 function renderHandoff() {
-  $('handoff-title').textContent = '앱에서 이어가기'; $('handoff-open').textContent = '앱 열기';
+  $('handoff-title').textContent = '앱에서 결제 승인';
   $('handoff-status').textContent = '구매 요청이 준비됐습니다. 기본 배송지로 검증한 뒤 앱에 결제 승인 알림을 보냅니다.';
   $('handoff-expiry').textContent = `${new Date(receipt.expiresAt).toLocaleTimeString('ko-KR')}까지 유효`;
-  $('handoff-open').hidden = false; show('handoff-dialog');
-  try { purchaseLink(receipt, document.body.dataset.handoffLinkBase); $('handoff-open').disabled = false; }
-  catch (error) { $('handoff-status').textContent = error.message; $('handoff-open').disabled = true; }
+  show('handoff-dialog');
   if (!$('purchase-refresh')) {
     const refresh = button('결제 상태 확인', () => refreshPurchase()); refresh.id = 'purchase-refresh';
     const resend = button('알림 다시 보내기', () => refreshPurchase(true), true); resend.id = 'purchase-resend';
@@ -223,12 +221,6 @@ $('cart-continue').textContent = '구매 진행'; $('cart-continue').onclick = (
 };
 for (const id of ['cart-retry', 'cart-dialog-retry', 'handoff-retry']) $(id).onclick = () => void retryPending();
 $('handoff-back').onclick = () => void refreshCart().catch(() => {});
-$('handoff-open').onclick = async () => {
-  try { const href = purchaseLink(receipt, document.body.dataset.handoffLinkBase);
-    if (window.openai?.openExternal) await window.openai.openExternal({ href, redirectUrl: false });
-    else if (ready) await app.openLink({ url: href }); else throw new Error('앱 링크를 열 수 없습니다.');
-  } catch (error) { $('handoff-status').textContent = error.message; }
-};
 for (const [id, direction] of [['slide-previous', -1], ['slide-next', 1]]) $(id).onclick = () => $('cards').scrollBy({ left: direction * $('cards').clientWidth * .84, behavior: 'smooth' });
 $('cards').onscroll = () => { $('slide-position').textContent = `${Math.round($('cards').scrollLeft / Math.max(1, $('cards').firstElementChild?.getBoundingClientRect().width ?? 1)) + 1} / ${currentSearch?.products.length ?? 0}`; };
 function hostQuery(input) {

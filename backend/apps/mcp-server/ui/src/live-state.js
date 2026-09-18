@@ -29,14 +29,6 @@ export function variantLabel(detail, variant) {
   const names = new Map((detail.optionGroups ?? []).flatMap(group => (group.values ?? []).map(v => [v.id, v.name])));
   return (variant.optionValueIds ?? []).map(id => names.get(id) ?? id).join(' · ') || '기본 옵션';
 }
-export function purchaseLink(data, base, now = Date.now()) {
-  const expected = new URL(encodeURIComponent(data.purchaseRequestId), base);
-  if (expected.protocol !== 'https:' || data.appLink !== expected.href || data.linkExpired
-      || !Number.isFinite(Date.parse(data.expiresAt)) || Date.parse(data.expiresAt) <= now) {
-    throw new Error('구매 요청이 만료됐거나 링크가 유효하지 않습니다. 장바구니를 다시 확인해주세요.');
-  }
-  return expected.href;
-}
 export function pendingRequest(tool, args, now = Date.now()) {
   return { tool, args: { ...args, idempotencyKey: crypto.randomUUID() }, createdAt: now };
 }
