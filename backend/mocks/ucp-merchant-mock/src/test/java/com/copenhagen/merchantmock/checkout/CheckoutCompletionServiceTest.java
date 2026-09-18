@@ -386,6 +386,23 @@ class CheckoutCompletionServiceTest {
     }
 
     @Test
+    @DisplayName("다른 몰의 경로로 온 Complete 는 404 이고 Pay 를 부르지 않는다 (393)")
+    void complete_otherMall_notFoundBeforePay() {
+        // given: merchant-a 에 만든 ready_for_complete 체크아웃
+        String id = readyCheckout();
+
+        // when: 같은 id 를 merchant-b 경로로 완료하려 한다
+        ApiException thrown = assertThrows(ApiException.class, () -> service.complete("merchant-b", id, CREDENTIAL));
+
+        // then: 존재를 드러내지 않고 결제도 시작하지 않는다
+        assertEquals("CHECKOUT_NOT_FOUND", thrown.errorCode());
+        assertEquals(404, thrown.status().value());
+        assertTrue(pay.requests.isEmpty());
+        assertEquals(CheckoutStatus.READY_FOR_COMPLETE, checkout.repository().findById(id).orElseThrow().status(),
+                "남의 몰 요청이 원래 몰의 체크아웃을 건드리지 않는다");
+    }
+
+    @Test
     @DisplayName("credentialId 가 비었거나 100자를 넘으면 400 INVALID_REQUEST 다")
     void complete_badCredentialId_invalidRequest() {
         // given
