@@ -5,7 +5,6 @@ import com.copenhagen.mcp.core.CoreApiException;
 import com.copenhagen.mcp.core.InternalCoreClient;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.json.TypeRef;
-import java.net.URI;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
@@ -26,7 +25,6 @@ import static org.mockito.Mockito.when;
 class CoreCommerceServiceTest {
     private final InternalCoreClient client = mock(InternalCoreClient.class);
     private final CoreCommerceService service = new CoreCommerceService(client,
-            new CommerceProperties(true, URI.create("https://app.example/purchase/")),
             McpJsonDefaults.getSchemaValidator());
     private final McpIdentity identity = new McpIdentity("user", "connection", Set.of(),
             Instant.now().plusSeconds(300));
@@ -80,19 +78,30 @@ class CoreCommerceServiceTest {
     }
 
     @Test
-    void purchase_originalResponseExpired_keepsSnapshotButRejectsUnsafeLink() {
+    void purchase_withoutAppLink_keepsExpiredSnapshotForStatusRecovery() {
         String key = UUID.randomUUID().toString();
         Map<String, Object> input = Map.of("cartId", "cart1", "cartVersion", 12, "idempotencyKey", key);
         when(client.exchange(eq(identity), eq("POST"), eq("/internal/v1/purchase-requests"), any(), any(), eq(key)))
                 .thenReturn(Map.of("purchaseRequestId", "request1", "status", "PENDING_ADDRESS",
                         "cartId", "cart1", "cartVersion", 12, "expiresAt", "2020-01-01T00:00:00Z",
-                        "appLink", "https://app.example/purchase/request1", "nextAction", "SELECT_SHIPPING_ADDRESS"));
-        assertEquals(true, ((Map<?, ?>) service.purchase(identity, input).get("data")).get("linkExpired"));
+                        "nextAction", "SELECT_SHIPPING_ADDRESS"));
+        Map<?, ?> data = (Map<?, ?>) service.purchase(identity, input).get("data");
+        assertEquals("request1", data.get("purchaseRequestId"));
+        assertEquals("2020-01-01T00:00:00Z", data.get("expiresAt"));
+        assertFalse(data.containsKey("appLink"));
+        verify(client).exchange(identity, "POST", "/internal/v1/purchase-requests", Map.of(),
+                Map.of("cartId", "cart1", "cartVersion", 12), key);
+    }
+
+    @Test
+    void purchase_replayedLegacyResponse_doesNotExposeAppLink() {
+        String key = UUID.randomUUID().toString();
+        Map<String, Object> input = Map.of("cartId", "cart1", "cartVersion", 12, "idempotencyKey", key);
         when(client.exchange(eq(identity), eq("POST"), eq("/internal/v1/purchase-requests"), any(), any(), eq(key)))
                 .thenReturn(Map.of("purchaseRequestId", "request1", "status", "PENDING_ADDRESS",
                         "cartId", "cart1", "cartVersion", 12, "expiresAt", "2020-01-01T00:00:00Z",
                         "appLink", "https://evil.example/purchase/request1", "nextAction", "SELECT_SHIPPING_ADDRESS"));
-        assertThrows(CoreApiException.class, () -> service.purchase(identity, input));
+        assertFalse(((Map<?, ?>) service.purchase(identity, input).get("data")).containsKey("appLink"));
     }
 
     @Test
@@ -103,7 +112,6 @@ class CoreCommerceServiceTest {
             when(client.exchange(eq(identity), eq("POST"), any(), any(), any(), eq(key)))
                     .thenReturn(Map.of("purchaseRequestId", invalidId, "status", "PENDING_ADDRESS",
                             "cartId", "cart1", "cartVersion", 12, "expiresAt", "invalid-date",
-                            "appLink", "https://app.example/purchase/" + invalidId,
                             "nextAction", "SELECT_SHIPPING_ADDRESS"));
             var error = assertThrows(CoreApiException.class, () -> service.purchase(identity, input));
             assertEquals("UNKNOWN", ((Map<?, ?>) error.body().get("error")).get("outcome"));

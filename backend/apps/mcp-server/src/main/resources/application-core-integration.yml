@@ -1,4 +1,4 @@
-# Core OAuth/API 및 App Link 설정이 준비된 서버에서만 활성화한다.
+# Core OAuth/API 및 MCP 서비스 인증 키가 준비된 서버에서만 활성화한다.
 mcp:
   integration:
     enabled: true

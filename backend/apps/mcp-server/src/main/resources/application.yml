@@ -27,7 +27,6 @@ services:
 mcp:
   integration:
     enabled: ${MCP_INTEGRATION_ENABLED:false}
-    app-link-base: ${MCP_APP_LINK_BASE:}
   handoff:
     enabled: ${MCP_HANDOFF_ENABLED:false}
     write-scopes: ${MCP_HANDOFF_WRITE_SCOPES:}

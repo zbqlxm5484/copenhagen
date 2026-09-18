@@ -48,10 +48,6 @@ services:
       CORE_PAY_SERVICE_TOKEN: ${CORE_PAY_SERVICE_TOKEN:-}
       CORE_PAYMENT_WORKER_ENABLED: ${CORE_PAYMENT_WORKER_ENABLED:-false}
       CORE_PAYMENT_WORKER_POLL_INTERVAL_SECONDS: ${CORE_PAYMENT_WORKER_POLL_INTERVAL_SECONDS:-3}
-      # MCP 구매 인계 링크(이슈 417). mcp-server의 MCP_APP_LINK_BASE와 문자 단위로 같아야 해서
-      # 아예 같은 변수를 쓴다. 비어 있으면 POST /internal/v1/purchase-requests만 503이고
-      # 나머지 내부 API 6개는 정상 동작한다.
-      CORE_INTERNAL_APP_LINK_BASE: ${MCP_APP_LINK_BASE:-}
     depends_on:
       core-db:
         condition: service_healthy
@@ -74,7 +70,7 @@ services:
       dockerfile: apps/mcp-server/Dockerfile
     environment:
       CORE_SERVICE_URL: http://core-service:8080
-      # Opt in only after Core clients, keys and App Link are configured on the server.
+      # Opt in only after Core clients and service authentication keys are configured.
       SPRING_PROFILES_ACTIVE: ${MCP_SPRING_PROFILES_ACTIVE:-}
       MCP_AUTH_RESOURCE: ${MCP_AUTH_RESOURCE:-https://j15a207.p.ssafy.io/mcp}
       MCP_AUTH_ISSUER: ${MCP_AUTH_ISSUER:-}
@@ -82,7 +78,6 @@ services:
       CORE_TOKEN_URI: ${CORE_TOKEN_URI:-}
       CORE_MCP_CLIENT_ID: ${CORE_MCP_CLIENT_ID:-copenhagen-mcp}
       CORE_MCP_PRIVATE_JWK_FILE: /run/secrets/mcp/client.jwk
-      MCP_APP_LINK_BASE: ${MCP_APP_LINK_BASE:-}
       MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-j15a207.p.ssafy.io,mcp-server:8080,localhost:8080}
       MCP_ALLOWED_ORIGINS: ${MCP_ALLOWED_ORIGINS:-https://chatgpt.com}
     volumes:

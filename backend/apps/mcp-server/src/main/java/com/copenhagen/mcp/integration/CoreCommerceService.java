@@ -4,7 +4,6 @@ import com.copenhagen.mcp.auth.McpIdentity;
 import com.copenhagen.mcp.core.CoreApiException;
 import com.copenhagen.mcp.core.InternalCoreClient;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;
-import java.net.URI;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -13,13 +12,10 @@ import java.util.UUID;
 
 public final class CoreCommerceService {
     private final InternalCoreClient client;
-    private final CommerceProperties properties;
     private final JsonSchemaValidator validator;
 
-    public CoreCommerceService(InternalCoreClient client, CommerceProperties properties,
-            JsonSchemaValidator validator) {
+    public CoreCommerceService(InternalCoreClient client, JsonSchemaValidator validator) {
         this.client = client;
-        this.properties = properties;
         this.validator = validator;
     }
 
@@ -98,11 +94,10 @@ public final class CoreCommerceService {
                 Map.of("cartId", input.get("cartId"), "cartVersion", input.get("cartVersion")),
                 (String) input.get("idempotencyKey"));
         Map<String, Object> data = CommerceProjection.pick(response, "purchaseRequestId", "status", "cartId",
-                "cartVersion", "expiresAt", "appLink", "nextAction");
+                "cartVersion", "expiresAt", "nextAction");
         try {
-            String id = CommerceProjection.id(data.get("purchaseRequestId"));
-            URI expected = properties.appLinkBase().resolve(id);
-            if (!expected.toString().equals(data.get("appLink")) || !input.get("cartId").equals(data.get("cartId"))
+            CommerceProjection.id(data.get("purchaseRequestId"));
+            if (!input.get("cartId").equals(data.get("cartId"))
                     || !input.get("cartVersion").toString().equals(data.get("cartVersion").toString())
                     || !"PENDING_ADDRESS".equals(data.get("status"))
                     || !"SELECT_SHIPPING_ADDRESS".equals(data.get("nextAction"))) {
@@ -113,7 +108,7 @@ public final class CoreCommerceService {
                 throw failure("CORE_INVALID_RESPONSE", true);
             }
             // 같은 키의 응답은 생성 당시 스냅샷이다. 현재 구매/결제 상태로 해석하지 않는다.
-            data.put("linkExpired", !Instant.now().isBefore(expires));
+            // 만료된 생성 스냅샷도 같은 요청으로 복구하고, 최신 상태는 get_purchase_status로 확인한다.
         } catch (CoreApiException | IllegalArgumentException | NullPointerException
                 | java.time.DateTimeException | ClassCastException exception) {
             throw failure("CORE_INVALID_RESPONSE", true);

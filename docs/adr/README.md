@@ -2,7 +2,7 @@
 
 여러 서비스나 팀에 영향을 주는 중요한 기술 결정을 기록하는 곳입니다.
 
-> **현재 ADR 10건 전부 `Proposed — 논의 필요` 상태입니다.**
+> **현재 ADR 11건 전부 `Proposed` 상태입니다.**
 > 설계 과정에서 정리한 초안이며 팀 논의를 거치지 않았습니다. 확정된 결정으로 인용하지 마세요.
 > 논의에서 합의된 항목만 `Accepted`로 바꾸고, 각 문서의 개정 이력에 합의 날짜를 남깁니다.
 
@@ -20,6 +20,7 @@
 | [0008](0008-payment-credential-ownership-and-storage.md) | Payment Credential 소유와 저장 | Proposed | 본문 전체 + Open Detail |
 | [0009](0009-idempotency-and-payment-reconciliation.md) | 멱등성과 Payment UNKNOWN 복구 | Proposed | 본문 전체 + Required Follow-up 4건 |
 | [0010](0010-ucp-ap2-reference-scope.md) | UCP/AP2 부분 적용 범위 | Proposed | 본문 전체 + Required Follow-up 3건 |
+| [0011](0011-push-notification-purchase-handoff.md) | Pay 푸시 기반 앱 결제 승인 진입 | Proposed | App Link 제거와 배포 전환·실기기 검증 |
 
 ### 회의 전 확인
 

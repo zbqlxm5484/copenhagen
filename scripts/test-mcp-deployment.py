@@ -49,7 +49,6 @@ def main():
             'MCP_AUTH_JWKS_URI': 'https://shop.example/.well-known/jwks.json',
             'CORE_TOKEN_URI': 'https://shop.example/oauth/token',
             'CORE_MCP_CLIENT_ID': 'test-mcp-client',
-            'MCP_APP_LINK_BASE': 'https://app.example/purchase/',
             'MCP_ALLOWED_HOSTS': 'shop.example,mcp-server:8080',
             'MCP_ALLOWED_ORIGINS': 'https://chatgpt.com',
             'MCP_SECRETS_DIR': secret_dir,
@@ -64,6 +63,8 @@ def main():
             services = resolve(env_file, https)
             mcp = services['mcp-server']
             actual = mcp['environment']
+            assert 'MCP_APP_LINK_BASE' not in actual
+            assert 'CORE_INTERNAL_APP_LINK_BASE' not in services['core-service']['environment']
             for key, value in values.items():
                 if key.startswith('AGENT_OAUTH_'):
                     assert services['core-service']['environment'][key] == value, key

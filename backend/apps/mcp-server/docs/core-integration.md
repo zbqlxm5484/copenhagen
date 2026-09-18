@@ -1,6 +1,6 @@
 # Core 실제 연동 (S15P21A207-400)
 
-2026-09-17 Core 최종 구현 방향을 기준으로 한다. canonical resource는
+2026-09-18 Pay 푸시 알림 기반 결제 승인 흐름을 기준으로 한다. canonical resource는
 `https://j15a207.p.ssafy.io/mcp`다. HTTPS 인증서 검증 및 미인증 요청의 401 응답을
 확인했다. 공개 HTTP 주소로 인증 토큰을 전송하지 않는다.
 
@@ -11,7 +11,7 @@
 - `/internal/v1`의 상품 검색·상세, variant 기반 장바구니, 구매 요청 생성
 - 모든 내부 요청에 Service JWT, Agent JWT, UUID 요청 ID 전달
 - 변경 요청의 UUID 멱등키와 본문 보존 및 결과 불명 상태 복구
-- 다수 판매처 구매 요청과 App 인계. Story 5의 결제 결과·이력은 제외
+- 다수 판매처 구매 요청, Pay 승인 알림, 구매 상태 확인과 알림 재전송
 
 ## 외부 준비 항목
 
@@ -22,7 +22,7 @@
 | Core | OAuth issuer, JWKS URL, token endpoint, 내부 API origin |
 | Core | `copenhagen-mcp` confidential client 등록, 허용 서명 알고리즘과 공개키 등록 |
 | MCP·인프라 | 대응 개인키를 저장소 밖의 비밀 파일로 배치하고 컨테이너에 읽기 전용 마운트 |
-| App·Core | 구매 인계 HTTPS App Link의 origin과 경로 |
+| App·Pay | 알림 설치 등록, FCM 수신 후 구매·승인 ID로 화면 복원 |
 | Core | 테스트 계정과 OAuth 동의 화면, 실제 내부 API 준비 |
 
 개인키와 발급된 토큰은 채팅, 문서, Git, 로그에 기록하지 않는다.
@@ -40,7 +40,7 @@ Core 업무 API 왕복은 각 담당자의 설정과 배포가 완료된 뒤 검
 
 `core-integration` 프로필에서 실제 Core 어댑터를 활성화한다. 기본 프로필과 QA 프로필은
 기존 동작을 유지한다. 실제 연동과 QA 상품·장바구니·인계 어댑터를 동시에 켜면 시작을 거부한다.
-Core/App API 구현이나 DB는 변경하지 않는다. UI는 파란색·회색 테마, 가로 상품 카드,
+UI는 파란색·회색 테마, 가로 상품 카드,
 전체 카테고리 검색, 휴대폰 기본 옵션 선택창을 사용하며 전체화면 버튼을 제공하지 않는다.
 
 환경변수 목록은 [core-integration.env.example](core-integration.env.example)에 있다.
@@ -52,7 +52,7 @@ OpenAI API 키와 로컬 Secure Tunnel 런타임 키는 이 직접 연결 경로
 저장소에서 확인한 내부 주소는 `http://core-service:8080`이다. 기존 앱 JWT의
 `copenhagen-core` issuer / `copenhagen-app` audience는 Agent OAuth 계약과 다르므로 재사용하지 않는다.
 2026-09-17 develop에 Core OAuth(337)가 병합되었다. 동일 호스트용 issuer·JWKS·token URL은
-환경변수 예제에 반영했다. 실제 callback·MCP 서비스 공개키·App Link와 `/internal/v1` 업무 API의
+환경변수 예제에 반영했다. 실제 callback·MCP 서비스 공개키와 `/internal/v1` 업무 API의
 준비 상태는 별도 확인한다. 누락된 필수값을 넣기 전에는 실제 연동 프로필을 켜지 않는다.
 
 ### 공개 경로 전달
@@ -81,6 +81,8 @@ discovery와 JWKS URL을 사용한다. `/internal/v1`은 외부에 공개하지 
 | `update_cart_item` | PATCH `/internal/v1/carts/current/items/{cartItemId}` | `cart:write` |
 | `delete_cart_item` | DELETE `/internal/v1/carts/current/items/{cartItemId}?cartVersion=N` | `cart:write` |
 | `prepare_purchase_handoff` | POST `/internal/v1/purchase-requests` | `purchase:handoff` |
+| `get_purchase_status` | GET `/internal/v1/purchase-requests/{id}` | `purchase:handoff` |
+| `resend_purchase_notification` | POST `/internal/v1/purchase-requests/{id}/notifications` | `purchase:handoff` |
 
 모든 내부 호출은 Service JWT를 `Authorization`, 현재 요청의 Agent JWT를
 `X-Agent-Authorization`, UUID를 `X-Request-Id`에 넣는다. Agent JWT를 서버 캐시나
@@ -93,8 +95,15 @@ UI 상태에 저장하지 않는다. Service JWT는 만료 30초 전까지만 �
 Core의 version/수량 충돌은 최신 장바구니 확인 또는 옵션 재선택으로 처리한다.
 
 구매 생성의 200/201은 모두 성공으로 처리한다. 재응답은 생성 당시의 스냅샷이며
-현재 구매·결제 상태가 아니다. App Link는 설정한 HTTPS 경로와 공개 purchaseRequestId가
-정확히 일치하고 유효기간 내인 경우에만 사용자 버튼으로 연다. 결제 실행은 앱 담당이다.
+현재 구매·결제 상태가 아니다. Core가 기본 배송지로 주문을 검증하고 Pay 승인 알림을 보낸다.
+사용자는 알림을 선택해 별도 앱에서 주문 확인·결제 승인을 한다. MCP는 App Link를 생성하거나
+열지 않으며 `MCP_APP_LINK_BASE`를 요구하지 않는다. 웹은 상태 확인과 알림 재전송을 제공한다.
+
+구매 응답 필드는 `purchaseRequestId`, `status`, `cartId`, `cartVersion`, `expiresAt`, `nextAction`이다.
+최초 `PENDING_ADDRESS`는 worker 처리 전 스냅샷이다. worker는 기본 배송지가 있으면 검증·승인
+생성을 진행하고 없으면 앱에서 배송지를 보완하도록 알린다. 최신 상태는 `get_purchase_status`로
+조회한다. 만료된 생성 응답을 재생해도 같은 구매 ID를 유지하며 새 구매를 자동으로 만들지 않는다.
+Core와 MCP를 함께 배포해야 하며 이전에 저장된 멱등 응답의 `appLink`는 MCP가 제외한다.
 
 ## Core 배포 후 맞춰볼 응답 구조
 
@@ -112,17 +121,17 @@ Core의 version/수량 충돌은 최신 장바구니 확인 또는 옵션 재선
 
 금액 null은 미확정으로 유지한다. 수집되지 않은 배송비·할인을 0으로 만들지 않는다.
 
-## 검증 결과와 남은 확인
+## 이전 검증 결과와 남은 확인
 
 - MCP Java 테스트 225개 통과. RS256/ES256 서명·claim·scope 검증, 서비스 토큰 발급,
   실제 Streamable HTTP를 통한 도구/리소스 등록과 두 인증 헤더 전달을 포함한다.
 - UI 단위 테스트 48개 통과, 정적 HTML 빌드 완료.
 - 412×850 모바일 크기 브라우저에서 검색→비교→기본 옵션 선택→담기→옵션·수량 변경→
-  구매 인계 링크→삭제를 검증했다. 테스트 fixture 사용이며 S25 실기기 검증과 구분한다.
-- Core OAuth와 실제 업무 API, 공개 metadata 프록시, App Link, client 공개키 등록이 준비되면
-  ChatGPT 계정 연결→실제 Core 왕복→앱 로그인 후 복원을 검증해야 한다.
+  구매 인계 링크→삭제를 검증했다. 이는 푸시 방식 전환 전 fixture 검증이며 실기기 검증과 구분한다.
+- Core OAuth와 실제 업무 API, 공개 metadata 프록시, client 공개키와 Pay FCM이 준비되면
+  ChatGPT 계정 연결→실제 Core 왕복→Pay 푸시→별도 앱 승인까지 검증해야 한다.
 - 연결 해제 시 refresh token 즉시 폐기 및 기존 Agent 토큰의 원래 만료까지 허용은 Core와
-  함께 최종 통합 검증한다. Story 5의 결과·이력 조회는 이번 작업에 포함하지 않는다.
+  함께 최종 통합 검증한다.
 
 UI 변경 시 `ui` 디렉터리에서 `node --test src/*.test.js` 및 `node build.mjs`를 실행해
 생성된 `src/main/resources/mcp-ui/integration.html`을 함께 커밋한다. HTML 내용 해시가
