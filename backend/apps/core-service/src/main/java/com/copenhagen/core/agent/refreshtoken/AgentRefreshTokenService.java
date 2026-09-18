@@ -48,7 +48,9 @@ public class AgentRefreshTokenService {
     }
 
     /** 회전 대상 행을 잠근 채로 검증해 반환한다. 연동 활성 여부 확인은 호출자가 이어서 수행한다. */
-    @Transactional(propagation = Propagation.MANDATORY)
+    // 검증 거절은 호출자가 invalid_grant로 변환한다. 쓰기 없이 거절된 트랜잭션을 rollback-only로
+    // 만들지 않는다. 재사용 탐지에 따른 폐기는 breachService의 독립 트랜잭션에서 커밋한다.
+    @Transactional(propagation = Propagation.MANDATORY, noRollbackFor = CoreException.class)
     public AgentRefreshToken verifyForRotation(String plainToken) {
         AgentRefreshToken current = repository.findByTokenHashForUpdate(sha256Hex(plainToken))
                 .orElseThrow(() -> new CoreException(CoreErrorCode.OAUTH_INVALID_GRANT));

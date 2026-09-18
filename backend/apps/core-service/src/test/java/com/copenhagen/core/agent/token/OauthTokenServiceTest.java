@@ -2,6 +2,7 @@ package com.copenhagen.core.agent.token;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.sql.Connection;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -12,10 +13,16 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import javax.sql.DataSource;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionInterceptor;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -61,7 +68,12 @@ class OauthTokenServiceTest {
     private OauthClient publicClient;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
+        DataSource dataSource = mock(DataSource.class);
+        Connection connection = mock(Connection.class);
+        when(dataSource.getConnection()).thenReturn(connection);
+        when(connection.getAutoCommit()).thenReturn(true);
+        DataSourceTransactionManager transactionManager = new DataSourceTransactionManager(dataSource);
         authorizationRequestRepository = new FakeOauthAuthorizationRequestRepository();
         clientRepository = new FakeOauthClientRepository();
         publicClient = new OauthClient(
@@ -74,6 +86,7 @@ class OauthTokenServiceTest {
         refreshTokenService = new AgentRefreshTokenService(
                 refreshTokenRepository, mock(AgentRefreshTokenBreachService.class),
                 Clock.fixed(BASE_INSTANT, ZoneOffset.UTC));
+        refreshTokenService = transactionalProxy(refreshTokenService, transactionManager);
         assertionValidator = mock(ClientAssertionValidator.class);
         userRepository = mock(UserRepository.class);
         AgentJwtIssuer jwtIssuer = new AgentJwtIssuer(
@@ -85,6 +98,29 @@ class OauthTokenServiceTest {
                 authorizationRequestRepository, clientRepository, connectionRepository, refreshTokenService,
                 jwtIssuer, new AgentOauthProperties(ISSUER, MCP_AUDIENCE), assertionValidator, userRepository,
                 new BCryptPasswordEncoder(10), new ObjectMapper(), Clock.fixed(BASE_INSTANT, ZoneOffset.UTC));
+        service = transactionalProxy(service, transactionManager);
+    }
+
+    private static <T> T transactionalProxy(T target, DataSourceTransactionManager transactionManager) {
+        TransactionInterceptor interceptor = new TransactionInterceptor();
+        interceptor.setTransactionManager(transactionManager);
+        interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
+        ProxyFactory factory = new ProxyFactory(target);
+        factory.setProxyTargetClass(true);
+        factory.addAdvice(interceptor);
+        @SuppressWarnings("unchecked")
+        T proxy = (T) factory.getProxy();
+        return proxy;
+    }
+
+    @Test
+    @DisplayName("알 수 없는 refresh token은 Spring 트랜잭션 경계를 거쳐도 invalid_grant다")
+    void handle_refreshTokenUnknown_returnsInvalidGrant() {
+        TokenResult result = service.handle(new TokenRequestParams(
+                "refresh_token", null, null, "chatgpt-plugin", null, null, "unknown-test-token", null, null, null));
+
+        TokenResult.Error error = assertInstanceOf(TokenResult.Error.class, result);
+        assertEquals("invalid_grant", error.error());
     }
 
     @Test
