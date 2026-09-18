@@ -124,6 +124,29 @@ class CatalogSeedFilesTest {
     }
 
     @Test
+    @DisplayName("세 몰이 풀 전량을 똑같이 취급한다")
+    void seedFiles_everyMallCarriesWholePool() {
+        // given & when & then 428 이전에는 몰마다 취급 상품을 갈라 검색 결과가 몰마다 달랐다
+        for (String mall : MALLS) {
+            assertEquals(POOL_SIZE, load(mall).size(), mall + " 상품 수");
+        }
+    }
+
+    @Test
+    @DisplayName("고를 옵션이 둘 이상인 상품이 절반을 넘는다")
+    void seedFiles_mostProductsHaveSelectableOptions() {
+        // given & when
+        List<CatalogSeed.Entry> entries = load("merchant-a");
+        long selectable = entries.stream()
+                .filter(entry -> MAPPER.readTree(entry.variantsJson()).size() >= 2)
+                .count();
+
+        // then 원본에 옵션이 없는 상품은 카테고리를 보고 색상·사이즈를 합성한다(428)
+        assertTrue(selectable * 2 > entries.size(),
+                "옵션 둘 이상인 상품 " + selectable + "건 / " + entries.size() + "건");
+    }
+
+    @Test
     @DisplayName("풀 1,408건이 전부 최소 한 몰에 있다")
     void seedFiles_coverWholePool() {
         // given & when

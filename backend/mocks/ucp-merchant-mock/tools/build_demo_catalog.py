@@ -42,8 +42,12 @@ MALLS = {
     "merchant-c": "별빛몰",
 }
 
-# 몰마다 다른 것 셋의 기준값. 전부 u(key) 와 비교하거나 곱한다.
-CARRY_RATIO = 0.78          # 이 값보다 u 가 작으면 그 몰이 그 상품을 취급한다. 몰당 약 1,100건
+# 몰마다 다른 것의 기준값. 전부 u(key) 와 비교하거나 곱한다.
+#
+# 428 에서 취급 여부를 빼고 가격·재고만 남겼다. 그전에는 몰마다 취급 상품을 갈라 세 몰 공통이
+# 1,408건 중 689건뿐이었고, 그래서 같은 검색어에 몰마다 다른 결과가 나왔다. 가격 비교를 보이려면
+# 세 몰이 같은 상품을 갖고 가격만 달라야 한다.
+CARRY_RATIO = 1.0           # 이 값보다 u 가 작으면 그 몰이 그 상품을 취급한다. 1.0 이면 세 몰이 전량을 취급한다(428)
 PRICE_MIN_FACTOR = 0.90     # 가격 배율 범위. -10% ~ +10%
 PRICE_SPAN = 0.20
 SOLD_OUT_RATIO = 0.05       # 이 값보다 u 가 작으면 그 몰에서 그 상품은 품절
@@ -88,7 +92,10 @@ def price_factor(external_id, mall):
 
 
 def carrying_malls(external_id):
-    """이 상품을 취급하는 몰 목록. 어느 몰에도 없으면 u 가 가장 작은 몰에 넣어 풀 전량이 어딘가엔 있게 한다."""
+    """이 상품을 취급하는 몰 목록. CARRY_RATIO 가 1.0 이면 전부다(428).
+
+    상수만 낮추면 몰마다 취급을 다시 가를 수 있게 해시 비교는 남겨 둔다.
+    """
     scores = {mall: u(external_id, mall, "carry") for mall in MALLS}
     carrying = [mall for mall, score in scores.items() if score < CARRY_RATIO]
     if not carrying:
@@ -96,7 +103,119 @@ def carrying_malls(external_id):
     return carrying
 
 
-def build_variants(external_id, base_price, raw_variants, factor, unit, sold_out, max_variants):
+# 옵션을 합성할 카테고리(428). category_path 에 이 낱말이 있으면 그 축을 만든다.
+#
+# 원본 sqlite 의 옵션 재료는 셋인데 쓸 수 있는 것은 colors_json 하나다. sizes_json 은 신발에도 "M" 이
+# 들어 있어 신발 사이즈로 못 쓰고, capacities_json 은 저장용량·RAM·무게가 한 배열에 섞여 있어
+# ("512GB", "12GB", "204g") 그대로 옵션으로 만들면 무게를 고르는 상품이 된다. 그래서 색상은 원본을 쓰고
+# 사이즈는 카테고리를 보고 합성한다. 용량 축은 만들지 않는다 — 제목에 이미 들어 있다.
+SHOE_CATEGORIES = ("스포츠화", "운동화", "러닝화", "신발", "슈즈", "부츠", "샌들")
+APPAREL_CATEGORIES = ("의류", "스포츠웨어", "양말", "장갑", "이너웨어", "티셔츠")
+SHOE_SIZES = ("250", "260", "270", "280")
+APPAREL_SIZES = ("S", "M", "L")
+
+# 색이 실제로 갈리는 카테고리만 색상을 합성한다. 세탁기·정수기 색을 지어내면 시연에서 더 어색하다.
+DIGITAL_CATEGORIES = ("휴대폰", "태블릿", "노트북", "웨어러블", "이어폰", "헤드셋", "헤드폰")
+GOODS_CATEGORIES = ("여행가방", "가방", "의자", "파우치", "지갑")
+DIGITAL_COLORS = ("블랙", "화이트", "실버")
+GOODS_COLORS = ("블랙", "베이지", "네이비")
+
+
+def has(category, keywords):
+    return any(keyword in category for keyword in keywords)
+
+
+def color_axis(category, source_colors):
+    """색상 값들. 원본을 먼저 쓰고, 색이 갈리는 카테고리인데 값이 하나뿐이면 팔레트로 채운다.
+
+    원본 색상이 하나뿐인 상품이 많다. 그대로 두면 "색상: 블루" 하나짜리 옵션이 되어 고를 것이 없다.
+    팔레트 색을 덧붙이는 것은 몰별 가격을 ±10% 로 흔드는 것과 같은 종류의 각색이다(ADR 0007).
+    색이 갈리지 않는 카테고리(세탁기·정수기)는 원본이 있든 없든 채우지 않는다.
+    """
+    # 원본에 ["BLACK", "Black"] 처럼 대소문자만 다른 같은 색이 들어 있다. 그대로 두면 같은 옵션이
+    # 두 줄이 되고 SKU 도 겹친다(danawa:17790299 에서 잡혔다). 먼저 온 표기를 남긴다.
+    colors = []
+    seen = set()
+    for color in source_colors:
+        value = str(color)[:40]
+        if value.casefold() in seen:
+            continue
+        seen.add(value.casefold())
+        colors.append(value)
+    if has(category, DIGITAL_CATEGORIES) or has(category, SHOE_CATEGORIES):
+        palette = DIGITAL_COLORS
+    elif has(category, GOODS_CATEGORIES):
+        palette = GOODS_COLORS
+    else:
+        return colors
+    for color in palette:
+        if len(colors) >= len(palette):
+            break
+        if color not in colors:
+            colors.append(color)
+    return colors
+
+
+def size_axis(category):
+    if has(category, SHOE_CATEGORIES):
+        return list(SHOE_SIZES)
+    if has(category, APPAREL_CATEGORIES):
+        return list(APPAREL_SIZES)
+    return []
+
+
+def slug(axis_initial, index, value):
+    """SKU 조각. 영숫자면 그대로 쓰고 한글이면 축 머리글자 + 순번이다."""
+    return value.lower() if value.isascii() and value.isalnum() else f"{axis_initial}{index + 1}"
+
+
+def synthesize_variants(external_id, category, source_colors, sold_out, max_variants):
+    """원본에 옵션이 없는 상품의 옵션을 만든다(428). 만들 재료가 없으면 빈 목록이다.
+
+    축은 색상과 사이즈 둘뿐이고 조합은 색상 × 사이즈다. 조합 수가 상한을 넘으면 사이즈를 다 살리고
+    색상을 줄인다 — 사이즈가 빠진 신발보다 색이 두 가지인 신발이 낫다.
+
+    priceDelta 는 전부 0 이다. 몰별 가격 차이는 이미 지어내고 있고 옵션 추가금까지 지어내지 않는다.
+    """
+    colors = color_axis(category, source_colors)
+    sizes = size_axis(category)
+    if not colors and not sizes:
+        return []
+    if colors and sizes and len(colors) * len(sizes) > max_variants:
+        colors = colors[:max(max_variants // len(sizes), 1)]
+
+    if colors and sizes:
+        option_name = "색상/사이즈"
+        combos = [([color, size], [slug("c", ci, color), slug("s", si, size)])
+                  for ci, color in enumerate(colors) for si, size in enumerate(sizes)]
+    elif colors:
+        option_name = "색상"
+        combos = [([color], [slug("c", ci, color)]) for ci, color in enumerate(colors)]
+    else:
+        option_name = "사이즈"
+        combos = [([size], [slug("s", si, size)]) for si, size in enumerate(sizes)]
+
+    variants = []
+    skus = set()
+    for values, parts in combos[:max_variants]:
+        sku = external_id + "-" + "-".join(parts)
+        if sku in skus:
+            # 값이 달라도 슬러그가 겹칠 수 있다. 순번을 붙여 파일 안에서 유일하게 만든다.
+            sku = f"{sku}-{len(skus) + 1}"
+        skus.add(sku)
+        variants.append({
+            "sku": sku,
+            "optionName": option_name,
+            "optionValue": " / ".join(values),
+            "priceDelta": 0,
+            "stock": STOCK_OUT if sold_out else STOCK_IN,
+            "status": "ACTIVE",
+        })
+    return variants
+
+
+def build_variants(external_id, base_price, raw_variants, factor, unit, sold_out, max_variants,
+                   category="", source_colors=()):
     """원본 variant 를 products.variants_json 구조로 바꾼다.
 
     priceDelta 는 절대가가 아니라 base_price 와의 차액이다. 이걸 절대가로 넣으면
@@ -104,7 +223,11 @@ def build_variants(external_id, base_price, raw_variants, factor, unit, sold_out
     기본가만 낮추고 차액은 그대로 두면 몰마다 옵션 비율이 어긋난다.
     """
     if not raw_variants:
-        # 옵션 없는 상품(다나와·다이소 전부). 단일 옵션을 합성한다. V3 의 product-104 와 같은 모양이다.
+        # 원본에 옵션이 없는 상품(다나와·다이소 전부). 카테고리를 보고 색상·사이즈를 합성한다(428).
+        synthesized = synthesize_variants(external_id, category, source_colors, sold_out, max_variants)
+        if synthesized:
+            return synthesized
+        # 재료가 없으면 단일 옵션이다. V3 의 product-104 와 같은 모양이다.
         return [{
             "sku": f"{external_id}-default",
             "optionName": "option",
@@ -147,21 +270,25 @@ def build_variants(external_id, base_price, raw_variants, factor, unit, sold_out
             "stock": STOCK_OUT if out_of_stock else STOCK_IN,
             "status": "ACTIVE",
         })
-    return variants or build_variants(external_id, base_price, None, factor, unit, sold_out, max_variants)
+    return variants or build_variants(external_id, base_price, None, factor, unit, sold_out, max_variants,
+                                      category, source_colors)
 
 
 def load_rows(sqlite_path):
     connection = sqlite3.connect(sqlite_path)
     query = """
-        SELECT product_id, source_code, name, primary_image_url, sale_price, variants_json
+        SELECT product_id, source_code, name, primary_image_url, sale_price, variants_json,
+               category_path, colors_json
           FROM clean_catalog
          ORDER BY product_id
     """
     rows = []
-    for product_id, source, name, image, price, variants_json in connection.execute(query):
+    for (product_id, source, name, image, price, variants_json,
+            category_path, colors_json) in connection.execute(query):
         if not (product_id and name and image and price):
             continue
         raw = json.loads(variants_json) if variants_json and variants_json not in ("[]", "null") else []
+        colors = json.loads(colors_json) if colors_json and colors_json not in ("[]", "null") else []
         rows.append({
             "source": source,
             "product_id": product_id,
@@ -169,6 +296,8 @@ def load_rows(sqlite_path):
             "image": image,
             "price": price,
             "raw_variants": raw,
+            "category": category_path or "",
+            "colors": [color for color in colors if str(color).strip()],
         })
     connection.close()
     return rows
@@ -189,7 +318,8 @@ def to_product(row, mall, max_variants):
         "currency": "KRW",
         "status": "ACTIVE",
         "variants": build_variants(
-            external_id, row["price"], row["raw_variants"], factor, unit, sold_out, max_variants),
+            external_id, row["price"], row["raw_variants"], factor, unit, sold_out, max_variants,
+            row["category"], row["colors"]),
     }
 
 
@@ -216,7 +346,8 @@ def main():
         document = {
             "mall": mall,
             "mallName": mall_name,
-            "source": "NomaDamas/k-skill · korean_products_clean.sqlite · 결정적 해시로 몰별 취급·가격·재고를 가름",
+            "source": "NomaDamas/k-skill · korean_products_clean.sqlite · 세 몰이 전량을 취급하고 "
+                      "결정적 해시로 몰별 가격·재고를 가름",
             "count": len(products),
             "products": products,
         }

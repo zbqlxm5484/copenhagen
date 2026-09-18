@@ -29,12 +29,20 @@ public final class CatalogMessages {
     public record ItemsResponse(List<Item> items) {
     }
 
-    public record Item(String productId, String title, Price price, String availability) {
+    /**
+     * 검색·일괄 조회의 항목. {@code imageUrl} 은 2026-09-18 에 추가했다(428).
+     *
+     * <p>그전에는 내 응답에 이미지가 아예 없었다. {@code products.image_url} 은 채워져 있는데 싣지 않아
+     * Agent 와 앱이 상품 그림을 못 받았다. 필드 추가라 옛 소비자는 그대로 돈다.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record Item(String productId, String title, String imageUrl, Price price, String availability) {
 
         static Item of(Product product) {
             return new Item(
                     product.externalId(),
                     product.title(),
+                    product.imageUrl(),
                     new Price(product.displayPrice(), product.currency()),
                     product.availability());
         }
@@ -47,6 +55,7 @@ public final class CatalogMessages {
     public record ProductDetail(
             String productId,
             String title,
+            String imageUrl,
             String description,
             Price price,
             List<Option> options,
@@ -56,6 +65,7 @@ public final class CatalogMessages {
             return new ProductDetail(
                     product.externalId(),
                     product.title(),
+                    product.imageUrl(),
                     product.description(),
                     new Price(product.displayPrice(), product.currency()),
                     Option.from(product),

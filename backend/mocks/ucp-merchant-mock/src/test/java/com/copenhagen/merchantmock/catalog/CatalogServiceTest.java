@@ -51,6 +51,20 @@ class CatalogServiceTest {
     }
 
     @Test
+    @DisplayName("검색과 상세 응답에 상품 이미지가 실린다")
+    void search_and_product_includeImageUrl() {
+        // given & when
+        CatalogMessages.ItemsResponse response = service.search("merchant-a",
+                new CatalogMessages.SearchRequest("러닝화", null));
+        CatalogMessages.ProductDetail detail = service.product("merchant-a",
+                new CatalogMessages.ProductRequest("product-101"));
+
+        // then 428 이전에는 두 응답 어디에도 이미지가 없어 Agent 가 그림을 못 받았다
+        assertEquals("https://cdn.example.test/product-101.jpg", response.items().get(0).imageUrl());
+        assertEquals("https://cdn.example.test/product-101.jpg", detail.imageUrl());
+    }
+
+    @Test
     @DisplayName("빈 검색어는 판매 중인 상품을 전부 돌려준다")
     void search_blankQuery_returnsAllActiveProducts() {
         // given & when
