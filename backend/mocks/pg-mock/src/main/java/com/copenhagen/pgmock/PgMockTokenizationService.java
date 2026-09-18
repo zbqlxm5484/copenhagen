@@ -146,8 +146,19 @@ public class PgMockTokenizationService {
     }
 
     private void requireIdempotencyKey(String idempotencyKey) {
-        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 255) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            throw new MissingIdempotencyKeyException();
+        }
+        if (!isUuid(idempotencyKey)) {
             throw new InvalidIdempotencyKeyException();
+        }
+    }
+
+    private boolean isUuid(String value) {
+        try {
+            return UUID.fromString(value).toString().equalsIgnoreCase(value);
+        } catch (IllegalArgumentException exception) {
+            return false;
         }
     }
 
@@ -197,6 +208,11 @@ public class PgMockTokenizationService {
     }
 
     public static class InvalidIdempotencyKeyException extends RuntimeException {
+
+        private static final long serialVersionUID = 1L;
+    }
+
+    public static class MissingIdempotencyKeyException extends RuntimeException {
 
         private static final long serialVersionUID = 1L;
     }

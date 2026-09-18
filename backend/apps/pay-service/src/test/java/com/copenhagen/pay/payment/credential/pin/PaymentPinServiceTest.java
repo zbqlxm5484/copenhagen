@@ -21,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 class PaymentPinServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-09-09T00:00:00Z");
+    private static final String IDEMPOTENCY_KEY = "550e8400-e29b-41d4-a716-446655440500";
 
     private InMemoryPaymentPinCredentialRepository repository;
     private PasswordEncoder passwordEncoder;
@@ -169,21 +170,21 @@ class PaymentPinServiceTest {
 
     @Test
     void registerReusesSuccessfulResultForSameIdempotencyKeyAndRequest() {
-        service.register("user-001", "123456", "request-001", "hash-001");
+        service.register("user-001", "123456", IDEMPOTENCY_KEY, "hash-001");
 
-        service.register("user-001", "123456", "request-001", "hash-001");
+        service.register("user-001", "123456", IDEMPOTENCY_KEY, "hash-001");
 
-        assertEquals("request-001", repository.credential().orElseThrow().registrationIdempotencyKey());
+        assertEquals(IDEMPOTENCY_KEY, repository.credential().orElseThrow().registrationIdempotencyKey());
         assertEquals("hash-001", repository.credential().orElseThrow().registrationRequestHash());
     }
 
     @Test
     void registerRejectsSameIdempotencyKeyWithDifferentRequest() {
-        service.register("user-001", "123456", "request-001", "hash-001");
+        service.register("user-001", "123456", IDEMPOTENCY_KEY, "hash-001");
 
         PayException exception = assertThrows(
                 PayException.class,
-                () -> service.register("user-001", "123456", "request-001", "hash-002"));
+                () -> service.register("user-001", "123456", IDEMPOTENCY_KEY, "hash-002"));
 
         assertEquals(PayErrorCode.IDEMPOTENCY_CONFLICT, exception.errorCode());
     }

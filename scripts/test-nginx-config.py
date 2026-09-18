@@ -173,13 +173,13 @@ COPY www /var/www/certbot
                 payload = {'probe': 'nginx-routing', 'nested': {'value': 414}}
                 body, status, _ = request(f'{scheme}://{host}{path}', 'POST', json.dumps(payload),
                                           ('Content-Type: application/json',
-                                           'Idempotency-Key: nginx-routing-fixture',
+                                           'Idempotency-Key: 550e8400-e29b-41d4-a716-446655440400',
                                            'X-Forwarded-For: 192.0.2.10'))
                 assert status == 200, (scheme, path, status)
                 data = json.loads(body)
                 assert data == dict(data, uri=path, method='POST', proto=scheme, backend='pg-mock',
                                     host=host, content_type='application/json', body=payload,
-                                    idempotency_key='nginx-routing-fixture'), (scheme, data)
+                                    idempotency_key='550e8400-e29b-41d4-a716-446655440400'), (scheme, data)
                 assert data['forwarded_for'].startswith('192.0.2.10, '), data
                 assert len(data['request_id']) == 32 and all(c in '0123456789abcdef' for c in data['request_id']), data
             print('PASS HTTP/TLS routes, methods, query strings, forwarded protocol and internal blocking', flush=True)

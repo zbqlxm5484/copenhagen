@@ -2,6 +2,7 @@ package com.copenhagen.pay.payment.payment;
 
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
+import com.copenhagen.pay.common.idempotency.IdempotencyKey;
 import com.copenhagen.pay.common.observability.PayLogContext;
 import com.copenhagen.pay.common.validation.RequestValidation;
 import com.copenhagen.pay.payment.credential.mandate.CreatedPayment;
@@ -17,7 +18,6 @@ import org.springframework.stereotype.Service;
 @Service
 public class MerchantPaymentService {
 
-    private static final String IDEMPOTENCY_PREFIX = "merchant-payment-";
     private static final String KRW = "KRW";
     private static final Logger log = LoggerFactory.getLogger(MerchantPaymentService.class);
 
@@ -96,13 +96,8 @@ public class MerchantPaymentService {
                     "CHECK_PAYMENT_AMOUNT");
         }
 
-        String expectedKey = IDEMPOTENCY_PREFIX + command.credentialId();
-        if (!expectedKey.equals(command.idempotencyKey())) {
-            throw new PayException(
-                    PayErrorCode.INVALID_REQUEST,
-                    "Merchant 결제 멱등성 키 형식이 올바르지 않습니다.",
-                    null,
-                    "CHECK_IDEMPOTENCY_KEY");
+        if (!IdempotencyKey.isUuid(command.idempotencyKey())) {
+            throw new PayException(PayErrorCode.IDEMPOTENCY_KEY_INVALID);
         }
     }
 

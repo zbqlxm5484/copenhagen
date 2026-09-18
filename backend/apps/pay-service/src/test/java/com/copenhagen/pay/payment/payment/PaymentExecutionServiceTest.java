@@ -26,7 +26,7 @@ class PaymentExecutionServiceTest {
     private static final Instant NOW = Instant.parse("2026-09-10T00:00:00Z");
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
     private static final String PAYMENT_ID = "payment-1";
-    private static final String IDEMPOTENCY_KEY = "merchant-payment-1";
+    private static final String IDEMPOTENCY_KEY = "550e8400-e29b-41d4-a716-446655440203";
     private static final String REQUEST_HASH = "request-hash-1";
 
     private InMemoryPaymentExecutionRepository executionRepository;

@@ -1,6 +1,8 @@
 package com.copenhagen.core.payment;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.UUID;
 
 import com.copenhagen.core.checkout.MerchantCheckoutMessages.Checkout;
 import com.copenhagen.core.payment.PaymentApprovalMessages.CreateApprovalRequest;
@@ -13,8 +15,12 @@ public final class PaymentApprovalRequests {
     private PaymentApprovalRequests() {
     }
 
+    /** Pay는 상태 변경 경계에서 UUID가 아닌 키를 거절하므로 이름 기반 UUID로 만든다(pay-idempotency.md). */
     public static String idempotencyKey(String purchaseRequestId, String merchantId) {
-        return "payment-approval-create-" + purchaseRequestId + "-" + merchantId;
+        return UUID.nameUUIDFromBytes(
+                ("copenhagen-pay-approval:" + purchaseRequestId + ":" + merchantId)
+                        .getBytes(StandardCharsets.UTF_8))
+                .toString();
     }
 
     public static CreateApprovalRequest create(String purchaseRequestId, String userId, String merchantId,

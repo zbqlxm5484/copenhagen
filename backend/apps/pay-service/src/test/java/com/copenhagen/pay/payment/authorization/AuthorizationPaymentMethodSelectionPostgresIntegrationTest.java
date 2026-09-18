@@ -131,7 +131,7 @@ class AuthorizationPaymentMethodSelectionPostgresIntegrationTest {
         AuthorizationSessionService service = context.getBean(AuthorizationSessionService.class);
         AuthorizationSession before = service.create(
                         command("00000000-0000-0000-0000-000000000005"),
-                        "approval-selection-001",
+                        "550e8400-e29b-41d4-a716-446655440502",
                         repeat('a', 64))
                 .session();
         String paymentMethodId = "00000000-0000-0000-0000-000000000101";

@@ -56,7 +56,7 @@ class MerchantPaymentServiceTest {
         verify(credentialService).consume(any(PaymentCredentialConsumptionService.ConsumeCommand.class));
         verify(executionService).execute(new PaymentExecutionCommand(
                 payment.id(),
-                "merchant-payment-credential-001",
+                "550e8400-e29b-41d4-a716-446655440200",
                 "request-hash"));
     }
 
@@ -84,7 +84,7 @@ class MerchantPaymentServiceTest {
     }
 
     @Test
-    void enforcesCredentialBasedMerchantIdempotencyKey() {
+    void enforcesUuidMerchantIdempotencyKey() {
         MerchantPaymentService service = new MerchantPaymentService(
                 org.mockito.Mockito.mock(MerchantAccountRepository.class),
                 org.mockito.Mockito.mock(PaymentCredentialConsumptionService.class),
@@ -96,14 +96,14 @@ class MerchantPaymentServiceTest {
                 87000,
                 "KRW",
                 "credential-001",
-                "different-key",
+                "not-a-uuid",
                 "request-hash");
 
         PayException exception = assertThrows(
                 PayException.class,
                 () -> service.create(invalid));
 
-        assertEquals(PayErrorCode.INVALID_REQUEST, exception.errorCode());
+        assertEquals(PayErrorCode.IDEMPOTENCY_KEY_INVALID, exception.errorCode());
     }
 
     private MerchantPaymentService.CreateCommand command() {
@@ -114,7 +114,7 @@ class MerchantPaymentServiceTest {
                 87000,
                 "KRW",
                 "credential-001",
-                "merchant-payment-credential-001",
+                "550e8400-e29b-41d4-a716-446655440200",
                 "request-hash");
     }
 
@@ -128,7 +128,7 @@ class MerchantPaymentServiceTest {
                 87000,
                 "KRW",
                 PaymentStatus.READY,
-                "merchant-payment-credential-001",
+                "550e8400-e29b-41d4-a716-446655440200",
                 "request-hash");
     }
 }

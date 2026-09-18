@@ -67,7 +67,7 @@ class MerchantPaymentPostgresIntegrationTest {
     private static final String CHECKOUT_ID = "checkout-123";
     private static final String DIGEST = "0".repeat(64);
     private static final long AMOUNT_MINOR = 87000;
-    private static final String IDEMPOTENCY_KEY = "merchant-payment-" + CREDENTIAL_ID;
+    private static final String IDEMPOTENCY_KEY = "550e8400-e29b-41d4-a716-446655440202";
     private static final String REQUEST_HASH = "a".repeat(64);
 
     private EmbeddedPostgres postgres;

@@ -23,6 +23,15 @@ class PgMockTokenizationControllerTest {
     private static final Clock CLOCK = Clock.fixed(
             Instant.parse("2026-09-16T00:00:00Z"),
             ZoneOffset.UTC);
+    private static final String KEY_1 = "550e8400-e29b-41d4-a716-446655440301";
+    private static final String KEY_2 = "550e8400-e29b-41d4-a716-446655440302";
+    private static final String KEY_3 = "550e8400-e29b-41d4-a716-446655440303";
+    private static final String KEY_4 = "550e8400-e29b-41d4-a716-446655440304";
+    private static final String KEY_5 = "550e8400-e29b-41d4-a716-446655440305";
+    private static final String KEY_6 = "550e8400-e29b-41d4-a716-446655440306";
+    private static final String KEY_7 = "550e8400-e29b-41d4-a716-446655440307";
+    private static final String KEY_8 = "550e8400-e29b-41d4-a716-446655440308";
+    private static final String KEY_9 = "550e8400-e29b-41d4-a716-446655440309";
 
     @Test
     void tokenizationEndpointUsesPublicApiPath() {
@@ -39,7 +48,7 @@ class PgMockTokenizationControllerTest {
     void tokenize_withFirstCardPassword_returnsProviderToken() {
         PgMockTokenizationController controller = controller();
 
-        var response = controller.tokenize("tokenize-1", request("1234"));
+        var response = controller.tokenize(KEY_1, request("1234"));
 
         assertEquals(200, response.getStatusCode().value());
         TokenizationResponse body = (TokenizationResponse) response.getBody();
@@ -56,7 +65,7 @@ class PgMockTokenizationControllerTest {
     void tokenize_withoutCardPassword_isAcceptedForLaterCardRegistration() {
         PgMockTokenizationController controller = controller();
 
-        var response = controller.tokenize("tokenize-2", request(null));
+        var response = controller.tokenize(KEY_2, request(null));
 
         assertEquals(200, response.getStatusCode().value());
         assertNotNull(response.getBody());
@@ -72,7 +81,7 @@ class PgMockTokenizationControllerTest {
                 "123",
                 "1234");
 
-        var response = controller.tokenize("tokenize-3", invalid);
+        var response = controller.tokenize(KEY_3, invalid);
 
         assertEquals(400, response.getStatusCode().value());
         assertEquals(
@@ -84,7 +93,7 @@ class PgMockTokenizationControllerTest {
     void tokenize_withInvalidCardPassword_returnsBadRequest() {
         PgMockTokenizationController controller = controller();
 
-        var response = controller.tokenize("tokenize-4", request("123"));
+        var response = controller.tokenize(KEY_4, request("123"));
 
         assertEquals(400, response.getStatusCode().value());
     }
@@ -99,7 +108,7 @@ class PgMockTokenizationControllerTest {
                 "123",
                 null);
 
-        var response = controller.tokenize("tokenize-5", expired);
+        var response = controller.tokenize(KEY_5, expired);
 
         assertEquals(400, response.getStatusCode().value());
     }
@@ -110,10 +119,10 @@ class PgMockTokenizationControllerTest {
         TokenizationRequest request = request("1234");
 
         TokenizationResponse first = (TokenizationResponse) controller
-                .tokenize("tokenize-6", request)
+                .tokenize(KEY_6, request)
                 .getBody();
         TokenizationResponse replay = (TokenizationResponse) controller
-                .tokenize("tokenize-6", request)
+                .tokenize(KEY_6, request)
                 .getBody();
 
         assertEquals(first, replay);
@@ -122,10 +131,10 @@ class PgMockTokenizationControllerTest {
     @Test
     void tokenize_sameKeyAndDifferentRequest_returnsConflict() {
         PgMockTokenizationController controller = controller();
-        controller.tokenize("tokenize-7", request("1234"));
+        controller.tokenize(KEY_7, request("1234"));
 
         var response = controller.tokenize(
-                "tokenize-7",
+                KEY_7,
                 new TokenizationRequest("4242424242424242", 12, 2030, "123", null));
 
         assertEquals(409, response.getStatusCode().value());
@@ -149,12 +158,26 @@ class PgMockTokenizationControllerTest {
     }
 
     @Test
+    void tokenize_withPrefixedIdempotencyKey_returnsInvalidKey() {
+        var response = controller().tokenize(
+                "tokenize-550e8400-e29b-41d4-a716-446655440310",
+                request("1234"));
+
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals(
+                new ErrorResponse(
+                        "IDEMPOTENCY_KEY_INVALID",
+                        "Idempotency-Key는 UUID 형식이어야 합니다."),
+                response.getBody());
+    }
+
+    @Test
     void tokenize_concurrentSameRequest_createsOneTokenizationResult() {
         PgMockTokenizationController controller = controller();
 
         List<TokenizationResponse> responses = IntStream.range(0, 16)
                 .parallel()
-                .mapToObj(index -> controller.tokenize("tokenize-8", request("1234")))
+                .mapToObj(index -> controller.tokenize(KEY_8, request("1234")))
                 .map(response -> (TokenizationResponse) response.getBody())
                 .toList();
 
@@ -166,7 +189,7 @@ class PgMockTokenizationControllerTest {
     void toString_redactsCardSecretsAndProviderToken() {
         TokenizationRequest request = request("1234");
         TokenizationResponse response = (TokenizationResponse) controller()
-                .tokenize("tokenize-9", request)
+                .tokenize(KEY_9, request)
                 .getBody();
 
         assertFalse(request.toString().contains(request.cardNumber()));

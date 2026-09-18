@@ -1,14 +1,16 @@
 package com.copenhagen.merchantmock.paymenthandler;
 
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Pay 에 보내는 결제 청구 한 건. 본문 모양은 Pay 의 {@code MerchantPaymentController.PaymentRequest} 가
  * 정했다(DESIGN.md 19.5절).
  *
- * <p>멱등 키는 저장하지 않고 여기서 계산한다. {@code merchant-payment-{credentialId}} 다(DESIGN.md 8.2절).
- * Credential 이 승인 한 건마다 새로 발급되므로 타임아웃 재시도는 같은 키, 재승인은 새 키가 된다.
+ * <p>멱등 키는 저장하지 않고 Credential 식별자로부터 결정적으로 계산한 UUID다. Credential 이 승인 한 건마다
+ * 새로 발급되므로 타임아웃 재시도는 같은 UUID, 재승인은 새 UUID가 된다.
  */
 public record PaymentRequest(
         String merchantId,
@@ -18,7 +20,7 @@ public record PaymentRequest(
         String currency,
         String credentialId) {
 
-    static final String IDEMPOTENCY_KEY_PREFIX = "merchant-payment-";
+    private static final String IDEMPOTENCY_KEY_NAMESPACE = "copenhagen-merchant-payment:";
 
     public PaymentRequest {
         requireText(merchantId, "merchantId");
@@ -32,7 +34,8 @@ public record PaymentRequest(
     }
 
     public String idempotencyKey() {
-        return IDEMPOTENCY_KEY_PREFIX + credentialId;
+        return UUID.nameUUIDFromBytes(
+                (IDEMPOTENCY_KEY_NAMESPACE + credentialId).getBytes(StandardCharsets.UTF_8)).toString();
     }
 
     /** JSON 본문. 키 순서는 Pay 컨트롤러의 record 순서와 같다. 읽는 사람이 대조하기 쉽게 하기 위한 것이다. */
