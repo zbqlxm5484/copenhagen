@@ -4,9 +4,11 @@ import { amount, payload, variantLabel } from './live-state.js';
 import { availability } from './catalog.js';
 import { purchaseProgress } from './purchase-progress.js';
 import { createHostSizing } from './host-sizing.js';
-import { actionMessage, actionSession, createCartPreparation, isCartWrite, viewAccepts } from './commerce-actions.js';
+import { actionMessage, actionLabel, actionSession, createCartPreparation, isCartWrite, viewAccepts } from './commerce-actions.js';
+import { sortedOffers } from './offer-selection.js';
 import { createReadCoalescer, liveTimedCall, requestTimeout } from './live-requests.js';
 import { measuredCall, requestDiagnostics } from './request-diagnostics.js';
+import { createCardProgress, createActionGate, awaitDelivery } from './card-progress.js';
 
 const $ = id => document.getElementById(id);
 const el = (tag, text, cls) => { const n = document.createElement(tag); if (text != null) n.textContent = text; if (cls) n.className = cls; return n; };
@@ -19,10 +21,24 @@ const session = actionSession(window.openai?.widgetState?.commercePending,
 const coalesce = createReadCoalescer();
 const cartPreparation = createCartPreparation(() => read('prepare_cart', {}, 'cart.view'));
 window.copenhagenDiagnostics = requestDiagnostics;
-const status = text => { $('status').textContent = text; sizing.notify(); };
+const progress = createCardProgress(({ phase, text }) => {
+  $('status').dataset.phase = phase;
+  $('status').textContent = text;
+  $('status').hidden = !text;
+  sizing.notify();
+});
+const status = text => progress.show(text ? 'notice' : 'idle', text);
+const gate = createActionGate();
 const button = (label, fn, secondary = false) => { const n = el('button', label, secondary ? 'secondary' : ''); n.onclick = async () => {
-  if (sending) return; n.disabled = true;
-  try { await fn(); } catch (e) { status(e.authRequired ? '연결 또는 권한 동의를 완료한 뒤 다시 눌러주세요. 선택한 옵션과 수량은 유지됩니다.' : e.message); recovery(); } finally { n.disabled = false; }
+  await gate.run(async () => {
+    const enabled = [...document.querySelectorAll('button,input,select')].filter(control => !control.disabled);
+    enabled.forEach(control => { control.disabled = true; });
+    try { await fn(); } catch (e) {
+      progress.show(e.authRequired ? 'authorization' : 'error', e.authRequired
+        ? '연결 또는 권한 동의를 완료해주세요. 선택한 옵션과 수량은 유지됩니다.'
+        : e.code === 'UI_TIMEOUT' ? '권한 확인이 지연되고 있어요. 동의 창을 확인해주세요. 선택 정보는 유지됩니다.' : e.message);
+    } finally { enabled.forEach(control => { if (control.isConnected) control.disabled = false; }); }
+  });
 }; return n; };
 const sizing = createHostSizing({ getApp: () => ready ? app : null,
   getDisplayState: () => ({ mode: 'inline', confirmed: true }),
@@ -39,32 +55,25 @@ async function read(name, args, kind) {
 }
 async function deliver(intent) {
   if (sending) return;
-  sending = true; status('새 결과 카드를 요청하고 있어요.');
+  sending = true;
+  const token = progress.begin('sending', '새 결과 카드를 요청하고 있어요.', '요청 전달이 늦어지고 있어요. 대화의 후속 결과를 기다려주세요.');
   const prompt = actionMessage(intent.tool, intent.args);
   try {
     let result;
-    if (ready) result = await app.sendMessage({ role: 'user', content: [{ type: 'text', text: prompt }] });
-    else if (typeof window.openai?.sendFollowUpMessage === 'function') result = await window.openai.sendFollowUpMessage({ prompt });
-    else {
-      const text = el('textarea', null, 'action-fallback'); text.readOnly = true; text.value = prompt;
-      text.setAttribute('aria-label', '새 카드 요청 메시지'); $('actions').replaceChildren(text);
-      throw new Error('이 호스트는 새 대화 요청을 지원하지 않습니다. 아래 메시지를 채팅에 붙여넣어주세요.');
-    }
-    if (result?.isError) throw new Error('요청 전달 결과를 확인하지 못했습니다. 같은 요청으로 다시 전달해주세요.');
-    status('요청을 전달했어요. 대화에 표시되는 새 결과 카드를 확인해주세요.');
-  } finally { sending = false; recovery(); }
+    if (!ready || typeof app.updateModelContext !== 'function') throw new Error('연결을 확인한 뒤 다시 눌러주세요. 이 환경에서는 채팅으로 상품을 선택할 수 있어요.');
+    const context = await awaitDelivery(() => app.updateModelContext({ content: [{ type: 'text', text: prompt }] }));
+    if (context?.isError) throw new Error('선택 정보를 전달하지 못했어요. 채팅에서 원하는 상품을 알려주세요.');
+    result = await awaitDelivery(() => app.sendMessage({ role: 'user', content: [{ type: 'text', text: actionLabel(intent.tool) }] }));
+    if (result?.isError) throw new Error('요청 전달 결과를 확인하지 못했어요. 대화의 후속 결과를 확인해주세요.');
+    progress.finish(token, 'delivered', '요청을 전달했어요. 새 결과가 대화에 표시됩니다.');
+  } finally { sending = false; }
 }
-async function executeIntent(intent) {
-  if (isCartWrite(intent.tool)) {
-    status('장바구니 이용 권한을 확인하고 있어요. 동의 창이 열리면 완료해주세요.');
+async function next(tool, args = {}) {
+  if (isCartWrite(tool)) {
+    progress.begin('authorization', '장바구니 이용 권한을 확인하고 있어요.', '동의 창이 열려 있다면 완료해주세요. 선택한 정보는 유지됩니다.');
     await cartPreparation.ensure();
   }
-  await deliver(intent);
-}
-async function next(tool, args = {}) { await executeIntent(session.prepare(tool, args)); }
-function recovery() {
-  if (!session.pending || $('same-request')) return;
-  const retry = button('같은 요청 다시 전달', () => executeIntent(session.retry()), true); retry.id = 'same-request'; $('actions').append(retry);
+  await deliver(session.prepare(tool, args));
 }
 function heading(title, subtitle, eyebrow) { $('title').textContent = title; $('subtitle').textContent = subtitle; $('eyebrow').textContent = eyebrow; }
 function productRail(label) {
@@ -85,12 +94,25 @@ function productRail(label) {
 }
 function productCard(product, label) {
   const card = el('article', null, 'card'), body = el('div', null, 'card-body');
-  const prices = product.offers.map(o => o.priceAmount).filter(Number.isSafeInteger);
-  body.append(el('h2', product.name, 'name'), el('p', prices.length ? `${amount(Math.min(...prices))}${product.offers.length > 1 ? '부터' : ''}` : '가격 미확정', 'price'));
+  const [best, ...others] = sortedOffers(product.offers);
+  body.append(el('h2', product.name, 'name'), el('p', Number.isSafeInteger(best?.priceAmount) ? amount(best.priceAmount) : '가격 확인 필요', 'price'));
   if (label) body.append(el('span', label, 'match-label'));
-  body.append(el('p', [...new Set(product.offers.map(o => o.merchantName))].join(' · '), 'price-caption'));
-  for (const offer of product.offers) body.append(button(product.offers.length > 1 ? `${offer.merchantName} 옵션 선택` : '옵션 선택',
-    () => next('get_product_detail', { merchantId: offer.merchantId, merchantProductId: offer.merchantProductId })));
+  if (best) {
+    body.append(el('p', best.merchantName, 'price-caption'));
+    const choose = offer => next('get_product_detail', { merchantId: offer.merchantId, merchantProductId: offer.merchantProductId });
+    body.append(button('옵션 선택', () => choose(best)));
+    if (others.length) {
+      const details = el('details', null, 'other-offers');
+      details.append(el('summary', `다른 몰 보기 (${others.length})`));
+      for (const offer of others) {
+        const row = el('div', null, 'other-offer');
+        row.append(el('span', offer.merchantName), el('strong', Number.isSafeInteger(offer.priceAmount) ? amount(offer.priceAmount) : '가격 확인 필요'),
+          button(`${offer.merchantName} 선택`, () => choose(offer), true));
+        details.append(row);
+      }
+      body.append(details);
+    }
+  }
   card.append(productImage(product.imageUrl), body); return card;
 }
 function renderSearch(data) {
@@ -128,10 +150,10 @@ function renderDetail(data) {
   quantity.onchange = remember;
   const qty = el('label', '수량'); qty.append(quantity);
   const add = button('장바구니에 담기 ↗', async () => {
-    if (session.pending) { recovery(); throw new Error('이전 요청의 새 장바구니 카드를 확인해주세요.'); }
+    if (session.pending) throw new Error('이미 담기를 요청했어요. 대화에 표시된 장바구니에서 이어서 이용해주세요.');
     const v = data.variants.find(v => v.merchantVariantId === select.value), count = Number(quantity.value);
     if (!v?.purchasable || !Number.isInteger(count) || count < v.minQuantity || count > v.maxQuantity) throw new Error('구매 가능한 옵션과 수량을 확인해주세요.');
-    remember(); status('장바구니 이용 권한을 확인하고 있어요. 동의 창이 열리면 완료해주세요.');
+    remember(); progress.begin('authorization', '장바구니 이용 권한을 확인하고 있어요.', '동의 창이 열려 있다면 완료해주세요. 옵션과 수량은 유지됩니다.');
     const cart = await cartPreparation.ensure();
     await next('add_cart_item', { cartVersion: cart.version, merchantId: data.merchantId,
       merchantProductId: data.merchantProductId, merchantVariantId: v.merchantVariantId, quantity: count });
@@ -142,7 +164,8 @@ function renderDetail(data) {
     quantity.min = v?.minQuantity ?? 1; quantity.max = v?.maxQuantity ?? 99; add.disabled = !v?.purchasable;
   }; select.onchange = () => { update(); remember(); }; update();
   const actions = el('div', null, 'cart-add-actions'); actions.append(qty, add);
-  const facts = el('div', null, 'detail-facts'); facts.append(stock, el('p', `배송비 ${amount(data.shipping.feeAmount)} · 배송지에 따라 최종 확정`, 'sub'));
+  const facts = el('div', null, 'detail-facts'); facts.append(stock);
+  if (Number.isSafeInteger(data.shipping?.feeAmount)) facts.append(el('p', `배송비 ${amount(data.shipping.feeAmount)}`, 'sub'));
   panel.append(price, options, facts, actions); layout.append(productImage(data.imageUrl), panel); $('content').append(layout);
 }
 function renderCart(data) {
@@ -165,11 +188,14 @@ function renderCart(data) {
     }
   }
   const summary = el('div', null, 'summary-panel'), total = el('div', null, 'cart-total');
-  total.append(el('span', '예상 결제금액'), el('strong', amount(data.summary.totalAmount)));
-  summary.append(total, el('p', `할인 ${amount(data.summary.discountAmount)} · 배송비 ${amount(data.summary.shippingAmount)}`, 'sub'),
-    el('p', '최종 금액과 배송지는 앱에서 확인합니다. 결제 요청만으로 결제되지는 않아요.', 'sub'));
+  const totalKnown = Number.isSafeInteger(data.summary.totalAmount);
+  const subtotal = data.summary.itemSubtotalAmount ?? data.items.reduce((sum, item) => sum + item.lineTotalAmount, 0);
+  total.append(el('span', totalKnown ? '예상 결제금액' : '상품 금액'), el('strong', amount(totalKnown ? data.summary.totalAmount : subtotal)));
+  summary.append(total);
+  if (Number.isSafeInteger(data.summary.shippingAmount)) summary.append(el('p', `배송비 ${amount(data.summary.shippingAmount)}`, 'sub'));
+  summary.append(el('p', '최종 금액과 배송지는 앱에서 확인합니다. 결제 요청만으로 결제되지는 않아요.', 'sub'));
   const purchase = button('앱으로 결제 요청 ↗', () => next('prepare_purchase_handoff', { cartId: data.cartId, cartVersion: data.version })); purchase.disabled = !data.items.length;
-  summary.append(purchase); $('content').append(list, summary); $('actions').append(button('최신 장바구니 새로 보기 ↗', () => next('get_cart'), true));
+  summary.append(purchase); $('content').append(list, summary);
 }
 function renderPurchase(data, kind) {
   heading('결제 승인은 앱에서', '휴대폰 알림을 열고 주문 내용과 최종 금액을 확인해주세요.', '04 / APPROVAL');
@@ -183,8 +209,7 @@ function renderPurchase(data, kind) {
   $('actions').append(button('현재 결제 상태 보기 ↗', () => next('get_purchase_status', { purchaseRequestId: data.purchaseRequestId })));
   if (!progress.terminal) $('actions').append(button('알림 다시 요청 ↗', () => next('resend_purchase_notification', { purchaseRequestId: data.purchaseRequestId }), true));
   if (data.status === 'EXPIRED') {
-    panel.append(el('p', '요청이 만료됐어요. 최신 장바구니와 구매 상태를 확인해주세요.', 'sub'));
-    $('actions').append(button('최신 장바구니 보기 ↗', () => next('get_cart'), true));
+    panel.append(el('p', '요청이 만료됐어요. 채팅에서 장바구니를 요청해 구매를 이어갈 수 있어요.', 'sub'));
   }
 }
 function accept(result) {
@@ -192,8 +217,8 @@ function accept(result) {
   const value = result?.structuredContent ?? result;
   if (result?.isError || value?.error) {
     heading('요청 결과를 확인해주세요', '오류가 발생해도 이전 대화의 상품과 장바구니 카드는 남아 있어요.', 'COPENHAGEN');
-    $('content').replaceChildren(el('p', value?.error?.message ?? '요청을 완료하지 못했어요. 채팅에서 같은 요청의 결과 확인을 요청해주세요.', 'empty'));
-    status(''); recovery(); return;
+    if (!latest) $('content').replaceChildren();
+    progress.show('error', value?.error?.message ?? '요청을 완료하지 못했어요. 이전 카드의 선택 정보는 유지됩니다.'); return;
   }
   if (!viewAccepts(view, value?.kind) || !value.data) return;
   latest = value; $('content').replaceChildren(); $('actions').replaceChildren(); status('');
@@ -203,14 +228,32 @@ function accept(result) {
     else if (view === 'cart') {
       const cart = value.kind === 'cart.mutation' ? value.data.cart : value.data;
       if (cart) renderCart(cart);
-      else { heading(value.data.outcome === 'APPLIED' ? '장바구니 변경을 처리했어요' : '장바구니 상태를 확인해주세요', '최신 장바구니를 새 카드에서 확인해주세요.', '03 / YOUR BAG'); $('content').append(button('장바구니 새로 보기 ↗', () => next('get_cart'))); }
+      else { heading(value.data.outcome === 'APPLIED' ? '장바구니 변경을 처리했어요' : '장바구니 처리 결과를 확인하지 못했어요', '', ''); }
     } else renderPurchase(value.data, value.kind);
     $('checked-at').textContent = value.data.checkedAt ? new Date(value.data.checkedAt).toLocaleTimeString('ko-KR') : '';
-    recovery(); sizing.notify();
+    sizing.notify();
   } catch { status('표시할 정보를 확인하지 못했어요. 채팅에서 최신 결과를 다시 요청해주세요.'); }
 }
 app = new App({ name: 'Copenhagen Cards', version: '1.0.0' }, { availableDisplayModes: ['inline'] }, { autoResize: false });
-app.ontoolresult = accept; app.ontoolinput = input => { latestInput = input.arguments ?? {}; };
-app.connect().then(() => { ready = true; sizing.notify(); }).catch(() => { if (!latest) status('ChatGPT 연결을 기다리고 있어요.'); });
+function applyTheme(theme) {
+  if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme;
+}
+applyTheme(window.openai?.theme);
+app.onhostcontextchanged = context => applyTheme(context.theme);
+function waiting() {
+  if (internalReads || latest || gate.active) return;
+  progress.begin('loading', '상품 정보를 준비하고 있어요.');
+}
+app.ontoolresult = accept;
+app.ontoolinput = input => { if (!internalReads) latestInput = input.arguments ?? {}; waiting(); };
+app.ontoolinputpartial = waiting;
+app.ontoolcancelled = () => {
+  if (internalReads || gate.active) return;
+  if (!latest) $('content').replaceChildren();
+  progress.show('cancelled', '요청이 중단됐어요. 이전 대화의 결과는 그대로 볼 수 있어요.');
+};
+waiting();
+window.addEventListener('pagehide', () => progress.dispose(), { once: true });
+app.connect().then(() => { ready = true; applyTheme(app.getHostContext?.()?.theme); sizing.notify(); }).catch(() => { if (!latest) status('ChatGPT 연결을 기다리고 있어요.'); });
 if (window.openai?.toolOutput) accept(window.openai.toolOutput);
-window.addEventListener('openai:set_globals', event => { if (event.detail?.globals?.toolOutput) accept(event.detail.globals.toolOutput); });
+window.addEventListener('openai:set_globals', event => { applyTheme(event.detail?.globals?.theme); if (event.detail?.globals?.toolOutput) accept(event.detail.globals.toolOutput); });
