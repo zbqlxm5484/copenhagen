@@ -45,13 +45,25 @@ final class CheckoutTestSupport {
         return harness(Scenario.NORMAL);
     }
 
+    /** 기본 배송비만 바꾼 하네스. 실제 설정은 0 이고 도서산간에서만 받는다(427). */
+    static Harness harnessWithFlatFee(long flatFee) {
+        return harness(Scenario.NORMAL, flatFee);
+    }
+
     static Harness harness(Scenario initial) {
+        return harness(initial, null);
+    }
+
+    static Harness harness(Scenario initial, Long flatFee) {
         CatalogStore catalog = new CatalogStore(CatalogFixture::seed);
         catalog.load();
         ScenarioState scenario = new ScenarioState(initial);
         Clock clock = Clock.fixed(NOW, ZoneId.of("Asia/Seoul"));
         ECKey key = TestSigningKeys.generate();
         MerchantProperties properties = TestSigningKeys.propertiesSigningWith(key);
+        if (flatFee != null) {
+            properties = withFlatFee(properties, flatFee);
+        }
         SigningKeyProvider keys = new SigningKeyProvider(properties);
         CheckoutEvaluator evaluator = new CheckoutEvaluator(catalog, scenario, properties, clock);
         InMemoryCheckoutRepository repository = new InMemoryCheckoutRepository();
@@ -59,6 +71,15 @@ final class CheckoutTestSupport {
         CheckoutService service = new CheckoutService(repository, evaluator,
                 new MerchantAuthorizationSigner(keys, scenario), properties, objectMapper);
         return new Harness(service, repository, scenario, objectMapper, key, clock, properties);
+    }
+
+    /** 레코드라 복사 생성자가 없다. 배송비만 갈아 끼운 사본을 만든다. */
+    private static MerchantProperties withFlatFee(MerchantProperties base, long flatFee) {
+        return new MerchantProperties(base.malls(), base.ucpVersion(), base.currency(), base.publicBaseUrl(),
+                base.catalog(), base.checkout(),
+                new MerchantProperties.Fulfillment(flatFee, base.fulfillment().remoteAreas()),
+                base.signing(), base.capabilities(), base.paymentHandler(), base.trustedPlatforms(),
+                base.scenario(), base.webhook());
     }
 
     static CheckoutRequest.LineItemRequest line(String productId, String sku, int quantity) {

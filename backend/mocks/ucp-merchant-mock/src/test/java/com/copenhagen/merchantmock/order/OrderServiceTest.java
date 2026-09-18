@@ -46,6 +46,7 @@ class OrderServiceTest {
         assertEquals(CHECKOUT_ID, order.checkoutSessionId());
         assertEquals(OrderStatus.CREATED, order.status());
         assertEquals(92000L, order.totalAmount());
+        assertEquals(3000L, order.shippingFeeAmount(), "스냅샷의 fulfillment 줄을 그대로 적는다(427)");
         assertEquals("KRW", order.currency());
 
         List<OrderItem> items = h.repository().findItems(created.id());
@@ -207,7 +208,8 @@ class OrderServiceTest {
         Created created = h.service().create(readyCheckout(), PaymentStatus.SUCCESS);
         Order stored = h.repository().findById(created.id()).orElseThrow();
         h.repository().put(new Order(stored.id(), stored.merchantId(), stored.checkoutSessionId(), stored.status(),
-                stored.totalAmount(), stored.currency(), stored.rawOrderJson(), stored.recipientName(),
+                stored.totalAmount(), stored.shippingFeeAmount(), stored.currency(), stored.rawOrderJson(),
+                stored.recipientName(),
                 stored.recipientPhone(), stored.postalCode(), stored.addressLine1(), stored.addressLine2(),
                 stored.version(), OffsetDateTime.parse("2026-09-15T07:11:58.900388Z")));
 

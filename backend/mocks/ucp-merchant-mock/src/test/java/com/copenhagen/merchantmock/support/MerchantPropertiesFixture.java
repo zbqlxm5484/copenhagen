@@ -15,6 +15,19 @@ public final class MerchantPropertiesFixture {
             new MerchantProperties.Mall(MERCHANT_B, "노을상점"),
             new MerchantProperties.Mall(MERCHANT_C, "별빛몰"));
 
+    /**
+     * 도서산간 추가금 구간(427). 판정 규칙은 application.yml 과 같은 모양이고 낱말 목록만 줄였다.
+     *
+     * <p>기본 배송비는 여기서 3000 이다. 실제 설정은 0(일반 지역 무료)이지만 픽스처까지 0 으로 두면
+     * "기본 + 추가금" 덧셈이 어느 테스트에서도 안 드러난다. 0 인 설정은 그 자체로 시험한다
+     * ({@code CheckoutServiceTest.create_freeShippingConfig_chargesOnlyRemoteAreaSurcharge}).
+     */
+    public static final List<MerchantProperties.Fulfillment.RemoteArea> REMOTE_AREAS = List.of(
+            new MerchantProperties.Fulfillment.RemoteArea("도서산간", 5000L, List.of("402"),
+                    List.of("울릉군", "옹진군", "추자"), List.of("영흥면")),
+            new MerchantProperties.Fulfillment.RemoteArea("제주", 3000L, List.of("63"),
+                    List.of(), List.of()));
+
     public static final String PUBLIC_JWK = """
             {"kty":"EC","crv":"P-256",\
             "x":"Kv4fWw_TEzEQ2EOMOgsbIyH9314FhRdQknrvaPY5Q3Q",\
@@ -37,7 +50,7 @@ public final class MerchantPropertiesFixture {
                 "http://ucp-merchant-mock:8080",
                 new MerchantProperties.Catalog(List.of()),
                 new MerchantProperties.Checkout(Duration.ofMinutes(5), Duration.ofSeconds(5)),
-                new MerchantProperties.Fulfillment(3000L),
+                new MerchantProperties.Fulfillment(3000L, REMOTE_AREAS),
                 signing,
                 new MerchantProperties.Capabilities(
                         new MerchantProperties.Capabilities.Ap2Like(false, "com.copenhagen.payment.ap2_like")),

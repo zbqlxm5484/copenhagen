@@ -54,7 +54,7 @@ class MerchantMigrationPostgresTest {
     }
 
     @Test
-    @DisplayName("빈 DB 에 V1~V9 를 전부 적용한다")
+    @DisplayName("빈 DB 에 V1~V10 를 전부 적용한다")
     void migrate_emptyDatabase_appliesAllVersions() {
         // given
         String schema = postgres.newSchema();
@@ -65,13 +65,13 @@ class MerchantMigrationPostgresTest {
 
         // then
         JdbcTemplate jdbc = postgres.jdbcFor(dataSource);
-        assertEquals(9, applied);
-        assertEquals("9", currentVersion(jdbc, schema));
+        assertEquals(10, applied);
+        assertEquals("10", currentVersion(jdbc, schema));
         TABLES.forEach(table -> assertTrue(tableExists(jdbc, schema, table), table + " 가 없다"));
     }
 
     @Test
-    @DisplayName("V3 까지 적용된 DB 위에 V4~V9 가 올라간다")
+    @DisplayName("V3 까지 적용된 DB 위에 V4~V10 이 올라간다")
     void migrate_databaseAtV3_appliesRemainingVersions() {
         // given
         String schema = postgres.newSchema();
@@ -85,8 +85,8 @@ class MerchantMigrationPostgresTest {
         int applied = postgres.flywayFor(dataSource, schema, null).migrate().migrationsExecuted;
 
         // then
-        assertEquals(6, applied);
-        assertEquals("9", currentVersion(jdbc, schema));
+        assertEquals(7, applied);
+        assertEquals("10", currentVersion(jdbc, schema));
         assertTrue(tableExists(jdbc, schema, "order_items"));
         assertEquals(5, seededProductCount(jdbc), "기존 시드 데이터가 살아 있어야 한다");
     }
@@ -166,8 +166,8 @@ class MerchantMigrationPostgresTest {
         int applied = postgres.flywayFor(dataSource, schema, null).migrate().migrationsExecuted;
 
         // then
-        assertEquals(4, applied);
-        assertEquals("9", currentVersion(jdbc, schema));
+        assertEquals(5, applied);
+        assertEquals("10", currentVersion(jdbc, schema));
         assertEquals(1, jdbc.queryForObject(
                 "SELECT count(*) FROM checkout_sessions WHERE id = 'before-v6'", Integer.class));
         assertNull(jdbc.queryForObject(
@@ -215,8 +215,8 @@ class MerchantMigrationPostgresTest {
         int applied = postgres.flywayFor(dataSource, schema, null).migrate().migrationsExecuted;
 
         // then
-        assertEquals(3, applied);
-        assertEquals("9", currentVersion(jdbc, schema));
+        assertEquals(4, applied);
+        assertEquals("10", currentVersion(jdbc, schema));
         assertEquals("PROCESSING", paymentStatus(jdbc, "requested"), "옛 값은 뜻이 같은 PROCESSING 으로 옮긴다");
         assertEquals("SUCCESS", paymentStatus(jdbc, "success"), "다른 값은 건드리지 않는다");
         assertNull(paymentStatus(jdbc, "none"));
@@ -301,8 +301,8 @@ class MerchantMigrationPostgresTest {
 
         // then
         Migrated migrated = new Migrated(jdbc, schema);
-        assertEquals(2, applied);
-        assertEquals("9", currentVersion(jdbc, schema));
+        assertEquals(3, applied);
+        assertEquals("10", currentVersion(jdbc, schema));
         assertTrue(columnExists(migrated, "payment_credential_id"));
         assertTrue(columnExists(migrated, "payment_next_attempt_at"));
         assertEquals(1, (int) jdbc.queryForObject(
@@ -338,7 +338,7 @@ class MerchantMigrationPostgresTest {
         jdbc.update("INSERT INTO checkout_sessions (id, status) VALUES (?, ?)", "before-v9", "READY_FOR_COMPLETE");
 
         // when
-        int applied = postgres.flywayFor(dataSource, schema, null).migrate().migrationsExecuted;
+        int applied = postgres.flywayFor(dataSource, schema, "9").migrate().migrationsExecuted;
 
         // then
         assertEquals(1, applied);
@@ -361,5 +361,36 @@ class MerchantMigrationPostgresTest {
         // 몰을 빼먹은 INSERT 는 DB 가 막는다. DEFAULT 는 backfill 뒤 지웠다
         assertThrows(RuntimeException.class, () -> jdbc.update(
                 "INSERT INTO checkout_sessions (id, status) VALUES (?, ?)", "no-mall", "READY_FOR_COMPLETE"));
+    }
+
+    @Test
+    @DisplayName("V9 까지 적용된 DB 위에 V10 이 올라가면 기존 주문의 배송비는 0 이고 음수는 막힌다")
+    void migrate_databaseAtV9_addsShippingFeeColumn() {
+        // given
+        String schema = postgres.newSchema();
+        DataSource dataSource = postgres.dataSourceFor(schema);
+        postgres.flywayFor(dataSource, schema, "9").migrate();
+        JdbcTemplate jdbc = postgres.jdbcFor(dataSource);
+        jdbc.update("""
+                INSERT INTO checkout_sessions (id, merchant_id, status) VALUES (?, ?, ?)
+                """, "before-v10", "merchant-a", "COMPLETED");
+        jdbc.update("""
+                INSERT INTO orders (id, merchant_id, checkout_session_id, status, total_amount, currency,
+                                    raw_order_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?::jsonb)
+                """, "order-before-v10", "merchant-a", "before-v10", "CREATED", 92000L, "KRW", "{}");
+
+        // when
+        int applied = postgres.flywayFor(dataSource, schema, null).migrate().migrationsExecuted;
+
+        // then
+        assertEquals(1, applied);
+        assertEquals("10", currentVersion(jdbc, schema));
+        assertEquals(0L, jdbc.queryForObject(
+                "SELECT shipping_fee_amount FROM orders WHERE id = 'order-before-v10'", Long.class),
+                "V10 이전 주문은 배송비를 따로 적지 않았다. 소급해 계산하지 않는다");
+        assertThrows(RuntimeException.class, () -> jdbc.update(
+                "UPDATE orders SET shipping_fee_amount = -1 WHERE id = 'order-before-v10'"),
+                "받은 돈이 음수일 수 없다");
     }
 }
