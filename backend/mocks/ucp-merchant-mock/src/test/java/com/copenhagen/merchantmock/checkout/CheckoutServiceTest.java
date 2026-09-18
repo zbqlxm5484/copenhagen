@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import com.copenhagen.merchantmock.checkout.CheckoutMessages.Checkout;
+import com.copenhagen.merchantmock.checkout.CheckoutMessages.CheckoutRequest;
 import com.copenhagen.merchantmock.checkout.CheckoutMessages.Message;
 import com.copenhagen.merchantmock.checkout.CheckoutMessages.Total;
 import com.copenhagen.merchantmock.checkout.CheckoutTestSupport.Harness;
@@ -188,6 +189,119 @@ class CheckoutServiceTest {
         assertNull(checkout.fulfillment(), "배송지가 없으면 fulfillment 키를 생략한다");
         assertEquals(89000L, total(checkout, "total"), "배송비를 모르니 총액은 소계와 같다");
         assertNull(checkout.expiresAt(), "서명 전이라 만료 시각이 없다");
+    }
+
+    @Test
+    @DisplayName("도서산간 우편번호면 배송비에 추가금이 붙고 warning 이 실린다")
+    void create_remoteAreaPostalCode_addsSurchargeAndWarns() {
+        // given
+        CheckoutRequest.Destination jeju = new CheckoutRequest.Destination(
+                "홍길동", "63000", "제주특별자치도 제주시 1", "101호");
+
+        // when
+        Checkout checkout = harness().service().create("merchant-a",
+                request(jeju, line("product-101", "product-101-270", 1)), "checkout-create-remote-1");
+
+        // then
+        assertEquals("ready_for_complete", checkout.status(), "추가금은 막는 사유가 아니다");
+        assertEquals(6000L, checkout.fulfillment().amount(), "기본 3000 + 제주 3000");
+        assertEquals(6000L, total(checkout, "fulfillment"));
+        assertEquals(95000L, total(checkout, "total"));
+        assertEquals(List.of("CHECKOUT_REMOTE_AREA_SURCHARGE"), codes(checkout));
+        assertEquals("warning", checkout.messages().get(0).severity());
+        assertEquals("fulfillment.destination", checkout.messages().get(0).target(),
+                "판정 입력이 우편번호만이 아니라 주소까지다");
+        assertEquals(List.of("subtotal", "fulfillment", "total"),
+                checkout.totals().stream().map(Total::type).collect(Collectors.toList()),
+                "추가금을 totals 의 별도 줄로 내지 않는다");
+    }
+
+    @Test
+    @DisplayName("구간마다 추가금이 다르고 먼저 걸리는 하나만 적용한다")
+    void create_remoteIslandPostalCode_usesThatAreaSurchargeOnly() {
+        // given
+        CheckoutRequest.Destination ulleung = new CheckoutRequest.Destination(
+                "홍길동", "40240", "경상북도 울릉군 1", null);
+
+        // when
+        Checkout checkout = harness().service().create("merchant-a",
+                request(ulleung, line("product-101", "product-101-270", 1)), "checkout-create-remote-2");
+
+        // then
+        assertEquals(8000L, checkout.fulfillment().amount(), "기본 3000 + 도서산간 5000");
+        assertEquals(97000L, total(checkout, "total"));
+    }
+
+    @Test
+    @DisplayName("우편번호가 일반이어도 주소에 도서산간 낱말이 있으면 걸린다")
+    void create_remoteAreaKeywordInAddress_addsSurcharge() {
+        // given 우체국 기준은 우편번호가 아니라 군·면·섬 이름이다(ADR 0009)
+        CheckoutRequest.Destination chuja = new CheckoutRequest.Destination(
+                "홍길동", "63000", "제주특별자치도 제주시 추자면 대서리 1", null);
+
+        // when
+        Checkout checkout = harness().service().create("merchant-a",
+                request(chuja, line("product-101", "product-101-270", 1)), "checkout-create-remote-5");
+
+        // then
+        assertEquals(8000L, checkout.fulfillment().amount(),
+                "추자도는 제주 우편번호를 쓰지만 도서산간이다. 목록에서 먼저 걸리는 구간을 쓴다");
+    }
+
+    @Test
+    @DisplayName("제외 낱말이 있으면 그 구간이 아니다")
+    void create_excludedAreaInAddress_keepsFlatFee() {
+        // given 우체국 목록의 "옹진군: 북도면, 영흥면을 제외한 전 지역"
+        CheckoutRequest.Destination yeongheung = new CheckoutRequest.Destination(
+                "홍길동", "23100", "인천광역시 옹진군 영흥면 1", null);
+
+        // when
+        Checkout checkout = harness().service().create("merchant-a",
+                request(yeongheung, line("product-101", "product-101-270", 1)), "checkout-create-remote-6");
+
+        // then
+        assertEquals(3000L, checkout.fulfillment().amount());
+        assertNull(checkout.messages());
+    }
+
+    @Test
+    @DisplayName("기본 배송비가 0 이면 일반 지역은 무료이고 도서산간만 추가금을 받는다")
+    void create_freeShippingConfig_chargesOnlyRemoteAreaSurcharge() {
+        // given 실제 설정 모양이다. 기본 0, 도서산간만 받는다
+        Harness free = CheckoutTestSupport.harnessWithFlatFee(0L);
+        CheckoutRequest.Destination ulleung = new CheckoutRequest.Destination(
+                "홍길동", "40240", "경상북도 울릉군 울릉읍 1", null);
+
+        // when
+        Checkout seoul = free.service().create("merchant-a",
+                request(SEOUL, line("product-101", "product-101-270", 1)), "checkout-create-free-1");
+        Checkout remote = free.service().create("merchant-a",
+                request(ulleung, line("product-101", "product-101-270", 1)), "checkout-create-free-2");
+
+        // then
+        assertEquals(0L, seoul.fulfillment().amount(), "일반 지역은 무료 배송이다");
+        assertEquals(89000L, total(seoul, "total"));
+        assertEquals(5000L, remote.fulfillment().amount(), "도서산간은 추가금만 받는다");
+        assertEquals(94000L, total(remote, "total"));
+    }
+
+    @Test
+    @DisplayName("일반 지역과 우편번호 없는 배송지는 기본 배송비 그대로다")
+    void create_nonRemoteOrMissingPostalCode_keepsFlatFee() {
+        // given
+        CheckoutRequest.Destination noPostalCode = new CheckoutRequest.Destination(
+                "홍길동", null, "서울특별시 강남구 테헤란로 1", "101호");
+
+        // when
+        Checkout seoul = harness().service().create("merchant-a",
+                request(SEOUL, line("product-101", "product-101-270", 1)), "checkout-create-remote-3");
+        Checkout blank = harness().service().create("merchant-a",
+                request(noPostalCode, line("product-101", "product-101-270", 1)), "checkout-create-remote-4");
+
+        // then
+        assertEquals(3000L, seoul.fulfillment().amount());
+        assertEquals(3000L, blank.fulfillment().amount(), "판정할 수 없으면 일반 지역으로 본다");
+        assertNull(blank.messages(), "추가금이 없으면 알릴 것도 없다");
     }
 
     @Test

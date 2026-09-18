@@ -114,7 +114,70 @@ public record MerchantProperties(
         }
     }
 
-    public record Fulfillment(long flatFee) {
+    /**
+     * 배송비(DESIGN.md 7.1절, ADR 0009).
+     *
+     * @param flatFee     배송 가능한 모든 주소에 붙는 기본 배송비
+     * @param remoteAreas 도서산간 추가금 구간. 목록 순서대로 보고 먼저 걸리는 하나만 쓴다. 비면 추가금이 없다
+     */
+    public record Fulfillment(long flatFee, List<RemoteArea> remoteAreas) {
+
+        public Fulfillment {
+            remoteAreas = remoteAreas == null ? List.of() : List.copyOf(remoteAreas);
+        }
+
+        /**
+         * 배송지가 걸리는 구간. 없으면 일반 지역이다.
+         *
+         * <p>우편번호도 주소도 판정에 못 쓰면 일반 지역으로 본다. 판단할 수 없을 때 돈을 더 받는 쪽으로
+         * 추측하지 않는다. 목록 순서대로 보고 먼저 걸리는 하나를 쓴다.
+         */
+        public Optional<RemoteArea> remoteAreaOf(String postalCode, String... addressLines) {
+            String digits = postalCode == null ? "" : postalCode.replaceAll("\\D", "");
+            StringBuilder address = new StringBuilder();
+            for (String line : addressLines) {
+                if (line != null) {
+                    address.append(line).append(' ');
+                }
+            }
+            String joined = address.toString();
+            if (digits.isEmpty() && joined.isBlank()) {
+                return Optional.empty();
+            }
+            return remoteAreas.stream().filter(area -> area.matches(digits, joined)).findFirst();
+        }
+
+        /**
+         * 도서산간 구간 하나(DESIGN.md 7.1절, ADR 0009).
+         *
+         * <p>우체국의 "우편물 송달기준 적용 곤란지역" 은 우편번호가 아니라 군·면·섬 이름으로 적혀 있다.
+         * 그래서 판정 키를 둘 둔다. 제주처럼 대역이 뚜렷한 곳은 우편번호 접두어로, 나머지 섬들은
+         * 주소 낱말로 잡는다. 둘 중 하나만 걸려도 그 구간이다.
+         *
+         * @param name            시연·메시지에 보이는 구간 이름
+         * @param surcharge       기본 배송비에 더할 금액. minor unit
+         * @param postalPrefixes  이 구간으로 볼 우편번호 접두어들
+         * @param addressKeywords 주소에 이 낱말이 있으면 이 구간이다
+         * @param excludeKeywords 위에 걸려도 이 낱말이 있으면 이 구간이 아니다. 우체국 목록의 "~를 제외한"
+         */
+        public record RemoteArea(String name, long surcharge, List<String> postalPrefixes,
+                List<String> addressKeywords, List<String> excludeKeywords) {
+
+            public RemoteArea {
+                postalPrefixes = postalPrefixes == null ? List.of() : List.copyOf(postalPrefixes);
+                addressKeywords = addressKeywords == null ? List.of() : List.copyOf(addressKeywords);
+                excludeKeywords = excludeKeywords == null ? List.of() : List.copyOf(excludeKeywords);
+            }
+
+            boolean matches(String postalDigits, String address) {
+                if (excludeKeywords.stream().anyMatch(address::contains)) {
+                    return false;
+                }
+                boolean byPostal = !postalDigits.isEmpty()
+                        && postalPrefixes.stream().anyMatch(postalDigits::startsWith);
+                return byPostal || addressKeywords.stream().anyMatch(address::contains);
+            }
+        }
     }
 
     public record Signing(

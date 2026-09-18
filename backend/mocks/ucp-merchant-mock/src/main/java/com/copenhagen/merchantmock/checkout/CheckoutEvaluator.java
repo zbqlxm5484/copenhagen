@@ -187,7 +187,27 @@ public class CheckoutEvaluator {
             messages.add(Message.error("ADDRESS_NOT_SERVICEABLE", "배송할 수 없는 지역이다", "fulfillment.destination"));
             return new FulfillmentResult(SHIPPING, "unavailable", null);
         }
-        return new FulfillmentResult(SHIPPING, "available", properties.fulfillment().flatFee());
+        return new FulfillmentResult(SHIPPING, "available", shippingFee(destination, messages));
+    }
+
+    /**
+     * 기본 배송비에 도서산간 추가금을 더한다(DESIGN.md 7.1절, ADR 0009).
+     *
+     * <p>추가금을 {@code totals} 의 별도 줄로 내지 않는다. Core 는 종류 이름으로 금액을 꺼내 가므로
+     * 모르는 종류를 실으면 배송비가 적게 적히고 소계 + 배송비 ≠ 합계가 된다. 얼마가 왜 붙었는지는
+     * {@code messages} 가 말한다. 막지 않으므로 {@code warning} 이다.
+     */
+    private long shippingFee(CheckoutRequest.Destination destination, List<Message> messages) {
+        MerchantProperties.Fulfillment fulfillment = properties.fulfillment();
+        return fulfillment.remoteAreaOf(destination.postalCode(),
+                        destination.addressLine1(), destination.addressLine2())
+                .map(area -> {
+                    messages.add(Message.warning("CHECKOUT_REMOTE_AREA_SURCHARGE",
+                            area.name() + " 이라 배송비 " + area.surcharge() + " 이 붙었다",
+                            "fulfillment.destination"));
+                    return Math.addExact(fulfillment.flatFee(), area.surcharge());
+                })
+                .orElseGet(fulfillment::flatFee);
     }
 
     /**

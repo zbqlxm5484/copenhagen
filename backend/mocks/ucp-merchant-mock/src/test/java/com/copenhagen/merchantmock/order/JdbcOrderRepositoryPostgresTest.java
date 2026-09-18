@@ -169,7 +169,7 @@ class JdbcOrderRepositoryPostgresTest {
     }
 
     private static Order order(String id, String checkoutId) {
-        return new Order(id, "merchant-a", checkoutId, OrderStatus.CREATED, 92000L, "KRW",
+        return new Order(id, "merchant-a", checkoutId, OrderStatus.CREATED, 92000L, 3000L, "KRW",
                 "{\"id\":\"" + id + "\",\"status\":\"CREATED\"}",
                 "홍길동", null, "06236", "서울특별시 강남구 테헤란로 1", "101호", 0L, NOW);
     }

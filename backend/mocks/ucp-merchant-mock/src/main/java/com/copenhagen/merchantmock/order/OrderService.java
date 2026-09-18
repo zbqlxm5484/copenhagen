@@ -168,6 +168,7 @@ public class OrderService {
                 session.id(),
                 OrderStatus.CREATED,
                 totalOf(session, snapshot),
+                shippingFeeOf(snapshot),
                 session.currency(),
                 objectMapper.writeValueAsString(view),
                 destination == null ? null : destination.recipient(),
@@ -190,6 +191,22 @@ public class OrderService {
                 .mapToLong(Total::amount)
                 .findFirst()
                 .orElse(cached);
+    }
+
+    /**
+     * 받은 배송비. 스냅샷의 {@code fulfillment} 줄이 원본이고 없으면 0 이다(DESIGN.md 5.4절, ADR 0009).
+     *
+     * <p>도서산간 추가금은 그 줄에 이미 합산돼 있다. 추가금만 따로 실린 줄은 없다(7.1절).
+     */
+    private static long shippingFeeOf(Checkout snapshot) {
+        if (snapshot.totals() == null) {
+            return 0L;
+        }
+        return snapshot.totals().stream()
+                .filter(total -> "fulfillment".equals(total.type()))
+                .mapToLong(Total::amount)
+                .findFirst()
+                .orElse(0L);
     }
 
     private List<OrderItem> toItems(String orderId, CheckoutSession session, Checkout snapshot) {
