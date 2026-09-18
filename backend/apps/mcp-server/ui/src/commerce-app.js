@@ -68,7 +68,8 @@ async function deliver(intent) {
   try {
     let result;
     if (!ready) throw new Error('연결을 확인한 뒤 다시 눌러주세요.');
-    result = await sendAction(app, intent, awaitDelivery);
+    internalReads++;
+    try { result = await sendAction(app, intent, awaitDelivery); } finally { internalReads--; }
     if (result?.isError) throw new Error('요청 전달 결과를 확인하지 못했어요. 대화의 후속 결과를 확인해주세요.');
     progress.finish(token, 'delivered', '요청을 전달했어요. 새 결과가 대화에 표시됩니다.');
   } finally { sending = false; }
