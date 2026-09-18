@@ -86,6 +86,8 @@ public class OauthTokenService {
         this.clock = clock;
     }
 
+    // Controller에서 호출하는 프록시 진입점에 적용해야 내부 grant 처리에도 같은 트랜잭션이 유지된다.
+    @Transactional
     public TokenResult handle(TokenRequestParams params) {
         return switch (params.grantType() == null ? "" : params.grantType()) {
             case GRANT_AUTHORIZATION_CODE -> handleAuthorizationCode(params);
@@ -95,7 +97,6 @@ public class OauthTokenService {
         };
     }
 
-    @Transactional
     TokenResult handleAuthorizationCode(TokenRequestParams params) {
         if (isBlank(params.code()) || isBlank(params.redirectUri()) || isBlank(params.clientId())) {
             return error(HttpStatus.BAD_REQUEST, "invalid_request", "필수 파라미터가 누락되었습니다.");
@@ -143,7 +144,6 @@ public class OauthTokenService {
                 String.join(" ", sortedScopes(scopes)));
     }
 
-    @Transactional
     TokenResult handleRefreshToken(TokenRequestParams params) {
         if (isBlank(params.refreshToken()) || isBlank(params.clientId())) {
             return error(HttpStatus.BAD_REQUEST, "invalid_request", "필수 파라미터가 누락되었습니다.");
