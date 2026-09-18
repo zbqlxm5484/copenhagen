@@ -9,8 +9,8 @@ import java.util.List;
  * mcp-server {@code CoreCommerceService.search()}가 {@code containsKey("nextCursor")}로 검사한다.
  * 그래서 이 응답은 {@code NON_NULL} 직렬화를 쓰지 않는다.
  *
- * <p>{@code brand}·{@code imageUrl}은 Merchant Catalog가 주지 않아 항상 {@code null}이고,
- * {@code category}는 고정 플레이스홀더다.
+ * <p>{@code imageUrl}은 Merchant Catalog의 대표 이미지를 전달하며 누락된 경우 {@code null}이다.
+ * {@code brand}는 제공되지 않아 {@code null}이고 {@code category}는 고정 플레이스홀더다.
  */
 public record InternalSearchResponse(
         List<Product> products,

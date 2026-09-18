@@ -62,7 +62,8 @@ public final class CatalogSearchFanout implements AutoCloseable {
                     for (MerchantCatalogClient.CatalogItem item : result) {
                         if ("KRW".equals(item.price().currency()) && (min == null || item.price().amount() >= min)) {
                             items.add(new CatalogSearchItem(client.merchantId(), client.merchantName(),
-                                    item.productId(), item.title(), item.price().amount(), "KRW", item.availability()));
+                                    item.productId(), item.title(), item.price().amount(), "KRW",
+                                    item.availability(), item.imageUrl()));
                         }
                     }
                 } catch (ExecutionException | TimeoutException exception) {

@@ -50,7 +50,7 @@ public class ProductService {
                         continue;
                     }
                     products.add(new CatalogProduct(
-                            item.productId(), item.title(), "", "", "",
+                            item.productId(), item.title(), "", "", item.imageUrl() == null ? "" : item.imageUrl(),
                             List.of(new Offer(client.merchantId(), client.merchantName(),
                                     item.price().amount(), KRW, item.availability()))));
                 }
@@ -101,7 +101,8 @@ public class ProductService {
         }
 
         ProductDetail product = new ProductDetail(
-                detail.productId(), detail.title(), "", "", "", detail.description(),
+                detail.productId(), detail.title(), "", "", detail.imageUrl() == null ? "" : detail.imageUrl(),
+                detail.description(),
                 List.of(), selection.offer(), variants,
                 selection.optionsComplete(), !variants.isEmpty(),
                 selection.status(), selection.selectedOptionId(), null,
@@ -153,7 +154,8 @@ public class ProductService {
                 detail.price().amount(),
                 detail.price().currency(),
                 detail.availability(),
-                optionGroups);
+                optionGroups,
+                detail.imageUrl());
     }
 
     /**
@@ -189,7 +191,7 @@ public class ProductService {
                 selected.get(0).optionValueId(),
                 detail.title(),
                 productUrl(client, detail.productId()),
-                null,
+                detail.imageUrl(),
                 optionPrice(detail, selected.get(0).optionValueId()),
                 KRW,
                 selected);

@@ -11,5 +11,10 @@ public record CatalogSearchItem(
         String name,
         long priceAmount,
         String currency,
-        String availability) {
+        String availability,
+        String imageUrl) {
+    public CatalogSearchItem(String merchantId, String merchantName, String merchantProductId, String name,
+            long priceAmount, String currency, String availability) {
+        this(merchantId, merchantName, merchantProductId, name, priceAmount, currency, availability, null);
+    }
 }

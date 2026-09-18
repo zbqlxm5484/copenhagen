@@ -13,7 +13,13 @@ public record CatalogProductView(
         long priceAmount,
         String currency,
         String availability,
-        List<OptionGroup> optionGroups) {
+        List<OptionGroup> optionGroups,
+        String imageUrl) {
+
+    public CatalogProductView(String merchantId, String merchantProductId, String name, long priceAmount,
+            String currency, String availability, List<OptionGroup> optionGroups) {
+        this(merchantId, merchantProductId, name, priceAmount, currency, availability, optionGroups, null);
+    }
 
     public record OptionGroup(String name, List<OptionValue> values) {
     }

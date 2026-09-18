@@ -72,6 +72,25 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Merchant 이미지를 내부 검색·상세·장바구니 스냅샷까지 보존한다")
+    void image_survivesInternalSearchDetailAndCartCapture() {
+        String image = "https://cdn.daisomall.co.kr/test.jpg";
+        when(merchantA.search("셔츠", null, "KRW")).thenReturn(List.of(
+                new MerchantCatalogClient.CatalogItem("p-1", "셔츠",
+                        new MerchantCatalogClient.CatalogPrice(9900, "KRW"), "IN_STOCK", image)));
+        when(merchantA.product("p-1")).thenReturn(new MerchantCatalogClient.CatalogProductDetail(
+                "p-1", "셔츠", "설명", new MerchantCatalogClient.CatalogPrice(9900, "KRW"),
+                List.of(new MerchantCatalogClient.CatalogOption("색상", List.of(
+                        new CatalogOptionValue("sku-1", "흰색")))), "IN_STOCK", image));
+        ProductService service = service(merchantA);
+
+        assertThat(service.searchForInternal("셔츠", "merchant-a", null, null).items().get(0).imageUrl())
+                .isEqualTo(image);
+        assertThat(service.detailForInternal("merchant-a", "p-1").imageUrl()).isEqualTo(image);
+        assertThat(service.captureForCart("merchant-a", "p-1", List.of("sku-1")).imageUrl()).isEqualTo(image);
+    }
+
+    @Test
     @DisplayName("단일 merchant 검색 성공 시 status=OK, offers 1개")
     void search_singleMerchantSuccess_ok() {
         when(merchantA.search("셔츠", null, "KRW")).thenReturn(List.of(item("p-1", "린넨 셔츠", 9900)));
