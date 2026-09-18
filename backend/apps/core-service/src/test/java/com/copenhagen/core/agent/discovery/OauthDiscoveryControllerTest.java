@@ -20,6 +20,7 @@ class OauthDiscoveryControllerTest {
         OauthDiscoveryController.Metadata metadata = controller.metadata();
 
         assertEquals("https://core.example.com", metadata.issuer());
+        assertTrue(metadata.authorizationResponseIssParameterSupported());
         assertEquals("https://core.example.com/oauth/authorize", metadata.authorizationEndpoint());
         assertEquals("https://core.example.com/oauth/token", metadata.tokenEndpoint());
         assertEquals("https://core.example.com/.well-known/jwks.json", metadata.jwksUri());

@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.copenhagen.core.agent.jwt.AgentOauthProperties;
+
 /**
  * AGENT-03: 앱 계정 연동. Core가 로그인+동의 화면을 직접 서빙한다(설계서 §1.3). 이 컨트롤러는 공개
  * 엔드포인트라 {@code CoreAuthenticationFilter} 보호 대상에서 제외되어 있다({@code CoreAuthenticationPolicy}).
@@ -26,9 +28,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class OauthAuthorizeController {
 
     private final AuthorizeConsentService consentService;
+    private final AgentOauthProperties properties;
 
-    public OauthAuthorizeController(AuthorizeConsentService consentService) {
+    public OauthAuthorizeController(AuthorizeConsentService consentService, AgentOauthProperties properties) {
         this.consentService = consentService;
+        this.properties = properties;
     }
 
     @GetMapping
@@ -78,16 +82,20 @@ public class OauthAuthorizeController {
                 .body(ConsentPageRenderer.renderError(message));
     }
 
-    private static ResponseEntity<String> redirectWithError(String redirectUri, String error, String state) {
-        String location = redirectUri + (redirectUri.contains("?") ? "&" : "?")
-                + "error=" + encode(error) + "&state=" + encode(state);
-        return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(location)).build();
+    private ResponseEntity<String> redirectWithError(String redirectUri, String error, String state) {
+        return authorizationRedirect(redirectUri, "error", error, state);
     }
 
-    private static ResponseEntity<String> redirectWithCode(AuthorizeDecisionResult.Approved approved) {
-        String redirectUri = approved.redirectUri();
+    private ResponseEntity<String> redirectWithCode(AuthorizeDecisionResult.Approved approved) {
+        return authorizationRedirect(approved.redirectUri(), "code", approved.code(), approved.state());
+    }
+
+    /** RFC 9207: 신뢰된 콜백의 성공·오류 응답 모두 discovery와 같은 issuer를 전달한다. */
+    private ResponseEntity<String> authorizationRedirect(
+            String redirectUri, String parameter, String value, String state) {
         String location = redirectUri + (redirectUri.contains("?") ? "&" : "?")
-                + "code=" + encode(approved.code()) + "&state=" + encode(approved.state());
+                + parameter + "=" + encode(value) + "&state=" + encode(state)
+                + "&iss=" + encode(properties.issuer());
         return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(location)).build();
     }
 

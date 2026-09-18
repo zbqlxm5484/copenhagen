@@ -10,6 +10,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -36,6 +38,7 @@ class AuthorizeConsentServiceTest {
     private static final Instant BASE_INSTANT = Instant.parse("2026-01-01T00:00:00Z");
     private static final String CLIENT_ID = "chatgpt-plugin";
     private static final String REDIRECT_URI = "https://chat.openai.com/callback";
+    private static final String STABLE_CALLBACK = "https://chatgpt.com/connector_platform_oauth_redirect";
     private static final String CODE_CHALLENGE = "challenge-value";
 
     private FakeOauthClientRepository clientRepository;
@@ -49,7 +52,7 @@ class AuthorizeConsentServiceTest {
         clientRepository = new FakeOauthClientRepository();
         clientRepository.add(new OauthClient(
                 1L, CLIENT_ID, null, "ChatGPT", OauthClient.TYPE_PUBLIC,
-                "[\"" + REDIRECT_URI + "\"]", "[\"catalog:read\",\"cart:read\"]", null,
+                "[\"" + REDIRECT_URI + "\",\"" + STABLE_CALLBACK + "\"]", "[\"catalog:read\",\"cart:read\"]", null,
                 OauthClient.STATUS_ACTIVE, null));
         requestRepository = new FakeOauthAuthorizationRequestRepository();
         connectionService = mock(AgentConnectionService.class);
@@ -86,6 +89,33 @@ class AuthorizeConsentServiceTest {
                 "state-1", CODE_CHALLENGE, "S256");
 
         assertInstanceOf(AuthorizeStartResult.Rejected.class, result);
+    }
+
+    @Test
+    @DisplayName("허용 목록의 고정 콜백은 기존 PKCE 흐름으로 시작한다")
+    void start_registeredStableCallback_createsPendingRequest() {
+        AuthorizeStartResult result = service.start(CLIENT_ID, STABLE_CALLBACK, "catalog:read", "state-1",
+                CODE_CHALLENGE, "S256");
+
+        assertInstanceOf(AuthorizeStartResult.Started.class, result);
+        assertEquals(1, requestRepository.rows.size());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "https://chatgpt.com/connector_platform_oauth_redirect/",
+        "https://chatgpt.com/connector_platform_oauth_redirect?next=other",
+        "https://chatgpt.com/connector_platform_oauth_redirect#fragment",
+        "https://chatgpt.com.evil.example/connector_platform_oauth_redirect",
+        "http://chatgpt.com/connector_platform_oauth_redirect"
+    })
+    @DisplayName("고정 콜백 등록 후에도 유사 주소는 완전 일치 검증으로 거부한다")
+    void start_similarToStableCallback_rejectedWithoutRedirect(String redirectUri) {
+        AuthorizeStartResult result = service.start(CLIENT_ID, redirectUri, "catalog:read", "state-1",
+                CODE_CHALLENGE, "S256");
+
+        assertInstanceOf(AuthorizeStartResult.Rejected.class, result);
+        assertEquals(0, requestRepository.rows.size());
     }
 
     @Test
