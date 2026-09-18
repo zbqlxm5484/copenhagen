@@ -18,17 +18,17 @@
 ## 함께 반영한 구매 흐름
 
 [MCP 구매 → 모바일 승인 계약](mcp-mobile-purchase-flow.md)에 따라 기본 배송지 기반 자동 검증,
-배송지 미등록 시 같은 구매 요청 재개, 결제수단 미등록 시 앱 등록·선택, 최종 PIN/생체 승인,
+배송지 미등록 시 같은 구매 요청을 재개하는 API, 구매 인계·최종 승인 알림,
 거절·만료·일부 결제·알림 실패 상태 조회와 알림 재전송을 연결했다.
 
-Android 앱의 카드 등록은 기존 PG Mock 계약을 사용하는 debug 전용이다.
-프로덕션 카드 발급 연동은 제공자가 확정되어야 한다. 기존 등록 카드는 release 앱에서도 선택·승인할 수 있다.
-일반 웹 frontend와 AI FDS는 이 변경에 포함하지 않는다.
+모바일 앱은 별도 프로젝트에서 구현한다. 이 변경은 별도 앱이 사용할 Core·Pay API와 MCP 연동을 제공하며,
+모바일 클라이언트 구현, 일반 웹 frontend와 AI FDS는 포함하지 않는다.
 
 ## 검증 범위
 
-최종 기준은 `develop`의 `297853638da3bc986f8f78582dfb34cd7eabb252`이며,
-2026-09-18 로컬 검증에서 다음 결과를 확인했다.
+아래 결과는 `develop`의 `297853638da3bc986f8f78582dfb34cd7eabb252`를 반영한
+`71bce5d895f5254b4412001ff3d3e85e3375766c`에서 2026-09-18에 수행한 로컬 검증이다.
+MR !155 병합 후 모바일 구현을 제외하면서 백엔드·MCP·배포 설정은 그대로 유지했다.
 
 | 검증 | 결과 |
 |---|---|
@@ -37,7 +37,6 @@ Android 앱의 카드 등록은 기존 PG Mock 계약을 사용하는 debug 전�
 | MCP / Pay / PG Mock / Merchant Mock 테스트 | 각각 236 / 221 / 18 / 325개 통과 |
 | Pay PostgreSQL 통합 테스트 | 46개 통과 |
 | MCP UI 테스트 및 생성 번들 일치 | 51개 통과, 일치 |
-| Android debug APK·JVM 단위 테스트·Lint | 빌드 성공, 6개 통과, Lint 오류 0개 |
 | Docker Compose 구문 및 Git 공백 검사 | 통과 |
 
 - Java Checkstyle, 전체 backend build/unit test
@@ -45,9 +44,8 @@ Android 앱의 카드 등록은 기존 PG Mock 계약을 사용하는 debug 전�
 - Pay postgresTest의 실제 PostgreSQL 마이그레이션·알림·결제·멱등성 검증
 - Core–Pay 알림 인증·멱등 헤더 및 Merchant 완료 조회 HTTP 응답 계약
 - MCP UI 상태·중복 요청·링크 검증 테스트와 생성 HTML 재빌드
-- Android APK 빌드, JVM 단위 테스트, Lint
-- Android HTTP 모의 서버로 401 갱신 후 동일 승인 재요청·실패 재개 멱등키·PG 인증정보 분리 검증
 - Docker Compose 설정 구문 확인
 
-실제 Firebase 계정, 배포 인증서의 App Link, 실기기 알림·생체 센서,
-실제 PG 결제는 이 로컬 검증으로 확인한 범위가 아니다.
+모바일 구현 제외 시 `mobile/`의 추적 파일이 변경 전 `2978536`과 완전히 같은지,
+백엔드·MCP·배포 설정이 MR !155 병합 결과 `adb9c9a`와 같은지 확인했다.
+별도 앱과의 실기기 FCM·App Link·생체 인증 통합 및 실제 PG 결제는 이 로컬 검증 범위가 아니다.

@@ -2,7 +2,8 @@
 
 관련 이슈: S15P21A207-423. 상품 탐색·비교·장바구니·구매 시작 화면은 MCP UI가 제공하고,
 모바일 앱은 로그인, 배송지·결제수단 관리, 주문 내용 확인과 최종 결제 승인을 담당한다.
-일반 웹 프론트엔드와 AI FDS 연동은 이번 범위에 포함하지 않는다.
+모바일 앱은 별도 프로젝트에서 구현하며, 이 문서는 해당 앱이 연동할 Core·Pay API와 MCP 흐름을 설명한다.
+모바일 클라이언트 구현, 일반 웹 프론트엔드와 AI FDS 연동은 이번 범위에 포함하지 않는다.
 
 ## 구매 요청의 수명주기
 
@@ -15,10 +16,10 @@
    Pay는 등록된 기본 결제수단을 선택하며, 없으면 `PAYMENT_METHOD_REQUIRED` 상태로 만든다.
 4. Pay는 결제수단 등록 여부와 관계없이 `APPROVAL_REQUESTED` 알림을 발행한다.
    이 알림에는 `approvalId`가 들어간다.
-5. 사용자가 알림을 누르면 앱이 해당 ID를 조회한다. 로그인하지 않았다면 로그인 후 같은 ID로 재개한다.
+5. 별도 앱은 사용자가 알림을 누르면 해당 ID를 조회하고, 로그인하지 않았다면 로그인 후 같은 ID로 재개해야 한다.
    사용자 소유권은 Core·Pay가 각각 검증한다. 앱은 금액을 승인 요청에 보내지 않는다.
 6. 앱에서 최종 금액과 상품·수량·결제수단을 확인한 후 서버가 요구한 PIN 또는 생체 인증으로 승인한다.
-   생체 인증은 Android Keystore의 EC 키로 서버 challenge 문자열을 SHA256withECDSA 서명한다.
+   생체 인증은 Pay에 등록한 기기 공개키에 대응하는 개인키로 서버 challenge 문자열을 SHA256withECDSA 서명한다.
    서버의 PIN fallback만 사용하며 클라이언트가 요구 인증을 낮추지 않는다.
 7. Core가 승인 확인 후 Merchant complete를 호출한다. MCP `get_purchase_status`는 판매처별 결과를
    조회한다. `COMPLETED`만 전체 완료이며 `PARTIALLY_COMPLETED`는 일부 판매처만 완료된 상태다.
@@ -84,10 +85,10 @@ Core 서비스 인증이 필요한 내부 API다.
 - `PAY_FCM_ENABLED=true` 및 실제 Firebase 프로젝트·서비스 계정 설정: 실기기 푸시.
 - Merchant의 `PAY_MERCHANT_TOKENS_JSON`과 Pay의 `PAY_AUTH_MERCHANT_SERVICE_TOKENS_JSON`은
   동일한 merchantId→token 매핑이어야 한다. 실제 값은 배포 비밀정보로 주입한다.
-- `MCP_APP_LINK_BASE=https://<host>/<path>/`와 앱의 `APP_LINK_HOST`, `APP_LINK_PATH_PREFIX`가 일치해야 한다.
+- `MCP_APP_LINK_BASE=https://<host>/<path>/`는 별도 앱에 등록된 딥링크의 호스트·경로와 일치해야 한다.
 - 해당 HTTPS 호스트의 `/.well-known/assetlinks.json`에 앱 package와 실제 서명 인증서 SHA-256을
   등록해야 Android App Link가 검증된다. 앱 링크 도메인과 배포 인증서는 임의 값으로 대체하지 않는다.
 
-DB migration과 Merchant 옵션 가격 응답을 먼저 배포한 뒤 Core·Pay·MCP·앱을 배포한다.
+DB migration과 Merchant 옵션 가격 응답을 먼저 배포한 뒤 Core·Pay·MCP를 배포하고 별도 앱과 연동을 확인한다.
 기존 Merchant 응답에 옵션별 가격이 없으면 이전 base price fallback을 유지하므로 구버전 Merchant가
 추가금을 갖는 상품은 새 가격 계약 배포 후 구매해야 한다.
