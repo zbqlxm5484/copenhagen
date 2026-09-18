@@ -1,6 +1,7 @@
 package com.copenhagen.core.auth.profile;
 
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,6 +15,7 @@ import com.copenhagen.core.auth.user.User;
 import com.copenhagen.core.auth.user.UserRepository;
 import com.copenhagen.core.auth.user.UserStatus;
 import com.copenhagen.core.common.crypto.EncryptedPii;
+import com.copenhagen.core.common.crypto.PiiEncryptor;
 import com.copenhagen.core.common.error.CoreErrorCode;
 import com.copenhagen.core.common.error.CoreException;
 
@@ -27,6 +29,11 @@ class UserProfileServiceTest {
     private static final Instant NOW = Instant.parse("2026-01-01T00:00:00Z");
     private static final long USER_ID = 42L;
     private static final UUID PUBLIC_ID = UUID.randomUUID();
+    private static final String EMAIL = "user@example.com";
+
+    /** 테스트 전용 고정 키. 실제 암호화·복호화를 그대로 통과시켜 왕복을 검증한다. */
+    private static final PiiEncryptor PII_ENCRYPTOR =
+            new PiiEncryptor(Base64.getEncoder().encodeToString(new byte[32]));
 
     private UserRepository userRepository;
     private LocalAccountRepository localAccountRepository;
@@ -36,12 +43,12 @@ class UserProfileServiceTest {
     void setUp() {
         userRepository = mock(UserRepository.class);
         localAccountRepository = mock(LocalAccountRepository.class);
-        service = new UserProfileService(userRepository, localAccountRepository);
+        service = new UserProfileService(userRepository, localAccountRepository, PII_ENCRYPTOR);
     }
 
     @Test
-    @DisplayName("정상 조회는 userId/loginId/name 3필드를 반환한다")
-    void getProfile_existingUser_returnsSummary() {
+    @DisplayName("정상 조회는 userId/loginId/name과 복호화한 email을 반환한다")
+    void getProfile_existingUser_returnsSummaryWithEmail() {
         when(userRepository.findByPublicId(PUBLIC_ID)).thenReturn(Optional.of(user()));
         when(localAccountRepository.findByUserId(USER_ID)).thenReturn(Optional.of(localAccount()));
 
@@ -50,6 +57,20 @@ class UserProfileServiceTest {
         assertEquals(PUBLIC_ID, result.userId());
         assertEquals("login-id", result.loginId());
         assertEquals("홍길동", result.name());
+        assertEquals(EMAIL, result.email());
+    }
+
+    @Test
+    @DisplayName("암호문이 손상됐으면 빈 값을 주지 않고 실패한다")
+    void getProfile_corruptedEmail_throws() {
+        User corrupted = new User(
+                USER_ID, PUBLIC_ID, "홍길동", UserStatus.ACTIVE,
+                EncryptedPii.of(new byte[] {1, 2, 3}), "email-hash", true,
+                null, null, null, null, null, NOW, NOW);
+        when(userRepository.findByPublicId(PUBLIC_ID)).thenReturn(Optional.of(corrupted));
+        when(localAccountRepository.findByUserId(USER_ID)).thenReturn(Optional.of(localAccount()));
+
+        assertThrows(IllegalStateException.class, () -> service.getProfile(PUBLIC_ID));
     }
 
     @Test
@@ -76,7 +97,7 @@ class UserProfileServiceTest {
     private static User user() {
         return new User(
                 USER_ID, PUBLIC_ID, "홍길동", UserStatus.ACTIVE,
-                EncryptedPii.of(new byte[] {1}), "email-hash", true,
+                PII_ENCRYPTOR.encrypt(EMAIL), "email-hash", true,
                 null, null, null, null, null, NOW, NOW);
     }
 
