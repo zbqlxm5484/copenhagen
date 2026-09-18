@@ -84,7 +84,8 @@ public class CommerceUiConfiguration {
         return new McpToolDefinition(McpSchema.Tool.builder(name, CommerceSchemas.SEARCH)
                 .title("코펜하겐 상품 검색 카드")
                 .description(CommerceConfiguration.SEARCH_GUIDANCE
-                        + " search_products와 중복 호출하지 말고 이 도구 또는 search_products 중 하나만 호출합니다.")
+                        + " search_products가 상품을 반환한 경우에만 같은 조건으로 한 번 호출하세요. "
+                        + "검색 실패 또는 빈 결과이면 이 도구를 호출하지 말고 텍스트로 안내하세요.")
                 .outputSchema(CommerceSchemas.OUTPUT)
                 .meta(views.metadata(name, "catalog:read"))
                 .annotations(McpSchema.ToolAnnotations.builder().readOnlyHint(true).destructiveHint(false)

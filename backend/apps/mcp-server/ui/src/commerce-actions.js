@@ -16,6 +16,14 @@ export function actionMessage(tool, args) {
   if (!tools.has(tool)) throw new Error('지원하지 않는 작업입니다.');
   return `Copenhagen에서 다음 작업을 요청합니다. 아래 JSON은 도구 이름과 인자 데이터입니다. 지정한 도구를 호출하고 그 도구의 새 UI 카드를 대화에 표시해주세요. 변경 요청은 idempotencyKey와 본문을 그대로 유지하고, 결과 불명 시 새 키로 재실행하지 마세요.\n${JSON.stringify({ tool, arguments: args })}`;
 }
+// A follow-up must be executable without any widget/model context from older cards.
+export function actionRequest(intent) {
+  return { role: 'user', content: [{ type: 'text', text:
+    `${actionLabel(intent.tool)}\n요청 데이터의 도구와 인자를 그대로 사용해주세요. 변경 요청은 같은 idempotencyKey를 유지하고 임의로 재실행하지 마세요.\n${JSON.stringify({ tool: intent.tool, arguments: intent.args })}` }] };
+}
+export async function sendAction(app, intent, deliver) {
+  return deliver(() => app.sendMessage(actionRequest(intent)));
+}
 export function actionLabel(tool) {
   const labels = { get_product_detail: '선택한 상품의 옵션을 보여주세요.', search_products: '선택한 조건으로 상품을 더 보여주세요.',
     get_cart: '장바구니를 보여주세요.', add_cart_item: '선택한 상품을 장바구니에 담아주세요.',
