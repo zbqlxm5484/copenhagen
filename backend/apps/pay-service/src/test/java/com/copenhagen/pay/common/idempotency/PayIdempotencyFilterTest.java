@@ -33,6 +33,8 @@ class PayIdempotencyFilterTest {
         "PATCH, /api/pay/v1/payment-methods/cards/method-001/default",
         "DELETE, /api/pay/v1/payment-methods/cards/method-001",
         "POST, /internal/v1/payment-approvals",
+        "POST, /internal/v1/purchase-notifications",
+        "POST, /internal/v1/purchase-notifications/00000000-0000-0000-0000-000000000001/resend",
         "POST, /merchant/v1/payments"
     })
     void stateChangingProtectedRequestRequiresKey(String method, String path) throws Exception {

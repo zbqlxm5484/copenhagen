@@ -28,6 +28,8 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 | `PATCH` | `/api/pay/v1/payment-methods/cards/{paymentMethodId}/default` | 사용자 |
 | `DELETE` | `/api/pay/v1/payment-methods/cards/{paymentMethodId}` | 사용자 |
 | `POST` | `/internal/v1/payment-approvals` | Core 서비스 |
+| `POST` | `/internal/v1/purchase-notifications` | Core 서비스 |
+| `POST` | `/internal/v1/purchase-notifications/{purchaseId}/resend` | Core 서비스 |
 | `POST` | `/merchant/v1/payments` | Merchant 서비스 |
 
 `/merchant/v1/payments`는 `Idempotency-Key`와 별도로 `X-Request-Id`도 요구한다.
@@ -44,6 +46,7 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 - 같은 요청을 재시도할 때는 최초 UUID와 동일한 요청 본문을 그대로 재사용한다.
 - 새 작업에는 반드시 새 UUID를 사용한다.
 - 작업명이나 접두사를 UUID 앞에 붙이지 않는다.
+- 서버 간 호출처럼 같은 논리 작업을 여러 시점·여러 워커가 재시도하는 경우에는 요청마다 새 UUID를 만들지 않고, 대상 식별자에서 파생한 고정 UUID(`UUID.nameUUIDFromBytes`)를 사용한다. `/internal/v1/payment-approvals`와 `/internal/v1/purchase-notifications`가 여기에 해당한다. 이때도 최종 헤더 값은 반드시 표준 UUID 문자열이어야 한다.
 
 같은 범위에서 UUID와 요청 본문이 같으면 최초 결과를 재사용한다. 같은 UUID로 다른 요청 본문을 보내면 `409 IDEMPOTENCY_CONFLICT`를 반환한다.
 
