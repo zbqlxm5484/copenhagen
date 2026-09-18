@@ -25,6 +25,12 @@ class McpDeploymentConfigurationTest {
     }
 
     @Test
+    void registrationRejectsMissingAuthSettingsBeforeAcceptingRequests() {
+        context.withPropertyValues("spring.profiles.active=oauth-registration")
+                .run(app -> assertThat(app.getStartupFailure()).hasMessageContaining("requires MCP auth"));
+    }
+
+    @Test
     void deploymentRejectsMissingAndPartialAuthSettings() {
         deployment().run(app -> assertThat(app.getStartupFailure())
                 .hasMessageContaining("requires MCP auth"));

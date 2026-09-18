@@ -4,6 +4,56 @@ Core OAuth(S15P21A207-337)와 MCP 실제 연동(S15P21A207-400)이 develop에 �
 배포 절차다. 코드 병합과 운영 환경 설정을 구분한다. 실제 콜백·키·App Link를 등록하기
 전에는 `MCP_SPRING_PROFILES_ACTIVE=core-integration`을 활성화하지 않는다.
 
+## ChatGPT 등록·계정 연결을 먼저 진행하는 경우 (S15P21A207-415)
+
+`oauth-registration` 프로필은 실제 Core OAuth 사용자 토큰을 검증하면서 기존 연결 확인
+UI와 `open_copenhagen`, `check_connection` 두 도구만 제공한다. 상품·장바구니·구매 API를
+호출하지 않으므로 App Link, MCP 서비스 개인키, 서비스 토큰 발급 설정은 이 단계에 필요 없다.
+Core가 제공하는 OAuth 로그인·동의·토큰 발급·공개키와 실제 ChatGPT callback 등록은 필요하다.
+OpenAI API 키나 로컬 터널 키는 사용하지 않는다.
+
+먼저 이 프로필을 포함한 이미지를 기존 develop CI/CD로 배포한다. 그 뒤 서버 배포 폴더의
+기존 `.env`에 다음 항목을 반영한다. 실제 서버 `.env`는 Git으로 전송하지 않는다.
+
+```dotenv
+MCP_SPRING_PROFILES_ACTIVE=oauth-registration
+MCP_AUTH_RESOURCE=https://j15a207.p.ssafy.io/mcp
+MCP_AUTH_ISSUER=https://j15a207.p.ssafy.io
+MCP_AUTH_JWKS_URI=https://j15a207.p.ssafy.io/.well-known/jwks.json
+MCP_ALLOWED_HOSTS=j15a207.p.ssafy.io,mcp-server:8080,localhost:8080
+MCP_ALLOWED_ORIGINS=https://chatgpt.com
+```
+
+`required-scopes=catalog:read`와 JWT 검증은 프로필이 설정한다. 이 권한은 Core와 합의된
+최소 읽기 권한이며 등록 모드에서 상품 도구를 활성화하지 않는다. 인증 설정이 빠졌거나
+issuer/resource가 HTTPS가 아니면 시작을 거부한다. 사용자 정보나 토큰을 UI에 반환하지 않는다.
+프로필은 `oauth-registration` 또는 `core-integration` 중 하나만 지정한다.
+
+서버 배포 폴더에서 환경변수를 적용하려면 MCP 컨테이너를 재생성한다.
+
+```bash
+docker compose --env-file .env -f docker-compose.yml -f infra/docker/https.override.yml \
+  up -d --no-deps --force-recreate mcp-server
+curl --fail --silent --show-error \
+  https://j15a207.p.ssafy.io/.well-known/oauth-protected-resource/mcp
+```
+
+metadata가 `200`이며 공개 resource/authorization_servers와 `catalog:read`를 제공하는지
+확인한다. 인증 없는 `/mcp`는 계속 `401`이어야 하고 `WWW-Authenticate`에 metadata URL이
+포함되어야 한다. `healthy`나 metadata `200`만으로 실제 계정 연결 완료를 판단하지 않는다.
+
+ChatGPT 등록에는 공개 HTTPS `/mcp`와 OAuth를 사용한다. 사전 등록 client ID를 입력할 수
+있는 화면에서는 Core의 PUBLIC 클라이언트 `chatgpt-plugin`을 사용하며 임의의 client secret을
+만들지 않는다. Core는 현재 동적 클라이언트 등록 endpoint를 제공하지 않으므로 화면이 이 방식을
+지원하는지도 확인한다. 실제 callback URL은 ChatGPT 설정에서 확인해 Core 담당자가 정확히
+등록해야 한다. 기존 로컬 QA 터널 연결을 계정 연결 검증에 사용하지 않는다.
+등록 완료 후 새 대화에서 `코펜하겐 열어줘`를 요청하여 연결 확인 UI와 버튼 호출을 검증한다.
+상품 검색·장바구니·결제는 등록 프로필의 검증 범위가 아니다.
+
+추후 Core 업무 API, MCP 서비스 키/공개키 등록, App Link가 준비되면 프로필을
+`core-integration`으로 교체하고 재배포한 뒤 ChatGPT 도구를 Refresh한다.
+아래 서비스 키·App Link 준비 절차는 이 전체 기능 연동 단계에 적용한다.
+
 ## 주소와 역할
 
 | 설정/주소 | 값과 역할 |

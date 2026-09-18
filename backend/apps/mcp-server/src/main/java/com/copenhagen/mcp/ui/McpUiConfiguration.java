@@ -1,10 +1,12 @@
 package com.copenhagen.mcp.ui;
 
+import com.copenhagen.mcp.auth.McpAuthProperties;
 import com.copenhagen.mcp.tool.McpToolDefinition;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncResourceSpecification;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -16,6 +18,12 @@ import org.springframework.context.annotation.Configuration;
 @ConditionalOnProperty(name = "mcp.ui.enabled", havingValue = "true")
 @org.springframework.boot.autoconfigure.condition.ConditionalOnExpression("!${mcp.integration.enabled:false}")
 public class McpUiConfiguration {
+
+    private final McpAuthProperties auth;
+
+    public McpUiConfiguration(McpAuthProperties auth) {
+        this.auth = auth;
+    }
 
     private static final Map<String, Object> INPUT = Map.of(
             "type", "object", "properties", Map.of(), "additionalProperties", false);
@@ -61,10 +69,14 @@ public class McpUiConfiguration {
 
     private McpToolDefinition tool(String name, String title, String description,
             Map<String, Object> metadata, McpHomeResource home) {
+        Map<String, Object> securedMetadata = new LinkedHashMap<>(metadata);
+        securedMetadata.put("securitySchemes", List.of(Map.of("type", "oauth2",
+                "scopes", auth.requiredScopes().stream().sorted().toList())));
         return new McpToolDefinition(McpSchema.Tool.builder(name, INPUT)
-                .title(title).description(description).outputSchema(OUTPUT).meta(metadata)
+                .title(title).description(description).outputSchema(OUTPUT).meta(securedMetadata)
                 .annotations(McpSchema.ToolAnnotations.builder().readOnlyHint(true).destructiveHint(false)
                         .idempotentHint(true).openWorldHint(false).build()).build(),
+                auth.requiredScopes(),
                 (identity, request) -> Map.of("service", "copenhagen-mcp", "status", "connected",
                         "checkedAt", Instant.now().toString(), "requestId", UUID.randomUUID().toString(),
                         "uiVersion", home.version()));
