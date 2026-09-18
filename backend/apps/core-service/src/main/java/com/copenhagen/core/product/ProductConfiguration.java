@@ -2,6 +2,8 @@ package com.copenhagen.core.product;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.time.Duration;
+import org.springframework.beans.factory.annotation.Value;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -12,6 +14,14 @@ import com.copenhagen.core.ucp.MerchantProfileDirectory;
 @Configuration
 @EnableConfigurationProperties({MerchantsProperties.class, CoreUcpProperties.class})
 public class ProductConfiguration {
+
+    @Bean(destroyMethod = "close")
+    CatalogSearchFanout catalogSearchFanout(
+            @Value("${catalog-search.concurrency}") int concurrency,
+            @Value("${catalog-search.queue-capacity}") int queueCapacity,
+            @Value("${catalog-search.budget}") Duration budget) {
+        return new CatalogSearchFanout(concurrency, queueCapacity, budget);
+    }
 
     @Bean
     public Map<String, MerchantCatalogClient> merchantCatalogClients(

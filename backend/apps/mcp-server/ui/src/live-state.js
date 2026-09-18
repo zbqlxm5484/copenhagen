@@ -5,6 +5,7 @@ export function payload(result, kind) {
     const error = new Error(value?.error?.message || '요청을 처리하지 못했습니다.');
     error.outcome = value?.error?.outcome ?? 'UNKNOWN';
     error.code = value?.error?.code;
+    error.authRequired = ['AUTHENTICATION_REQUIRED', 'INVALID_TOKEN', 'ACCOUNT_NOT_CONNECTED', 'INSUFFICIENT_SCOPE'].includes(error.code);
     throw error;
   }
   if (value?.kind !== kind || !value.data || typeof value.data !== 'object') throw new Error('응답을 확인하지 못했습니다.');
@@ -30,10 +31,19 @@ export function variantLabel(detail, variant) {
   return (variant.optionValueIds ?? []).map(id => names.get(id) ?? id).join(' · ') || '기본 옵션';
 }
 export function pendingRequest(tool, args, now = Date.now()) {
-  return { tool, args: { ...args, idempotencyKey: crypto.randomUUID() }, createdAt: now };
+  return { tool, args: { ...args, idempotencyKey: crypto.randomUUID() }, createdAt: now, phase: 'NEW', uncertain: false };
 }
 export function restorablePending(value) {
   if (!value || !['add_cart_item', 'update_cart_item', 'delete_cart_item', 'prepare_purchase_handoff'].includes(value.tool)
       || !value.args || !/^[0-9a-f-]{36}$/.test(value.args.idempotencyKey) || !Number.isFinite(value.createdAt)) return null;
-  return value;
+  // Old saved requests might already have reached Core. Never treat them as unsent drafts.
+  return { ...value, phase: value.phase ?? 'UNKNOWN', uncertain: value.uncertain ?? true };
+}
+export function failedPending(request, error) {
+  if (error.authRequired) return { ...request, phase: 'AUTH_REQUIRED' };
+  if (error.outcome === 'NOT_APPLIED' && !request.uncertain) return null;
+  return { ...request, phase: 'UNKNOWN', uncertain: true };
+}
+export function canDiscardPending(request) {
+  return !!request && !request.uncertain && ['NEW', 'AUTH_REQUIRED', 'PREPARING'].includes(request.phase);
 }

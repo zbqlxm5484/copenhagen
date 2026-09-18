@@ -22,10 +22,13 @@ public class ProductService {
 
     private final Map<String, MerchantCatalogClient> clients;
     private final Clock clock;
+    private final CatalogSearchFanout catalogSearchFanout;
 
-    public ProductService(Map<String, MerchantCatalogClient> merchantCatalogClients, Clock coreClock) {
+    public ProductService(Map<String, MerchantCatalogClient> merchantCatalogClients, Clock coreClock,
+            CatalogSearchFanout catalogSearchFanout) {
         this.clients = merchantCatalogClients;
         this.clock = coreClock;
+        this.catalogSearchFanout = catalogSearchFanout;
     }
 
     public SearchEnvelope search(UUID principal, SearchQuery query) {
@@ -118,26 +121,7 @@ public class ProductService {
      */
     public CatalogSearchResult searchForInternal(
             String query, String merchantId, Long minPrice, Long maxPrice) {
-        List<CatalogSearchItem> items = new ArrayList<>();
-        List<String> failedMerchants = new ArrayList<>();
-        for (MerchantCatalogClient client : targets(merchantId)) {
-            try {
-                for (MerchantCatalogClient.CatalogItem item : client.search(query, maxPrice, KRW)) {
-                    if (!KRW.equals(item.price().currency())) {
-                        continue;
-                    }
-                    if (minPrice != null && item.price().amount() < minPrice) {
-                        continue;
-                    }
-                    items.add(new CatalogSearchItem(
-                            client.merchantId(), client.merchantName(), item.productId(), item.title(),
-                            item.price().amount(), KRW, item.availability()));
-                }
-            } catch (CoreException exception) {
-                failedMerchants.add(client.merchantId());
-            }
-        }
-        return new CatalogSearchResult(List.copyOf(items), List.copyOf(failedMerchants));
+        return catalogSearchFanout.search(targets(merchantId), query, minPrice, maxPrice);
     }
 
     /**

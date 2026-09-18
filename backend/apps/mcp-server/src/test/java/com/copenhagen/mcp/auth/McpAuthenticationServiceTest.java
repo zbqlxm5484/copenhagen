@@ -40,7 +40,7 @@ class McpAuthenticationServiceTest {
     void authenticate_missingScope_requestsRequiredPermission() {
         McpAuthException exception = failure(service(token -> claims("scope")));
         assertEquals(McpAuthError.INSUFFICIENT_SCOPE, exception.error());
-        assertEquals(Set.of("mcp:access"), exception.requiredScopes());
+        assertEquals(Set.of("mcp:access", "unrelated:read"), exception.requiredScopes());
     }
 
     @Test

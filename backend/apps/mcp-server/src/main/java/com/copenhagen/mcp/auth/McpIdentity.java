@@ -3,6 +3,8 @@ package com.copenhagen.mcp.auth;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import java.time.Instant;
 import java.util.Set;
+import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 /** 인증 필터가 생성해 SDK transport context로 전달하는 요청별 사용자 문맥. */
 public record McpIdentity(String publicUserRef, String connectionRef, Set<String> scopes, Instant expiresAt,
@@ -31,7 +33,9 @@ public record McpIdentity(String publicUserRef, String connectionRef, Set<String
 
     public void requireScopes(Set<String> required) {
         if (!scopes.containsAll(required)) {
-            throw new McpAuthException(McpAuthError.INSUFFICIENT_SCOPE, required);
+            // 추가 동의가 이미 승인한 권한을 축소시키지 않도록 현재 권한도 보존한다.
+            throw new McpAuthException(McpAuthError.INSUFFICIENT_SCOPE,
+                    Stream.concat(scopes.stream(), required.stream()).collect(Collectors.toUnmodifiableSet()));
         }
     }
 

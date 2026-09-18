@@ -17,9 +17,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 /** Core 최종 계약 전용 경계. 목적지와 헤더는 모델 입력으로 받지 않는다. */
 public final class InternalCoreClient {
+    private static final Logger log = LoggerFactory.getLogger(InternalCoreClient.class);
     private static final Set<String> ERROR_CODES = Set.of("CART_VERSION_CONFLICT", "QUANTITY_LIMIT_EXCEEDED",
             "IDEMPOTENCY_KEY_CONFLICT", "CART_ITEM_NOT_FOUND", "PRODUCT_NOT_FOUND", "VARIANT_NOT_FOUND",
             "OUT_OF_STOCK", "CART_EMPTY", "CART_ITEM_LIMIT_EXCEEDED", "ACCESS_DENIED", "INVALID_ARGUMENT");
@@ -54,7 +58,10 @@ public final class InternalCoreClient {
         if (write && (idempotencyKey == null || !UUID.fromString(idempotencyKey).toString().equals(idempotencyKey))) {
             throw new IllegalArgumentException("UUID idempotency key is required");
         }
-        String requestId = UUID.randomUUID().toString();
+        String requestId = MDC.get("mcpRequestId");
+        if (requestId == null) {
+            requestId = UUID.randomUUID().toString();
+        }
         if (identity.agentAccessToken() == null || !Instant.now().isBefore(identity.expiresAt())) {
             throw new CoreApiException("AUTHENTICATION_REQUIRED", "NOT_APPLIED", requestId);
         }
@@ -62,8 +69,12 @@ public final class InternalCoreClient {
                 .map(entry -> encode(entry.getKey()) + "=" + encode(String.valueOf(entry.getValue())))
                 .collect(Collectors.joining("&"));
         URI destination = properties.baseUrl().resolve(path + suffix);
+        long tokenStarted = System.nanoTime();
+        String serviceToken = tokens.accessToken();
+        log.info("MCP timing: requestId={}, stage=service_token, elapsedMs={}",
+                requestId, (System.nanoTime() - tokenStarted) / 1_000_000);
         HttpRequest.Builder builder = HttpRequest.newBuilder(destination).timeout(properties.requestTimeout())
-                .header("Accept", "application/json").header("Authorization", "Bearer " + tokens.accessToken())
+                .header("Accept", "application/json").header("Authorization", "Bearer " + serviceToken)
                 .header("X-Agent-Authorization", "Bearer " + identity.agentAccessToken())
                 .header("X-Request-Id", requestId);
         if (write) {
@@ -79,6 +90,7 @@ public final class InternalCoreClient {
         } catch (IOException exception) {
             throw new CoreApiException("INVALID_ARGUMENT", "NOT_APPLIED", requestId);
         }
+        long coreStarted = System.nanoTime();
         var pending = client.sendAsync(builder.build(),
                 info -> new LimitedBodySubscriber(properties.maxResponseBytes()));
         String unknown = write ? "UNKNOWN" : "NOT_APPLICABLE";
@@ -112,13 +124,20 @@ public final class InternalCoreClient {
             return value;
         } catch (IOException exception) {
             throw new CoreApiException("CORE_INVALID_RESPONSE", unknown, requestId);
-        } catch (ExecutionException | TimeoutException exception) {
+        } catch (TimeoutException exception) {
+            throw new CoreApiException("CORE_TIMEOUT", unknown, requestId);
+        } catch (ExecutionException exception) {
+            if (exception.getCause() instanceof java.net.http.HttpTimeoutException) {
+                throw new CoreApiException("CORE_TIMEOUT", unknown, requestId);
+            }
             throw new CoreApiException("CORE_UNAVAILABLE", unknown, requestId);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new CoreApiException("CORE_UNAVAILABLE", unknown, requestId);
         } finally {
             pending.cancel(true);
+            log.info("MCP timing: requestId={}, stage=core_http, method={}, elapsedMs={}",
+                    requestId, method, (System.nanoTime() - coreStarted) / 1_000_000);
         }
     }
 

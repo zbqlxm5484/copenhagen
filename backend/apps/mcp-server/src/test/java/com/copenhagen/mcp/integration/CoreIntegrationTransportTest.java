@@ -69,6 +69,11 @@ class CoreIntegrationTransportTest {
                 {"purchaseRequestId":"request1","status":"PENDING_ADDRESS","cartId":"cart1",
                  "cartVersion":12,"expiresAt":"%s","nextAction":"SELECT_SHIPPING_ADDRESS"}
                 """.formatted(Instant.now().plusSeconds(1800))));
+        core.createContext("/internal/v1/carts/current", exchange -> reply(exchange, """
+                {"cartId":"cart1","version":1,"items":[],"merchantSummaries":[],
+                 "summary":{"currency":"KRW","itemSubtotalAmount":0,"discountAmount":null,
+                 "shippingAmount":null,"totalAmount":null,"status":"INCOMPLETE"}}
+                """));
         core.start();
         String base = "http://127.0.0.1:" + core.getAddress().getPort();
         application = new SpringApplicationBuilder(McpServerApplication.class)
@@ -101,11 +106,15 @@ class CoreIntegrationTransportTest {
             var tools = client.listTools().tools();
             assertEquals(Set.of("search_products", "get_product_detail", "get_cart", "add_cart_item",
                     "update_cart_item", "delete_cart_item", "prepare_purchase_handoff", "open_copenhagen",
-                    "display_products", "get_purchase_status", "resend_purchase_notification"),
+                    "display_products", "get_purchase_status", "resend_purchase_notification", "prepare_cart"),
                     tools.stream().map(McpSchema.Tool::name).collect(Collectors.toSet()));
             var result = client.callTool(McpSchema.CallToolRequest.builder().name("open_copenhagen")
                     .arguments(Map.of("query", "삼성")).build());
             assertFalse(result.isError());
+            Map<?, ?> diagnostics = (Map<?, ?>) result.meta().get("copenhagen/diagnostics");
+            java.util.UUID.fromString((String) diagnostics.get("requestId"));
+            assertTrue(((Number) diagnostics.get("serverMillis")).longValue() >= 0);
+            assertFalse(diagnostics.toString().contains(token));
             assertEquals("Bearer " + token, delegated.get());
             assertEquals("Bearer test-service-token", service.get());
             assertFalse(result.structuredContent().toString().contains(token));
@@ -143,6 +152,41 @@ class CoreIntegrationTransportTest {
             assertTrue(result.isError());
             assertTrue(result.meta().get("mcp/www_authenticate") instanceof List<?>);
             assertTrue(result.meta().toString().contains("cart:read"));
+            assertTrue(result.structuredContent().toString().contains("NOT_APPLIED"));
+        }
+    }
+
+    @Test
+    void prepareCart_fullGrant_readsWithoutChallenge() throws Exception {
+        try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application),
+                token("catalog:read cart:read cart:write"))) {
+            client.initialize();
+            for (String name : List.of("prepare_cart", "get_cart")) {
+                var result = client.callTool(McpSchema.CallToolRequest.builder().name(name)
+                        .arguments(Map.of()).build());
+                assertFalse(result.isError());
+                assertFalse(result.meta().containsKey("mcp/www_authenticate"));
+                assertTrue(result.structuredContent().toString().contains("cart.view"));
+            }
+        }
+    }
+
+    @Test
+    void prepareCart_partialGrant_requestsBothScopesAndKeepsCatalogGrant() throws Exception {
+        try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application), token("catalog:read cart:read"))) {
+            client.initialize();
+            var tool = client.listTools().tools().stream().filter(t -> t.name().equals("prepare_cart"))
+                    .findFirst().orElseThrow();
+            assertTrue(tool.annotations().readOnlyHint());
+            assertTrue(tool.meta().toString().contains("cart:write"));
+            var result = client.callTool(McpSchema.CallToolRequest.builder().name("prepare_cart")
+                    .arguments(Map.of()).build());
+            assertTrue(result.isError());
+            String challenge = result.meta().get("mcp/www_authenticate").toString();
+            assertTrue(challenge.contains("cart:read"));
+            assertTrue(challenge.contains("cart:write"));
+            assertTrue(challenge.contains("catalog:read"));
+            assertFalse(challenge.contains("purchase:handoff"));
         }
     }
 
