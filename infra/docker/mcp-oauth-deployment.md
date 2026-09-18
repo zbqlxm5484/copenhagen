@@ -147,8 +147,10 @@ docker compose --env-file .env -f docker-compose.yml -f infra/docker/https.overr
 
 ## 2. Core OAuth 클라이언트 등록
 
-Core V10 마이그레이션은 클라이언트를 생성하지만 실제 연결값을 알 수 없어 아래 값은
-운영 등록이 필요하다. 마이그레이션 파일을 수정해도 기존 DB 행은 갱신되지 않는다.
+Core V10 마이그레이션은 클라이언트를 생성한다. V14는 PUBLIC `chatgpt-plugin`의
+`redirect_uris`에 `https://chatgpt.com/connector_platform_oauth_redirect`를 중복 없이 추가한다.
+기존 개별 콜백, scope, 클라이언트 상태와 `copenhagen-mcp` 설정은 보존한다.
+이미 적용한 migration을 수정하지 않고 새 migration을 배포한다.
 
 - `chatgpt-plugin`: ChatGPT에서 표시되는 실제 콜백 URI를 `redirect_uris` JSON 배열에
   정확히 등록한다. 초기 `https://chat.openai.com/aip/PLACEHOLDER/oauth/callback`을 그대로
@@ -161,6 +163,37 @@ Core V10 마이그레이션은 클라이언트를 생성하지만 실제 연결�
 
 위 DB 값은 Core 담당자가 등록하고 실제 계정으로 로그인·동의를 검증한다. 비밀번호나
 발급된 access/refresh token을 MCP 설정 파일에 고정해서 우회하지 않는다.
+
+### ChatGPT 고정 콜백 전환 (S15P21A207-416)
+
+Core는 RFC 9207에 따라 OAuth discovery에
+`authorization_response_iss_parameter_supported: true`를 공개한다. 승인(code), 권한 오류
+(`invalid_scope`), 동의 거절(`access_denied`)의 콜백 응답에는 discovery의 `issuer`와
+정확히 같은 `iss`를 URL 인코딩하여 붙인다. 요청의 Host·Forwarded 헤더나 입력값으로
+issuer를 만들지 않고 기존 `AGENT_OAUTH_ISSUER`를 그대로 사용한다.
+미등록 콜백과 존재하지 않거나 만료된 인가 요청은 기존처럼 직접 오류를 표시하며 리다이렉트하지 않는다.
+
+OpenAI는 이 조건을 지원하는 인증 서버의 신규 연결에 고정 콜백을 사용할 수 있다.
+기존 연결의 개별 callback ID가 자동으로 바뀐다고 가정하지 않는다.
+
+1. Core 변경과 V14 migration을 같은 배포로 반영한다. MCP 등록 프로필 배포와는 별도 작업이다.
+2. 공개 Core discovery의 `issuer`와 지원 플래그, MCP protected resource metadata의
+   `authorization_servers`가 가리키는 issuer가 일치하는지 확인한다.
+3. ChatGPT의 새 플러그인 등록 화면에서 OAuth 설정을 다시 탐지한다. PUBLIC 클라이언트
+   `chatgpt-plugin`, 토큰 인증 방식 `none`을 사용하고 클라이언트 시크릿은 입력하지 않는다.
+4. 화면에 표시된 콜백이 `https://chatgpt.com/connector_platform_oauth_redirect`이면 V14에서
+   이미 등록한 주소를 사용할 수 있다. 여전히 개별 주소가 표시되면 임의로 교체하지 않고
+   discovery 재탐지 및 새 등록 화면을 확인한다. 필요한 기존 개별 주소는 허용 목록에 유지한다.
+5. 실제 앱 계정으로 승인·거절을 각각 확인한다. 승인 후 MCP 호출까지 성공해야 연결 완료다.
+
+새 환경변수나 OpenAI API 키는 필요 없다. 각 테스트 사용자는 플러그인에 접근할 수 있는
+ChatGPT 계정과 본인 앱 계정으로 연결한다. 고정 콜백 등록이 플러그인 공개·배포 권한이나
+사용자 로그인·동의를 대체하지 않는다. 와일드카드 또는 URI 접두사 일치 검증은 추가하지 않는다.
+
+배포 전에는 Core의 다른 미병합 migration과 V14 버전 충돌이 없는지 확인한다. 코드 롤백으로
+발급자 식별 지원이 사라지면 고정 콜백 연결을 계속 보장할 수 없으므로 재탐지·재연결을 확인한다.
+
+근거: [OpenAI OAuth 발급자 식별 및 Redirect URL](https://developers.openai.com/plugins/build/auth#protect-callbacks-with-issuer-identification).
 
 ## 3. 적용 순서
 

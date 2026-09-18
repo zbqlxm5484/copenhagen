@@ -24,6 +24,7 @@ public class OauthDiscoveryController {
     public Metadata metadata() {
         return new Metadata(
                 properties.issuer(),
+                true,
                 properties.authorizationEndpoint(),
                 properties.tokenEndpoint(),
                 properties.jwksUri(),
@@ -37,6 +38,8 @@ public class OauthDiscoveryController {
     /** RFC 8414 필드명(snake_case)을 그대로 노출한다. */
     public record Metadata(
             String issuer,
+            @JsonProperty("authorization_response_iss_parameter_supported")
+            boolean authorizationResponseIssParameterSupported,
             @JsonProperty("authorization_endpoint") String authorizationEndpoint,
             @JsonProperty("token_endpoint") String tokenEndpoint,
             @JsonProperty("jwks_uri") String jwksUri,

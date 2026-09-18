@@ -28,6 +28,13 @@ Dockerfile              독립 이미지 빌드 정의
 ./gradlew :apps:core-service:build
 ```
 
+## ChatGPT OAuth 고정 콜백
+
+`/.well-known/oauth-authorization-server`는 RFC 9207 발급자 응답 식별 지원을 공개합니다.
+`/oauth/authorize`의 승인·콜백 오류 응답은 기존 `AGENT_OAUTH_ISSUER`와 동일한 `iss`를
+포함합니다. V14 migration이 기존 콜백을 보존하면서 ChatGPT 고정 콜백을 추가합니다.
+실제 전환과 배포 확인은 [MCP OAuth 배포 절차](../../../infra/docker/mcp-oauth-deployment.md#chatgpt-고정-콜백-전환-s15p21a207-416)를 따릅니다.
+
 ## 로그인 흐름 로그 추적
 
 Core 로그인 API도 `X-Request-Id`를 응답 헤더와 로그에 남깁니다. 로그인 ID·Device ID·사용자 ID는 SHA-256 앞 16자리만 기록하고, 비밀번호·Access Token·Refresh Token은 기록하지 않습니다. `X-App-Version`, `X-OS-Version`, `X-Platform` 헤더를 보내면 해당 앱 환경도 로그인 로그에 함께 남습니다.
