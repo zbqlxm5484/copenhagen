@@ -62,8 +62,22 @@ http {
     location /mcp {
       return 401 '{"code":"AUTHENTICATION_REQUIRED","method":"$request_method","uri":"$request_uri","proto":"$http_x_forwarded_proto","backend":"$hostname"}';
     }
+    # Proxying reads the body before the echo server inspects it. A direct return
+    # does not read request bodies, so it cannot verify forwarding by the ingress.
+    location = /api/pg/__body_probe {
+      proxy_pass http://127.0.0.1:8081;
+      proxy_set_header Host $http_host;
+      proxy_set_header X-Probe-Body $request_body;
+    }
     location / {
       return 200 '{"method":"$request_method","uri":"$request_uri","proto":"$http_x_forwarded_proto","backend":"$hostname"}';
+    }
+  }
+  server {
+    listen 8081;
+    default_type application/json;
+    location / {
+      return 200 '{"method":"$request_method","uri":"$request_uri","proto":"$http_x_forwarded_proto","backend":"$hostname","host":"$http_host","forwarded_for":"$http_x_forwarded_for","request_id":"$http_x_request_id","idempotency_key":"$http_idempotency_key","content_type":"$http_content_type","body":$http_x_probe_body}';
     }
   }
 }
@@ -89,8 +103,11 @@ COPY www /var/www/certbot
 
             backends = [start(role, 'backend.conf', [role])
                         for role in ('core-service', 'mcp-server', 'pay-service', 'pg-mock')]
-            start('http', 'nginx.conf', ['plain'])
+            http = start('http', 'nginx.conf', ['plain'])
             https = start('https', 'nginx.https.conf', [DOMAIN])
+            for name, config in ((http, 'nginx.conf'), (https, 'nginx.https.conf')):
+                run('docker', 'exec', name, 'nginx', '-t', '-c', '/fixtures/' + config)
+            print('PASS HTTP/TLS nginx configuration syntax', flush=True)
             # The curl image cannot see the client's filesystem on a remote DinD daemon.
             # Copy only the disposable public certificate into a reusable probe container.
             probe = prefix + '-curl'
@@ -99,10 +116,13 @@ COPY www /var/www/certbot
                 '--entrypoint', 'sh', CURL, '-c', 'while :; do sleep 3600; done')
             run('docker', 'cp', str(certs / 'fullchain.pem'), probe + ':/tmp/ca.pem')
 
-            def request(url, method='GET'):
+            def request(url, method='GET', data=None, headers=()):
+                options = [part for header in headers for part in ('-H', header)]
+                if data is not None:
+                    options.extend(('--data-binary', data))
                 output = run('docker', 'exec', probe, 'curl', '-sS', '--connect-timeout', '2',
                              '--max-time', '5', '--cacert', '/tmp/ca.pem', '-X', method,
-                             '-w', '\n%{http_code}\n%{redirect_url}', url)
+                             '-w', '\n%{http_code}\n%{redirect_url}', *options, url)
                 parts = output.split('\n')
                 if parts[-1].isdigit():
                     return '\n'.join(parts[:-1]), int(parts[-1]), ''
@@ -130,6 +150,11 @@ COPY www /var/www/certbot
                     ('/oauth/token', 'core-service'),
                     ('/api/core/probe', 'core-service'), ('/api/pay/probe', 'pay-service'),
                     ('/api/pg/v1/payment-methods/tokenize', 'pg-mock'),
+                    ('/api/pg/', 'pg-mock'),
+                    ('/api/pg/v1/payment-methods/tokenize?probe=1&label=pg%2Fmock', 'pg-mock'),
+                    ('/api/pg/v1/payment-methods/other', 'pg-mock'),
+                    ('/api/pg/v2/probe?test=1', 'pg-mock'),
+                    ('/api/pg/internal/v1/charges', 'pg-mock'),
                     ('/merchant/v1/probe', 'pay-service'), ('/.well-known/ucp', 'core-service')):
                     for method in ('GET', 'POST'):
                         body, status, _ = request(f'{scheme}://{host}{path}', method)
@@ -137,16 +162,33 @@ COPY www /var/www/certbot
                         data = json.loads(body)
                         assert data == dict(data, uri=path, method=method, proto=scheme, backend=upstream)
                 for path in ('/internal', '/internal/v1/catalog/products', '/v1/payment-methods/tokenize',
-                             '/api/pg/v1/payment-methods/other', '/unknown',
+                             '/internal/v1/charges', '/api/pgx/probe', '/api/pg-other/probe', '/unknown',
                              '/.well-known/unknown', '/.well-known/jwks.json/extra',
                              '/.well-known/oauth-protected-resource/extra', '/oauth/unknown',
                              '/oauth/token/extra'):
-                    assert request(f'{scheme}://{host}{path}')[1] == 404
-            print('PASS HTTP/TLS routes, methods, query strings, forwarded protocol and internal blocking', flush=True)
+                    for method in ('GET', 'POST'):
+                        assert request(f'{scheme}://{host}{path}', method)[1] == 404, (scheme, path, method)
 
-            for method in ('GET', 'POST'):
-                _, status, redirect = request('http://' + DOMAIN + '/mcp?test=1', method)
-                assert status == 308 and redirect == 'https://' + DOMAIN + '/mcp?test=1'
+                path = '/api/pg/__body_probe?test=1&label=pg%2Fmock'
+                payload = {'probe': 'nginx-routing', 'nested': {'value': 414}}
+                body, status, _ = request(f'{scheme}://{host}{path}', 'POST', json.dumps(payload),
+                                          ('Content-Type: application/json',
+                                           'Idempotency-Key: nginx-routing-fixture',
+                                           'X-Forwarded-For: 192.0.2.10'))
+                assert status == 200, (scheme, path, status)
+                data = json.loads(body)
+                assert data == dict(data, uri=path, method='POST', proto=scheme, backend='pg-mock',
+                                    host=host, content_type='application/json', body=payload,
+                                    idempotency_key='nginx-routing-fixture'), (scheme, data)
+                assert data['forwarded_for'].startswith('192.0.2.10, '), data
+                assert len(data['request_id']) == 32 and all(c in '0123456789abcdef' for c in data['request_id']), data
+            print('PASS HTTP/TLS routes, methods, query strings, forwarded protocol and internal blocking', flush=True)
+            print('PASS PG prefix routing, URI/body preservation, idempotency and forwarding headers', flush=True)
+
+            for path in ('/mcp?test=1', '/api/pg/v1/payment-methods/tokenize?test=1'):
+                for method in ('GET', 'POST'):
+                    _, status, redirect = request('http://' + DOMAIN + path, method)
+                    assert status == 308 and redirect == 'https://' + DOMAIN + path
             assert request('http://' + DOMAIN + '/.well-known/acme-challenge/probe')[:2] == ('acme-ready', 200)
             assert request('http://' + DOMAIN + '/internal')[1] == 404
             print('PASS HTTPS redirect and direct HTTP ACME validation', flush=True)
