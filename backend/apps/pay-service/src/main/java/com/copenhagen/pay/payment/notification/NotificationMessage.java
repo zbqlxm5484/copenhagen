@@ -8,7 +8,13 @@ public record NotificationMessage(
         String approvalId,
         String paymentId,
         String status,
-        String nextAction) {
+        String nextAction,
+        String purchaseRequestId) {
+
+    public NotificationMessage(String eventId, NotificationEventType type, String approvalId,
+            String paymentId, String status, String nextAction) {
+        this(eventId, type, approvalId, paymentId, status, nextAction, null);
+    }
 
     public String pushId() {
         return eventId;

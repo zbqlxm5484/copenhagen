@@ -42,7 +42,7 @@ public class JdbcCartRepository implements CartRepository {
             """;
 
     private static final String FIND_ITEM_BY_PRODUCT_VARIANT_SQL = SELECT_ITEM_COLUMNS + """
-            WHERE cart_id = ? AND merchant_product_id = ? AND merchant_variant_id = ?
+            WHERE cart_id = ? AND merchant_id = ? AND merchant_product_id = ? AND merchant_variant_id = ?
             """;
 
     private static final String FIND_ITEM_BY_PUBLIC_ID_SQL = SELECT_ITEM_COLUMNS + """
@@ -126,11 +126,11 @@ public class JdbcCartRepository implements CartRepository {
 
     @Override
     public Optional<CartItem> findItemByProductVariant(
-            long cartId, String merchantProductId, String merchantVariantId) {
+            long cartId, long merchantId, String merchantProductId, String merchantVariantId) {
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject(
                     FIND_ITEM_BY_PRODUCT_VARIANT_SQL, ITEM_ROW_MAPPER,
-                    cartId, merchantProductId, merchantVariantId));
+                    cartId, merchantId, merchantProductId, merchantVariantId));
         } catch (EmptyResultDataAccessException exception) {
             return Optional.empty();
         }

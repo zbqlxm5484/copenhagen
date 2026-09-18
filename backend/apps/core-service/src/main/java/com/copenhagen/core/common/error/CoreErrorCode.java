@@ -3,7 +3,13 @@ package com.copenhagen.core.common.error;
 import org.springframework.http.HttpStatus;
 
 public enum CoreErrorCode {
+    PURCHASE_REQUEST_EXPIRED(HttpStatus.CONFLICT, "PURCHASE_REQUEST_EXPIRED",
+            "구매 요청이 만료되었습니다.", "START_NEW_PURCHASE"),
 
+    WEBHOOK_SIGNATURE_INVALID(
+            HttpStatus.UNAUTHORIZED, "WEBHOOK_SIGNATURE_INVALID", "Webhook 서명이 올바르지 않습니다.", "CHECK_SIGNATURE"),
+    WEBHOOK_ID_CONFLICT(
+            HttpStatus.CONFLICT, "WEBHOOK_ID_CONFLICT", "다른 본문에 같은 Webhook ID가 사용되었습니다.", "CHECK_REQUEST"),
     INVALID_REQUEST(
             HttpStatus.BAD_REQUEST,
             "INVALID_REQUEST",
@@ -79,6 +85,11 @@ public enum CoreErrorCode {
             "CART_VERSION_CONFLICT",
             "장바구니가 이미 변경되었습니다. 다시 조회한 뒤 시도해 주세요.",
             "REFETCH_CART"),
+    CART_ITEM_LIMIT_EXCEEDED(
+            HttpStatus.CONFLICT,
+            "CART_ITEM_LIMIT_EXCEEDED",
+            "장바구니에는 최대 100개 항목을 담을 수 있습니다.",
+            "REMOVE_CART_ITEM"),
     CART_ITEM_NOT_FOUND(
             HttpStatus.NOT_FOUND,
             "CART_ITEM_NOT_FOUND",

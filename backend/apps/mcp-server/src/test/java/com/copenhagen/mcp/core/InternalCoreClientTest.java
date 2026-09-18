@@ -82,6 +82,17 @@ class InternalCoreClientTest {
     }
 
     @Test
+    void exchange_realCatalogId_reachesCoreWithoutAllowingPathInjection() {
+        client.exchange(identity, "GET", "/internal/v1/catalog/products/merchant-a/kurly:1000025270",
+                Map.of(), null, null);
+        assertTrue(seen.get().contains("/merchant-a/kurly:1000025270"));
+        for (String unsafe : new String[] {"../admin", "%2e%2e", "id?admin=true", "id#fragment", "id\\admin"}) {
+            assertThrows(IllegalArgumentException.class, () -> client.exchange(identity, "GET",
+                    "/internal/v1/catalog/products/merchant-a/" + unsafe, Map.of(), null, null));
+        }
+    }
+
+    @Test
     void exchange_conflict_isNotAppliedButServerFailureIsUnknown() {
         status = 409;
         response = "{\"error\":{\"code\":\"CART_VERSION_CONFLICT\"}}";

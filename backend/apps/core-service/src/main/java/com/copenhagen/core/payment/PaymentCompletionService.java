@@ -7,7 +7,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import com.copenhagen.contract.internalapi.ApprovalStatus;
+import com.copenhagen.contract.internalapi.PaymentApprovalStatusResponse;
+import com.copenhagen.contract.internalapi.PaymentStatus;
 import com.copenhagen.core.cart.CartMerchants;
+import com.copenhagen.core.checkout.MerchantCheckoutMessages.PaymentRef;
 import com.copenhagen.core.checkout.MerchantCheckoutClient;
 import com.copenhagen.core.checkout.MerchantCheckoutMessages.CompleteResult;
 import com.copenhagen.core.checkout.MerchantCheckoutRepository.AwaitingApprovalCheckout;
@@ -55,7 +59,44 @@ public class PaymentCompletionService {
                 credentialId,
                 IDEMPOTENCY_KEY_PREFIX + row.merchantCheckoutId());
 
+        return record(row, result, paymentLabel, true);
+    }
+
+    public Outcome synchronize(AwaitingApprovalCheckout row, String paymentLabel) {
+        MerchantCheckoutClient client = merchantCheckoutClients.get(cartMerchants.merchantId(row.merchantRefId()));
+        if (client == null) {
+            return Outcome.IN_PROGRESS;
+        }
+        return record(row, client.current(row.merchantCheckoutId()), paymentLabel, false);
+    }
+
+    public Outcome recover(AwaitingApprovalCheckout row, PaymentApprovalStatusResponse status) {
+        Outcome current = synchronize(row, status.paymentLabel());
+        if (current != Outcome.IN_PROGRESS) {
+            return current;
+        }
+        if (status.paymentStatus() == PaymentStatus.FAILED) {
+            return record(row, new CompleteResult(row.merchantCheckoutId(), STATUS_READY_FOR_COMPLETE,
+                    null, new PaymentRef(status.paymentId(), "FAILED", "PAYMENT_FAILED")),
+                    status.paymentLabel(), true);
+        }
+        if (status.approvalStatus() == ApprovalStatus.APPROVED && status.credentialId() != null
+                && !status.credentialId().isBlank()) {
+            return complete(row, status.credentialId(), status.paymentLabel());
+        }
+        return Outcome.IN_PROGRESS;
+    }
+
+    private Outcome record(AwaitingApprovalCheckout row, CompleteResult result, String paymentLabel,
+            boolean completionAttempted) {
+        if (result == null || !row.merchantCheckoutId().equals(result.id())) {
+            throw new IllegalStateException("Invalid Merchant checkout response");
+        }
         if (STATUS_COMPLETED.equals(result.status())) {
+            if (result.order() == null || result.order().id() == null || result.payment() == null
+                    || result.payment().paymentId() == null || !"SUCCESS".equals(result.payment().status())) {
+                throw new IllegalStateException("Incomplete Merchant completion response");
+            }
             repository.recordCompleted(
                     row.checkoutSnapshotId(),
                     row.userId(),
@@ -68,7 +109,11 @@ public class PaymentCompletionService {
                     clock.instant());
             return Outcome.COMPLETED;
         }
-        if (STATUS_READY_FOR_COMPLETE.equals(result.status())) {
+        if ("expired".equals(result.status()) || "canceled".equals(result.status())) {
+            return Outcome.EXPIRED;
+        }
+        if (STATUS_READY_FOR_COMPLETE.equals(result.status()) && (completionAttempted
+                || result.payment() != null && "FAILED".equals(result.payment().status()))) {
             repository.recordFailed(
                     row.checkoutSnapshotId(),
                     row.paymentApprovalId(),
@@ -79,14 +124,14 @@ public class PaymentCompletionService {
                     clock.instant());
             return Outcome.FAILED;
         }
-        // complete_in_progress: Merchant가 PG 응답을 아직 못 받았다. merchant_checkouts는 COMPLETING에
-        // 남기고 이번 tick에서는 아무것도 쓰지 않는다 — 최종 확정은 순서30 Order Webhook 후속 구현의 몫이다.
+        // 아직 완료되지 않은 주문서는 다음 폴링 또는 Webhook에서 다시 확인한다.
         return Outcome.IN_PROGRESS;
     }
 
     public enum Outcome {
         COMPLETED,
         FAILED,
-        IN_PROGRESS
+        IN_PROGRESS,
+        EXPIRED
     }
 }

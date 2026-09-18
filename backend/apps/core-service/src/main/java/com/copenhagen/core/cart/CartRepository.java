@@ -19,7 +19,7 @@ public interface CartRepository {
     boolean bumpVersion(long cartId, int expectedVersion, Instant now);
 
     Optional<CartItem> findItemByProductVariant(
-            long cartId, String merchantProductId, String merchantVariantId);
+            long cartId, long merchantId, String merchantProductId, String merchantVariantId);
 
     /** 소유권 검사를 쿼리 조건에 내장한다 — 다른 장바구니의 항목은 없는 것으로 취급한다. */
     Optional<CartItem> findItemByPublicId(UUID publicId, long cartId);

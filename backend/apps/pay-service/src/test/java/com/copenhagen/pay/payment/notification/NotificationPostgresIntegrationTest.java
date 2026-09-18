@@ -39,6 +39,47 @@ class NotificationPostgresIntegrationTest {
     private NotificationInstallationRepository installations;
     private NotificationOutboxRepository outbox;
 
+    @Test
+    void purchaseHandoff_noDeviceIsNotReportedAsSentAndResendKeepsOneEvent() {
+        var clock = java.time.Clock.fixed(NOW, java.time.ZoneOffset.UTC);
+        var service = new PurchaseNotificationService(jdbc, clock);
+        UUID user = UUID.fromString(USER_ID);
+        UUID purchase = UUID.randomUUID();
+        service.create(user, purchase);
+        service.create(user, purchase);
+        assertEquals(1, count("pay_notification_outbox"));
+        var dispatch = new NotificationDispatchService(outbox, installations,
+                (fid, message) -> { throw new AssertionError("No device must not send"); },
+                clock, new PayNotificationProperties(null, null));
+        assertTrue(dispatch.processNext());
+        assertEquals("FAILED", service.status(user, purchase).getFirst().status());
+        assertEquals("NO_ACTIVE_INSTALLATION", service.status(user, purchase).getFirst().errorCode());
+        UUID key = UUID.randomUUID();
+        service.resend(user, purchase, key);
+        service.resend(user, purchase, key);
+        assertEquals(1, count("pay_notification_resends"));
+        assertEquals("PENDING", service.status(user, purchase).getFirst().status());
+        assertTrue(service.status(UUID.randomUUID(), purchase).isEmpty());
+    }
+
+    @Test
+    void purchasePushContainsPurchaseIdAndFailedDeliveryRemainsRetryable() {
+        var clock = java.time.Clock.fixed(NOW, java.time.ZoneOffset.UTC);
+        var service = new PurchaseNotificationService(jdbc, clock);
+        UUID purchase = UUID.randomUUID();
+        service.create(UUID.fromString(USER_ID), purchase);
+        installations.registerActive(USER_ID, "fid-purchase", NOW);
+        var dispatch = new NotificationDispatchService(outbox, installations, (fid, message) -> {
+            assertEquals(purchase.toString(), message.purchaseRequestId());
+            assertEquals(null, message.approvalId());
+            assertEquals("OPEN_PURCHASE", message.nextAction());
+            throw new NotificationDeliveryException("FCM_SEND_FAILED", false, null);
+        }, clock, new PayNotificationProperties(null, null));
+        assertTrue(dispatch.processNext());
+        assertEquals("FAILED", service.status(UUID.fromString(USER_ID), purchase).getFirst().status());
+        assertEquals("FAILED", jdbc.queryForObject("SELECT status FROM pay_notification_deliveries", String.class));
+    }
+
     @BeforeAll
     void startPostgres() throws IOException {
         postgres = EmbeddedPostgres.builder()

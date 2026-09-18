@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 public final class InternalCoreClient {
     private static final Set<String> ERROR_CODES = Set.of("CART_VERSION_CONFLICT", "QUANTITY_LIMIT_EXCEEDED",
             "IDEMPOTENCY_KEY_CONFLICT", "CART_ITEM_NOT_FOUND", "PRODUCT_NOT_FOUND", "VARIANT_NOT_FOUND",
-            "OUT_OF_STOCK", "CART_EMPTY", "ACCESS_DENIED", "INVALID_ARGUMENT");
+            "OUT_OF_STOCK", "CART_EMPTY", "CART_ITEM_LIMIT_EXCEEDED", "ACCESS_DENIED", "INVALID_ARGUMENT");
     private final CoreProperties properties;
     private final HttpClient client;
     private final ServiceTokenProvider tokens;
@@ -46,7 +46,7 @@ public final class InternalCoreClient {
 
     public Map<String, Object> exchange(McpIdentity identity, String method, String path,
             Map<String, Object> query, Map<String, Object> body, String idempotencyKey) {
-        if (!path.matches("/internal/v1/(?:[A-Za-z0-9_~-]+/?)*")
+        if (!path.matches("/internal/v1/(?:[A-Za-z0-9_:~-]+/?)*")
                 || !Set.of("GET", "POST", "PATCH", "DELETE").contains(method)) {
             throw new IllegalArgumentException("Invalid internal API request");
         }

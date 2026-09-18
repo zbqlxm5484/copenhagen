@@ -35,7 +35,7 @@ class CoreCommerceServiceTest {
     void search_allCategories_keepsCursorAndPartialResultsWithoutPrivateFields() throws Exception {
         Map<String, Object> response = json("""
                 {"products":[{"name":"신발","brand":"브랜드","category":{"id":"shoes","name":"신발"},
-                "imageUrl":null,"offers":[{"merchantId":"m1","merchantName":"상점","merchantProductId":"p1",
+                "imageUrl":null,"offers":[{"merchantId":"m1","merchantName":"상점","merchantProductId":"daiso:1001712",
                 "priceAmount":12000,"currency":"KRW","availability":"IN_STOCK","privateToken":"excluded"}]}],
                 "filters":{"categories":[],"merchants":[]},"nextCursor":"opaque-cursor","failedMerchants":["m2"],
                 "checkedAt":"2026-09-17T00:00:00Z","userId":123}
@@ -47,6 +47,17 @@ class CoreCommerceServiceTest {
         assertFalse(output.toString().contains("privateToken"));
         assertFalse(output.toString().contains("userId"));
         assertEquals("opaque-cursor", ((Map<?, ?>) output.get("data")).get("nextCursor"));
+    }
+
+    @Test
+    void catalogIdentifier_colonAcceptedInInputAndOutputButUnsafeCharactersRejected() {
+        String sku = "kurly:1000025270-M00000008360";
+        assertEquals(sku, CommerceProjection.id(sku));
+        assertEquals(true, sku.matches((String) CommerceSchemas.ID.get("pattern")));
+        for (String unsafe : java.util.List.of("../x", "a/b", "a?b", "a#b", "a%2fb", "a".repeat(97))) {
+            assertThrows(CoreApiException.class, () -> CommerceProjection.id(unsafe));
+            assertFalse(unsafe.matches((String) CommerceSchemas.ID.get("pattern")));
+        }
     }
 
     @Test

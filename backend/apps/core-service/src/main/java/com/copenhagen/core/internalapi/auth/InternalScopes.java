@@ -30,7 +30,7 @@ public final class InternalScopes {
         if (CART_PATH.equals(path)) {
             return AgentScopes.CART_READ;
         }
-        if (PURCHASE_REQUESTS_PATH.equals(path)) {
+        if (PURCHASE_REQUESTS_PATH.equals(path) || path.startsWith(PURCHASE_REQUESTS_PATH + "/")) {
             return AgentScopes.PURCHASE_HANDOFF;
         }
         return null;

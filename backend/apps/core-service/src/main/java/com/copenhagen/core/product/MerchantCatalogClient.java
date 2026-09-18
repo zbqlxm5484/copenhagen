@@ -2,6 +2,9 @@ package com.copenhagen.core.product;
 
 import java.util.List;
 
+import com.copenhagen.contract.ucp.CatalogOptionValue;
+
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.client.HttpClientErrorException;
@@ -146,6 +149,4 @@ class MerchantCatalogClient {
     record CatalogOption(String name, List<CatalogOptionValue> values) {
     }
 
-    record CatalogOptionValue(String optionValueId, String label) {
-    }
 }

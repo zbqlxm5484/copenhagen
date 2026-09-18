@@ -81,7 +81,7 @@ public class CommerceConfiguration {
     @Bean
     McpToolDefinition corePreparePurchase(CoreCommerceService service) {
         return tool("prepare_purchase_handoff", "앱 구매 인계", "사용자가 구매 진행을 요청한 경우에만 호출합니다. "
-                + "다수 판매처를 지원하며 배송지·승인·결제는 앱에서 이어갑니다. PENDING_ADDRESS는 결제 성공이 아닙니다. "
+                + "기본 배송지로 검증 후 앱에 승인 알림을 보냅니다. 미등록 정보는 앱에서 등록합니다. "
                 + "UUID 멱등키는 같은 요청에 재사용하고 결과 불명 시 본문을 바꾸지 않습니다. "
                 + "재호출은 생성 당시 결과이며 현재 결제 상태를 조회하지 않습니다.", CommerceSchemas.PURCHASE,
                 "purchase:handoff", false, (identity, request) -> service.purchase(identity, request.arguments()));
@@ -94,6 +94,22 @@ public class CommerceConfiguration {
                 + "결과 불명 시 같은 키·본문으로 재호출하고 새 키로 중복 변경하지 마세요. APPLIED 이후 조회 실패 시 "
                 + "get_cart만 다시 호출합니다.", schema, "cart:write", false,
                 (identity, request) -> service.mutate(identity, method, request.arguments()));
+    }
+
+    @Bean
+    McpToolDefinition corePurchaseStatus(CoreCommerceService service) {
+        return tool("get_purchase_status", "구매 진행 상태", "구매 요청의 현재 검증·승인·결제·알림 상태를 조회합니다. "
+                + "COMPLETED만 전체 결제 완료입니다. PARTIALLY_COMPLETED는 일부 판매처만 완료된 상태입니다.",
+                CommerceSchemas.PURCHASE_STATUS, "purchase:handoff", true,
+                (identity, request) -> service.purchaseStatus(identity, request.arguments(), false));
+    }
+
+    @Bean
+    McpToolDefinition coreResendNotification(CoreCommerceService service) {
+        return tool("resend_purchase_notification", "구매 알림 재전송", "사용자가 요청한 경우에만 앱 알림을 재전송합니다. "
+                + "새 구매를 만들지 않습니다. 결과 불명 시 같은 UUID 멱등키를 재사용합니다.",
+                CommerceSchemas.PURCHASE_NOTIFY, "purchase:handoff", false,
+                (identity, request) -> service.purchaseStatus(identity, request.arguments(), true));
     }
 
     static McpToolDefinition tool(String name, String title, String description, Map<String, Object> input,

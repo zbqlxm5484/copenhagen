@@ -102,7 +102,7 @@ class CartServiceTest {
         when(cartRepository.insertActiveCart(any(), eq(USER_ID), eq(NOW)))
                 .thenAnswer(invocation -> new Cart(CART_ID, invocation.getArgument(0), USER_ID, 1));
         when(productService.captureForCart("merchant-a", "p-1", List.of("sku-1"))).thenReturn(snapshot());
-        when(cartRepository.findItemByProductVariant(CART_ID, "p-1", "sku-1")).thenReturn(Optional.empty());
+        when(cartRepository.findItemByProductVariant(CART_ID, 1L, "p-1", "sku-1")).thenReturn(Optional.empty());
 
         CartAddResult result = service.add(USER_ID, 0, "merchant-a", "p-1", List.of("sku-1"), 2);
 
@@ -130,7 +130,7 @@ class CartServiceTest {
         when(cartRepository.findActiveByUserId(USER_ID)).thenReturn(Optional.of(cart(3)));
         when(cartRepository.bumpVersion(CART_ID, 3, NOW)).thenReturn(true);
         when(productService.captureForCart("merchant-a", "p-1", List.of("sku-1"))).thenReturn(snapshot());
-        when(cartRepository.findItemByProductVariant(CART_ID, "p-1", "sku-1")).thenReturn(Optional.empty());
+        when(cartRepository.findItemByProductVariant(CART_ID, 1L, "p-1", "sku-1")).thenReturn(Optional.empty());
 
         CartAddResult result = service.add(USER_ID, 3, "merchant-a", "p-1", List.of("sku-1"), 2);
 
@@ -159,7 +159,7 @@ class CartServiceTest {
         when(cartRepository.findActiveByUserId(USER_ID)).thenReturn(Optional.of(cart(3)));
         when(cartRepository.bumpVersion(CART_ID, 3, NOW)).thenReturn(true);
         when(productService.captureForCart("merchant-a", "p-1", List.of("sku-1"))).thenReturn(snapshot());
-        when(cartRepository.findItemByProductVariant(CART_ID, "p-1", "sku-1"))
+        when(cartRepository.findItemByProductVariant(CART_ID, 1L, "p-1", "sku-1"))
                 .thenReturn(Optional.of(existing));
 
         CartAddResult result = service.add(USER_ID, 3, "merchant-a", "p-1", List.of("sku-1"), 3);

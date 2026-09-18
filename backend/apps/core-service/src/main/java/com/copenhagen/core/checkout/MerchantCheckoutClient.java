@@ -108,6 +108,12 @@ public class MerchantCheckoutClient {
         }
     }
 
+    /** 응답 유실·비동기 완료 복구. 읽기 요청이므로 결제를 다시 실행하지 않는다. */
+    public CompleteResult current(String checkoutId) {
+        return client().get().uri((directory == null ? CHECKOUT_SESSIONS_PATH : "/checkout-sessions")
+                + "/{checkoutId}", checkoutId).retrieve().body(CompleteResult.class);
+    }
+
     private RestClient client() {
         if (directory == null) {
             return restClient;

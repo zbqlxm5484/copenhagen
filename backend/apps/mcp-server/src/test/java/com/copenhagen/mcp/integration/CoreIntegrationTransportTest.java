@@ -98,7 +98,8 @@ class CoreIntegrationTransportTest {
             var tools = client.listTools().tools();
             assertEquals(Set.of("search_products", "get_product_detail", "get_cart", "add_cart_item",
                     "update_cart_item", "delete_cart_item", "prepare_purchase_handoff", "open_copenhagen",
-                    "display_products"), tools.stream().map(McpSchema.Tool::name).collect(Collectors.toSet()));
+                    "display_products", "get_purchase_status", "resend_purchase_notification"),
+                    tools.stream().map(McpSchema.Tool::name).collect(Collectors.toSet()));
             var result = client.callTool(McpSchema.CallToolRequest.builder().name("open_copenhagen")
                     .arguments(Map.of("query", "삼성")).build());
             assertFalse(result.isError());

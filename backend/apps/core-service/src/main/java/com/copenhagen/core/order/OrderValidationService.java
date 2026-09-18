@@ -44,12 +44,10 @@ import com.copenhagen.core.common.crypto.PiiEncryptor;
 import com.copenhagen.core.common.error.ApiErrorIssue;
 import com.copenhagen.core.common.error.CoreErrorCode;
 import com.copenhagen.core.common.error.CoreException;
-import com.copenhagen.core.payment.PayCheckoutHash;
+import com.copenhagen.core.payment.PaymentApprovalRequests;
 import com.copenhagen.core.payment.PaymentApprovalClient;
 import com.copenhagen.core.payment.PaymentApprovalMessages.ApprovalCreatedResponse;
 import com.copenhagen.core.payment.PaymentApprovalMessages.CreateApprovalRequest;
-import com.copenhagen.core.payment.PaymentApprovalMessages.DisplaySnapshot;
-import com.copenhagen.core.payment.PaymentApprovalMessages.SummaryItem;
 import com.copenhagen.core.product.MerchantsProperties;
 
 /**
@@ -110,6 +108,7 @@ public class OrderValidationService {
     private final UserRepository userRepository;
     private final PaymentApprovalClient paymentApprovalClient;
     private final MerchantsProperties merchantsProperties;
+    private final OrderValidationInputLoader inputLoader;
 
     public OrderValidationService(
             CartRepository cartRepository,
@@ -123,7 +122,7 @@ public class OrderValidationService {
             Clock coreClock,
             UserRepository userRepository,
             PaymentApprovalClient paymentApprovalClient,
-            MerchantsProperties merchantsProperties) {
+            MerchantsProperties merchantsProperties, OrderValidationInputLoader inputLoader) {
         this.cartRepository = cartRepository;
         this.addressRepository = addressRepository;
         this.purchaseRequestRepository = purchaseRequestRepository;
@@ -136,6 +135,7 @@ public class OrderValidationService {
         this.userRepository = userRepository;
         this.paymentApprovalClient = paymentApprovalClient;
         this.merchantsProperties = merchantsProperties;
+        this.inputLoader = inputLoader;
     }
 
     public OrderValidationResult validate(long userId, UUID cartId, int cartVersion, UUID addressId) {
@@ -144,6 +144,9 @@ public class OrderValidationService {
         List<CartItem> items = cartRepository.findItemsByCartId(cart.id());
         if (items.isEmpty()) {
             throw new CoreException(CoreErrorCode.ORDER_CART_EMPTY);
+        }
+        if (items.size() > com.copenhagen.core.cart.CartService.MAX_CART_ITEMS) {
+            throw new CoreException(CoreErrorCode.CART_ITEM_LIMIT_EXCEEDED);
         }
         Address address = requireAddress(userId, addressId);
 
@@ -159,11 +162,20 @@ public class OrderValidationService {
         }
     }
 
+    /** MCP 인계의 기존 ID와 connectionId를 보존하고 동일한 merchant 멱등키로 검증을 재개한다. */
+    public OrderValidationResult validateExisting(
+            PurchaseRequest purchase, UUID cartId, int cartVersion, UUID addressId) {
+        OrderValidationInputLoader.Input input = inputLoader.load(purchase.userId(), cartId, cartVersion, addressId);
+        return createCheckouts(purchase, input.items(), input.address(), clock.instant());
+    }
+
     private OrderValidationResult createCheckouts(
             PurchaseRequest purchaseRequest,
             List<CartItem> items,
             Address address,
             Instant now) {
+        User user = userRepository.findById(purchaseRequest.userId())
+                .orElseThrow(() -> new CoreException(CoreErrorCode.INTERNAL_ERROR));
         Destination destination = toDestination(address);
         List<DetectedIssue> issues = new ArrayList<>();
         List<MerchantCheckoutRecord> records = new ArrayList<>();
@@ -198,7 +210,9 @@ public class OrderValidationService {
                             expiresAt),
                     toSnapshot(orderSnapshotId, checkoutDigest, checkout, address, expiresAt),
                     toSnapshotItems(merchantItems, checkout),
-                    toFulfillmentOptions(checkout)));
+                    toFulfillmentOptions(checkout),
+                    objectMapper.writeValueAsString(toApprovalRequest(
+                            purchaseRequest, user, new ApprovalInput(merchantId, checkoutDigest, checkout)))));
             views.add(toView(merchantId, orderSnapshotId, checkout));
             approvalInputs.add(new ApprovalInput(merchantId, checkoutDigest, checkout));
         }
@@ -207,7 +221,7 @@ public class OrderValidationService {
             throw validationFailure(issues);
         }
         List<Long> checkoutIds = merchantCheckoutRepository.insertAll(records, now);
-        createApprovals(purchaseRequest, checkoutIds, approvalInputs, now);
+        createApprovals(purchaseRequest, checkoutIds, approvalInputs, views, now);
         return new OrderValidationResult(purchaseRequest.publicId(), List.copyOf(views));
     }
 
@@ -219,7 +233,8 @@ public class OrderValidationService {
      * 않는다. 실패한 checkout은 {@code CREATING}으로 남고, 재시도 가능한 상태로 둔다.
      */
     private void createApprovals(
-            PurchaseRequest purchaseRequest, List<Long> checkoutIds, List<ApprovalInput> approvalInputs, Instant now) {
+            PurchaseRequest purchaseRequest, List<Long> checkoutIds, List<ApprovalInput> approvalInputs,
+            List<OrderValidationResult.MerchantCheckoutView> views, Instant now) {
         User user = userRepository.findById(purchaseRequest.userId())
                 .orElseThrow(() -> new CoreException(CoreErrorCode.INTERNAL_ERROR));
         for (int index = 0; index < approvalInputs.size(); index++) {
@@ -232,6 +247,10 @@ public class OrderValidationService {
                 merchantCheckoutRepository.markAwaitingApproval(
                         checkoutId, response.approvalId(), response.expiresAt(), now);
             } catch (CoreException exception) {
+                OrderValidationResult.MerchantCheckoutView view = views.get(index);
+                views.set(index, new OrderValidationResult.MerchantCheckoutView(
+                        view.merchantId(), view.merchantCheckoutId(), view.orderSnapshotId(),
+                        "PENDING_APPROVAL_CREATION", view.expiresAt(), view.amount()));
                 log.warn("payment.approval.create.failed checkoutId={}, merchantId={}",
                         checkoutId, input.merchantId(), exception);
             }
@@ -240,23 +259,8 @@ public class OrderValidationService {
 
     private CreateApprovalRequest toApprovalRequest(
             PurchaseRequest purchaseRequest, User user, ApprovalInput input) {
-        Checkout checkout = input.checkout();
-        List<SummaryItem> summary = checkout.lineItems() == null
-                ? List.of()
-                : checkout.lineItems().stream()
-                        .map(line -> new SummaryItem(
-                                line.item().title(), null, line.quantity(), line.item().price()))
-                        .toList();
-        return new CreateApprovalRequest(
-                purchaseRequest.publicId().toString(),
-                user.publicId().toString(),
-                input.merchantId(),
-                checkout.id(),
-                PayCheckoutHash.toExternal(input.checkoutDigest()),
-                checkout.merchantAuthorization(),
-                new DisplaySnapshot(merchantDisplayName(input.merchantId()), summary),
-                checkout.amountOf(TOTAL_TOTAL),
-                checkout.currency());
+        return PaymentApprovalRequests.create(purchaseRequest.publicId().toString(), user.publicId().toString(),
+                input.merchantId(), merchantDisplayName(input.merchantId()), input.checkoutDigest(), input.checkout());
     }
 
     private String merchantDisplayName(String merchantId) {
@@ -269,7 +273,7 @@ public class OrderValidationService {
 
     /** 재시도가 같은 승인 세션으로 접히도록 결정적으로 만든다. */
     static String approvalIdempotencyKey(UUID purchaseRequestPublicId, String merchantId) {
-        return "payment-approval-create-" + purchaseRequestPublicId + "-" + merchantId;
+        return PaymentApprovalRequests.idempotencyKey(purchaseRequestPublicId.toString(), merchantId);
     }
 
     /** 승인 생성에 필요한 checkout별 값. Merchant 호출 응답은 {@code insertAll} 전까지만 살아 있다. */

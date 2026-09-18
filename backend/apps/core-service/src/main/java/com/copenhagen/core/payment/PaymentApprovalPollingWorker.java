@@ -53,6 +53,16 @@ public class PaymentApprovalPollingWorker {
             fixedDelayString = "${core.payment.worker.poll-interval-seconds:3}000",
             initialDelayString = "${core.payment.worker.poll-interval-seconds:3}000")
     public void poll() {
+        for (AwaitingApprovalCheckout row : merchantCheckoutRepository.findCompleting(clock.instant())) {
+            try {
+                if (merchantCheckoutRepository.beginCompleting(row.id(), clock.instant())) {
+                    finish(row, completionService.recover(row, paymentApprovalClient.status(row.paymentApprovalId())));
+                }
+            } catch (RuntimeException exception) {
+                log.warn("payment.completion.retry.failed checkoutId={}, error={}",
+                        row.id(), exception.getClass().getSimpleName());
+            }
+        }
         List<AwaitingApprovalCheckout> rows = merchantCheckoutRepository.findAwaitingApproval();
         for (AwaitingApprovalCheckout row : rows) {
             try {
@@ -66,24 +76,27 @@ public class PaymentApprovalPollingWorker {
 
     private void pollOne(AwaitingApprovalCheckout row) {
         Instant now = clock.instant();
-        if (row.paymentApprovalExpiresAt().isBefore(now)) {
-            merchantCheckoutRepository.markExpired(row.id(), now);
-            return;
-        }
-
         PaymentApprovalStatusResponse status = paymentApprovalClient.status(row.paymentApprovalId());
         switch (status.approvalStatus()) {
-            case APPROVED -> handleApproved(row, status);
+            case APPROVED, COMPLETED -> handleApproved(row, status);
             case REJECTED -> merchantCheckoutRepository.markCancelled(row.id(), REASON_USER_REJECTED, now);
             case EXPIRED, INVALIDATED -> merchantCheckoutRepository.markExpired(row.id(), now);
             default -> {
-                // PAYMENT_METHOD_REQUIRED/PENDING/COMPLETED: 아직 승인 대기 중이거나(다음 tick 재시도),
-                // 이미 다른 경로(재시도 등)로 COMPLETED가 됐다 — 여기서는 손대지 않는다.
+                if (row.paymentApprovalExpiresAt() != null && !now.isBefore(row.paymentApprovalExpiresAt())) {
+                    merchantCheckoutRepository.markExpired(row.id(), now);
+                }
             }
         }
     }
 
     private void handleApproved(AwaitingApprovalCheckout row, PaymentApprovalStatusResponse status) {
+        if (status.approvalStatus()
+                == com.copenhagen.contract.internalapi.ApprovalStatus.COMPLETED) {
+            if (merchantCheckoutRepository.beginCompleting(row.id(), clock.instant())) {
+                finish(row, completionService.synchronize(row, status.paymentLabel()));
+            }
+            return;
+        }
         String credentialId = status.credentialId();
         if (credentialId == null || credentialId.isBlank()) {
             // 승인은 됐지만 Payment Credential이 아직 발급 전이다 — 다음 tick에 다시 확인한다.
@@ -95,12 +108,17 @@ public class PaymentApprovalPollingWorker {
         }
 
         PaymentCompletionService.Outcome outcome = completionService.complete(row, credentialId, status.paymentLabel());
+        finish(row, outcome);
+    }
+
+    private void finish(AwaitingApprovalCheckout row, PaymentCompletionService.Outcome outcome) {
         Instant now = clock.instant();
         switch (outcome) {
             case COMPLETED -> merchantCheckoutRepository.markCompleted(row.id(), now);
             case FAILED -> merchantCheckoutRepository.markFailed(row.id(), "PAYMENT_FAILED", now);
+            case EXPIRED -> merchantCheckoutRepository.markExpired(row.id(), now);
             case IN_PROGRESS -> {
-                // COMPLETING에 그대로 둔다. 최종 확정은 이번 작업 범위 밖(순서30 Order Webhook 후속)이다.
+                // Lease가 만료되면 다시 조회한다. 미확정 결과를 성공·실패로 바꾸지 않는다.
             }
         }
     }

@@ -162,9 +162,7 @@ public class AuthorizationSessionService {
             if (!evidenceRepository.insert(evidence)) {
                 throw new PayException(PayErrorCode.INTERNAL_ERROR);
             }
-            if (status == AuthorizationSessionStatus.PENDING) {
-                notificationEventPublisher.publishApprovalRequested(session);
-            }
+            notificationEventPublisher.publishApprovalRequested(session);
             log.info(
                     "pay.approval.create.complete approvalId={} status={}",
                     session.id(),

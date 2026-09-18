@@ -98,16 +98,17 @@ public class InternalCatalogService {
             List<InternalNamedId> values = new ArrayList<>();
             for (CatalogProductView.OptionValue value : group.values()) {
                 values.add(new InternalNamedId(value.optionValueId(), value.label()));
-                // Catalog는 옵션별 가격·재고를 주지 않는다. 노출가를 그대로 싣고 재고 수량은 비운다.
+                // 새 Catalog는 옵션 단가·재고를 제공한다. 구형 제공자는 상품 노출가로 호환한다.
                 variants.add(new InternalDetailResponse.Variant(
                         value.optionValueId(),
-                        product.priceAmount(),
+                        value.priceAmount() == null ? product.priceAmount() : value.priceAmount(),
                         product.currency(),
                         availability(product.availability()),
-                        null,
-                        true,
+                        value.stockQuantity() == null ? null : value.stockQuantity().longValue(),
+                        value.stockQuantity() == null || value.stockQuantity() > 0,
                         1,
-                        MAX_QUANTITY_PER_ITEM,
+                        value.stockQuantity() == null ? MAX_QUANTITY_PER_ITEM
+                                : Math.max(1, Math.min(MAX_QUANTITY_PER_ITEM, value.stockQuantity())),
                         List.of(value.optionValueId())));
             }
             optionGroups.add(new InternalDetailResponse.OptionGroup(

@@ -148,7 +148,7 @@ public final class McpContractAssertions {
     }
 
     private static String id(Object value) {
-        if (!(value instanceof String text) || !text.matches("[A-Za-z0-9_-]{1,96}")) {
+        if (!(value instanceof String text) || !text.matches("[A-Za-z0-9_:-]{1,96}")) {
             fail("id 형식이 아니다: " + value);
             return null;
         }
