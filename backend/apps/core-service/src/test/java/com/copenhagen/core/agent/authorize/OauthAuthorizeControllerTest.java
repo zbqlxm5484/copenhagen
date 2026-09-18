@@ -1,10 +1,13 @@
 package com.copenhagen.core.agent.authorize;
 
+import java.io.InputStream;
 import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.ComponentScan;
@@ -48,6 +51,48 @@ class OauthAuthorizeControllerTest {
 
     @MockitoBean
     private AuthorizeConsentService consentService;
+
+    @ParameterizedTest
+    @ValueSource(strings = {"consent.css", "copenhagen-logo.png", "IBMPlexSansKR-Regular.woff2",
+        "IBMPlexSansKR-SemiBold.woff2"})
+    @DisplayName("로그인 화면 정적 리소스를 기존 OAuth 하위 경로에서 제공한다")
+    void consentAssets_areServed(String filename) throws Exception {
+        try (InputStream asset = getClass().getResourceAsStream("/static/oauth/authorize/assets/v1/" + filename)) {
+            mockMvc.perform(get("/oauth/authorize/assets/v1/" + filename))
+                    .andExpect(status().isOk())
+                    .andExpect(content().bytes(asset.readAllBytes()));
+        }
+    }
+
+    @Test
+    @DisplayName("연결 거부는 빈 로그인 입력으로도 기존 콜백에 전달된다")
+    void decide_denied_withoutCredentials() throws Exception {
+        UUID requestId = UUID.randomUUID();
+        when(consentService.decide(requestId, "", "", "DENY")).thenReturn(
+                new AuthorizeDecisionResult.Denied(STABLE_CALLBACK, "state-1"));
+
+        mockMvc.perform(post("/oauth/authorize/" + requestId + "/decision")
+                        .param("loginId", "").param("password", "").param("decision", "DENY"))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location",
+                        STABLE_CALLBACK + "?error=access_denied&state=state-1" + ISS_PARAMETER));
+    }
+
+    @Test
+    @DisplayName("로그인 실패 시 같은 요청의 재시도 화면을 보여준다")
+    void decide_loginFailed_returnsRetryForm() throws Exception {
+        UUID requestId = UUID.randomUUID();
+        when(consentService.decide(requestId, "user1", "invalid", "APPROVE")).thenReturn(
+                new AuthorizeDecisionResult.LoginFailed(requestId, "ChatGPT", null,
+                        List.of("catalog:read"), "아이디 또는 비밀번호가 올바르지 않습니다."));
+
+        mockMvc.perform(post("/oauth/authorize/" + requestId + "/decision")
+                        .param("loginId", "user1").param("password", "invalid").param("decision", "APPROVE"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("role=\"alert\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "/oauth/authorize/" + requestId + "/decision")));
+    }
 
     @Test
     @DisplayName("discovery는 실제 응답과 동일한 issuer와 RFC 9207 지원을 JSON으로 공개한다")
