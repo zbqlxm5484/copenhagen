@@ -59,6 +59,18 @@ public class BiometricChallengeService {
         this.secureRandom = secureRandom;
     }
 
+    /**
+     * 생체 credential 등록 여부만 확인한다. 미등록을 예외로 알리면 호출자가 그것을
+     * 삼켜도 트랜잭션이 rollback-only로 남으므로, PIN 폴백은 이 조회로 판단한다.
+     */
+    @Transactional(readOnly = true)
+    public boolean hasRegisteredCredential(String userId, String deviceId) {
+        if (deviceId != null && !deviceId.isBlank()) {
+            return credentialRepository.findActiveByUserAndDevice(userId, deviceId).isPresent();
+        }
+        return !credentialRepository.findActiveByUser(userId).isEmpty();
+    }
+
     @Transactional
     public IssuedChallenge issue(
             String userId,
