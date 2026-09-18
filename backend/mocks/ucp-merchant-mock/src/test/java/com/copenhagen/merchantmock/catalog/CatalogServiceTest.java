@@ -4,6 +4,9 @@ import com.copenhagen.merchantmock.support.MerchantPropertiesFixture;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.copenhagen.contract.ucp.CatalogOptionValue;
+
+
 import com.copenhagen.merchantmock.support.ApiException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +19,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Catalog Search·Lookup·Product 단위 테스트. DB 없이 시드 목록만으로 돌린다. */
 class CatalogServiceTest {
+
+    @Test
+    void productDetail_includesEffectiveVariantPriceAndStock() {
+        Product product = new Product("sample", "merchant-a", "kurly:1000025270", "상품", "설명", null,
+                10500L, "KRW", Product.ProductStatus.ACTIVE, List.of(new Product.Variant(
+                        "kurly:1000025270-M00000008360", "종류", "추가 구성", 9100L, 100, Product.ProductStatus.ACTIVE)));
+        CatalogOptionValue option = CatalogMessages.ProductDetail.of(product).options().get(0).values().get(0);
+        assertEquals(19600L, option.priceAmount());
+        assertEquals(100, option.stockQuantity());
+    }
+
 
     private CatalogService service;
 
@@ -175,7 +189,7 @@ class CatalogServiceTest {
         assertEquals(1, detail.options().size());
         assertEquals("size", detail.options().get(0).name());
         assertEquals(List.of("260", "270"),
-                detail.options().get(0).values().stream().map(CatalogMessages.OptionValue::label).toList());
+                detail.options().get(0).values().stream().map(CatalogOptionValue::label).toList());
     }
 
     @Test
@@ -186,7 +200,7 @@ class CatalogServiceTest {
                 service.product("merchant-a", new CatalogMessages.ProductRequest("product-101"));
 
         List<String> skus = detail.options().get(0).values().stream()
-                .map(CatalogMessages.OptionValue::optionValueId).toList();
+                .map(CatalogOptionValue::optionValueId).toList();
 
         // then
         assertFalse(skus.contains("product-101-280"), "stock 이 0 인 SKU 는 노출하지 않는다");

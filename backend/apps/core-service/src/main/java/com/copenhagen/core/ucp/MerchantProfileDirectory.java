@@ -6,7 +6,9 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import com.nimbusds.jose.jwk.ECKey;
 import com.copenhagen.core.common.error.CoreErrorCode;
 import com.copenhagen.core.common.error.CoreException;
 import com.copenhagen.core.product.MerchantsProperties;
@@ -64,6 +67,24 @@ public class MerchantProfileDirectory {
         return negotiated.endpoint();
     }
 
+    public List<ECKey> signingKeys(MerchantsProperties.MerchantConfig config) {
+        endpoint(config, "dev.ucp.shopping.order");
+        String raw = jdbcTemplate.queryForObject(
+                "SELECT business_profile::text FROM merchants WHERE id = ? AND status = 'ACTIVE'",
+                String.class, config.refId());
+        List<ECKey> keys = new ArrayList<>();
+        try {
+            for (JsonNode key : objectMapper.readTree(raw).path("keys")) {
+                if ("EC".equals(key.path("kty").asText()) && !key.has("d")) {
+                    keys.add(ECKey.parse(key.toString()));
+                }
+            }
+            return List.copyOf(keys);
+        } catch (java.text.ParseException | RuntimeException exception) {
+            throw new CoreException(CoreErrorCode.MERCHANT_PROFILE_INVALID);
+        }
+    }
+
     private NegotiatedProfile cached(MerchantRow row) {
         try {
             JsonNode capabilities = objectMapper.readTree(row.activeCapabilities());
@@ -80,7 +101,11 @@ public class MerchantProfileDirectory {
     private synchronized NegotiatedProfile discover(MerchantRow row, Instant now) {
         // 동시 첫 호출도 이 인스턴스에서는 한 번만 Discovery한다. DB TTL이 프로세스 간 재호출을 줄인다.
         try {
-            String raw = RestClient.create().get().uri(row.profileUrl()).header("Accept", "application/json")
+            var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+            factory.setConnectTimeout(java.time.Duration.ofSeconds(3));
+            factory.setReadTimeout(java.time.Duration.ofSeconds(5));
+            String raw = RestClient.builder().requestFactory(factory).build()
+                    .get().uri(row.profileUrl()).header("Accept", "application/json")
                     .retrieve().body(String.class);
             JsonNode root = objectMapper.readTree(raw);
             NegotiatedProfile profile = validate(root, row.profileUrl());

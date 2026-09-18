@@ -5,6 +5,9 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
+
+import com.copenhagen.contract.ucp.CatalogOptionValue;
+
 import java.util.Map;
 import java.util.UUID;
 
@@ -310,8 +313,8 @@ class ProductServiceTest {
         MerchantCatalogClient.CatalogProductDetail detail = new MerchantCatalogClient.CatalogProductDetail(
                 "p-1", "옵션상품", "설명", new MerchantCatalogClient.CatalogPrice(9900, "KRW"),
                 List.of(new MerchantCatalogClient.CatalogOption("색상", List.of(
-                        new MerchantCatalogClient.CatalogOptionValue("sku-1", "화이트"),
-                        new MerchantCatalogClient.CatalogOptionValue("sku-2", "블랙")))),
+                        new CatalogOptionValue("sku-1", "화이트"),
+                        new CatalogOptionValue("sku-2", "블랙")))),
                 "IN_STOCK");
         when(merchantA.product("p-1")).thenReturn(detail);
         ProductService service = service(merchantA);
@@ -355,7 +358,7 @@ class ProductServiceTest {
         MerchantCatalogClient.CatalogProductDetail detail = new MerchantCatalogClient.CatalogProductDetail(
                 "p-1", "USD상품", "설명", new MerchantCatalogClient.CatalogPrice(10, "USD"),
                 List.of(new MerchantCatalogClient.CatalogOption(
-                        "색상", List.of(new MerchantCatalogClient.CatalogOptionValue("sku-1", "화이트")))),
+                        "색상", List.of(new CatalogOptionValue("sku-1", "화이트")))),
                 "IN_STOCK");
         when(merchantA.product("p-1")).thenReturn(detail);
         ProductService service = service(merchantA);
@@ -389,11 +392,28 @@ class ProductServiceTest {
                 .isEqualTo(CoreErrorCode.PRODUCT_NOT_FOUND);
     }
 
+    @Test
+    void optionPrice_cartAndDetailUseMerchantVariantPriceInsteadOfBasePrice() {
+        String productId = "kurly:1000025270";
+        String sku = "kurly:1000025270-M00000008360";
+        when(merchantA.product(productId)).thenReturn(new MerchantCatalogClient.CatalogProductDetail(
+                productId, "옵션 상품", "설명", new MerchantCatalogClient.CatalogPrice(10500L, "KRW"),
+                List.of(new MerchantCatalogClient.CatalogOption("종류",
+                        List.of(new CatalogOptionValue(sku, "추가 구성", 19600L, 100)))), "IN_STOCK"));
+        ProductService service = service(merchantA);
+        assertThat(service.captureForCart("merchant-a", productId, List.of(sku)).unitPriceAmount()).isEqualTo(19600L);
+        CatalogProductView detail = service.detailForInternal("merchant-a", productId);
+        assertThat(detail.optionGroups().get(0).values().get(0).priceAmount()).isEqualTo(19600L);
+        assertThat(detail.optionGroups().get(0).values().get(0).stockQuantity()).isEqualTo(100);
+        assertThat(service.getDetail(UUID.randomUUID(), productId, "merchant-a", sku)
+                .data().product().offer().price()).isEqualTo(19600L);
+    }
+
     private static MerchantCatalogClient.CatalogProductDetail optionedDetail() {
         return new MerchantCatalogClient.CatalogProductDetail(
                 "p-1", "옵션상품", "설명", new MerchantCatalogClient.CatalogPrice(9900, "KRW"),
                 List.of(new MerchantCatalogClient.CatalogOption(
-                        "색상", List.of(new MerchantCatalogClient.CatalogOptionValue("sku-1", "화이트")))),
+                        "색상", List.of(new CatalogOptionValue("sku-1", "화이트")))),
                 "IN_STOCK");
     }
 }

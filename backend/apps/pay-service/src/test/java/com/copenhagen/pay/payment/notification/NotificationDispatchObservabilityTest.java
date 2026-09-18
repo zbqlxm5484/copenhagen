@@ -45,7 +45,7 @@ class NotificationDispatchObservabilityTest {
         when(outbox.markDeliveryFailed(any(), any(), anyString(), any(Boolean.class))).thenReturn(true);
         when(outbox.summarizeDeliveries("event-1"))
                 .thenReturn(new NotificationOutboxRepository.DeliverySummary(false, true, null));
-        when(outbox.markEventSent(any(), any())).thenReturn(true);
+        when(outbox.markEventRetry(any(), any(), anyString())).thenReturn(true);
         org.mockito.Mockito.doThrow(new NotificationDeliveryException(
                 "FCM_FID_UNREGISTERED",
                 true,
@@ -62,7 +62,7 @@ class NotificationDispatchObservabilityTest {
             assertTrue(logs.allText().contains("eventId=event-1"));
             assertTrue(logs.allText().contains("attempt=1"));
             assertTrue(logs.allText().contains("errorCode=FCM_FID_UNREGISTERED"));
-            assertTrue(logs.allText().contains("status=SENT"));
+            assertTrue(logs.allText().contains("status=RETRY"));
             assertFalse(logs.allText().contains(FID));
             assertTrue(logs.events().stream().anyMatch(eventLog ->
                     "request-123".equals(eventLog.getMDCPropertyMap().get(PayLogContext.REQUEST_ID))

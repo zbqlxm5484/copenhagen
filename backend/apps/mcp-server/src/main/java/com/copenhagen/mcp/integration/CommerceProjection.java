@@ -98,7 +98,8 @@ final class CommerceProjection {
         number(data.get("version"));
         List<Map<String, Object>> items = new ArrayList<>();
         Set<String> ids = new java.util.HashSet<>();
-        for (Object entry : list(source.get("items"), 100)) {
+        // 과거 앱에서 한도를 넘겨 담은 장바구니도 조회·삭제할 수 있어야 한다.
+        for (Object entry : list(source.get("items"), 1000)) {
             Map<String, Object> item = pick(map(entry), "cartItemId", "merchantId", "merchantProductId",
                     "merchantVariantId", "name", "imageUrl", "quantity", "unitPriceAmount",
                     "lineTotalAmount", "currency");
@@ -152,6 +153,54 @@ final class CommerceProjection {
         return value;
     }
 
+    static Map<String, Object> purchaseStatus(Map<String, Object> source) {
+        Map<String, Object> result = pick(source, "purchaseRequestId", "cartId", "cartVersion", "status",
+                "expiresAt", "failureCode", "nextAction");
+        id(result.get("purchaseRequestId"));
+        id(result.get("cartId"));
+        number(result.get("cartVersion"));
+        timestamp(result.get("expiresAt"));
+        Set<String> statuses = Set.of("PENDING_ADDRESS", "CREATING_CHECKOUTS", "AWAITING_APPROVAL",
+                "COMPLETING", "COMPLETED", "PARTIALLY_COMPLETED", "CANCELLED", "REJECTED", "FAILED", "EXPIRED");
+        if (!statuses.contains(result.get("status"))
+                || !Set.of("SELECT_SHIPPING_ADDRESS", "OPEN_APPROVAL", "WAIT", "SHOW_RESULT")
+                        .contains(result.get("nextAction"))) {
+            throw invalid();
+        }
+        if (result.get("failureCode") != null) {
+            text(result.get("failureCode"), 100);
+        }
+        result.put("merchantCheckouts", list(source.get("merchantCheckouts"), 100).stream().map(value -> {
+            Map<String, Object> row = pick(map(value), "merchantId", "approvalId", "status", "totalAmount", "currency");
+            id(row.get("merchantId"));
+            if (row.get("approvalId") != null) {
+                id(row.get("approvalId"));
+            }
+            if (!Set.of("CREATING", "AWAITING_APPROVAL", "COMPLETING", "COMPLETED", "FAILED", "EXPIRED",
+                    "CANCELLED", "REJECTED").contains(row.get("status"))) {
+                throw invalid();
+            }
+            number(row.get("totalAmount"));
+            currency(row.get("currency"));
+            return row;
+        }).toList());
+        result.put("notifications", list(source.get("notifications"), 101).stream().map(value -> {
+            Map<String, Object> row = pick(map(value), "eventId", "status", "errorCode");
+            if (row.get("eventId") != null) {
+                id(row.get("eventId"));
+            }
+            if (!Set.of("PENDING", "RUNNING", "SENT", "FAILED", "EXHAUSTED", "UNAVAILABLE")
+                    .contains(row.get("status"))) {
+                throw invalid();
+            }
+            if (row.get("errorCode") != null) {
+                text(row.get("errorCode"), 100);
+            }
+            return row;
+        }).toList());
+        return result;
+    }
+
     static Map<String, Object> pick(Map<String, Object> source, String... fields) {
         Map<String, Object> result = new LinkedHashMap<>();
         for (String field : fields) {
@@ -165,7 +214,7 @@ final class CommerceProjection {
     }
 
     static String id(Object value) {
-        if (!(value instanceof String text) || !text.matches("[A-Za-z0-9_-]{1,96}")) {
+        if (!(value instanceof String text) || !text.matches("[A-Za-z0-9_:-]{1,96}")) {
             throw invalid();
         }
         return text;

@@ -6,7 +6,7 @@ import java.util.Map;
 
 /** Core 최종 계약의 필드만 허용하는 MCP 입력. 사용자 신원과 금액은 입력받지 않는다. */
 public final class CommerceSchemas {
-    public static final Map<String, Object> ID = Map.of("type", "string", "pattern", "^[A-Za-z0-9_-]{1,96}$");
+    public static final Map<String, Object> ID = Map.of("type", "string", "pattern", "^[A-Za-z0-9_:-]{1,96}$");
     public static final Map<String, Object> VERSION = Map.of("type", "integer", "minimum", 0);
     public static final Map<String, Object> QUANTITY = Map.of("type", "integer", "minimum", 1, "maximum", 99);
     public static final Map<String, Object> KEY = Map.of("type", "string", "pattern",
@@ -28,6 +28,11 @@ public final class CommerceSchemas {
             "idempotencyKey", KEY), List.of("cartId", "cartVersion", "idempotencyKey"));
     public static final Map<String, Object> OUTPUT = object(Map.of("kind", Map.of("type", "string"),
             "data", Map.of("type", "object")), List.of("kind", "data"));
+    public static final Map<String, Object> PURCHASE_STATUS = object(
+            Map.of("purchaseRequestId", KEY), List.of("purchaseRequestId"));
+    public static final Map<String, Object> PURCHASE_NOTIFY = object(
+            Map.of("purchaseRequestId", KEY, "idempotencyKey", KEY),
+            List.of("purchaseRequestId", "idempotencyKey"));
 
     private CommerceSchemas() {
     }

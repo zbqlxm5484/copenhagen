@@ -18,6 +18,26 @@ import com.copenhagen.core.payment.PaymentApprovalMessages.CreateApprovalRequest
  */
 public class PaymentApprovalClient {
 
+    public void notifyPurchase(java.util.UUID userId, java.util.UUID purchaseId) {
+        restClient.post().uri("/internal/v1/purchase-notifications")
+                .header("Idempotency-Key", "purchase-handoff-" + purchaseId)
+                .body(java.util.Map.of("userId", userId, "purchaseRequestId", purchaseId))
+                .retrieve().toBodilessEntity();
+    }
+
+    public java.util.List<com.copenhagen.contract.internalapi.PurchaseNotificationStatus> notificationStatus(
+            java.util.UUID userId, java.util.UUID purchaseId) {
+        var statuses = restClient.get()
+                .uri("/internal/v1/purchase-notifications/{id}?userId={userId}", purchaseId, userId)
+                .retrieve().body(com.copenhagen.contract.internalapi.PurchaseNotificationStatus[].class);
+        return statuses == null ? java.util.List.of() : java.util.List.of(statuses);
+    }
+
+    public void resendNotification(java.util.UUID userId, java.util.UUID purchaseId, java.util.UUID key) {
+        restClient.post().uri("/internal/v1/purchase-notifications/{id}/resend?userId={userId}", purchaseId, userId)
+                .header("Idempotency-Key", key.toString()).retrieve().toBodilessEntity();
+    }
+
     private static final String CREATE_PATH = "/internal/v1/payment-approvals";
     private static final String STATUS_PATH = "/internal/v1/payment-approvals/{approvalId}/status";
     private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
@@ -32,15 +52,20 @@ public class PaymentApprovalClient {
 
     public ApprovalCreatedResponse create(CreateApprovalRequest request, String idempotencyKey) {
         try {
-            return restClient.post()
+            ApprovalCreatedResponse response = restClient.post()
                     .uri(CREATE_PATH)
                     .header(IDEMPOTENCY_KEY_HEADER, idempotencyKey)
                     .body(request)
                     .retrieve()
                     .body(ApprovalCreatedResponse.class);
+            if (response == null || response.approvalId() == null || response.approvalId().isBlank()
+                    || response.expiresAt() == null) {
+                throw new CoreException(CoreErrorCode.PAYMENT_APPROVAL_UNAVAILABLE);
+            }
+            return response;
         } catch (RestClientException exception) {
-            log.warn("Pay 승인 세션 생성 실패: purchaseRequestId={}, merchantId={}",
-                    request.purchaseRequestId(), request.merchantId(), exception);
+            log.warn("Pay 승인 세션 생성 실패: purchaseRequestId={}, merchantId={}, error={}",
+                    request.purchaseRequestId(), request.merchantId(), exception.getClass().getSimpleName());
             throw new CoreException(
                     CoreErrorCode.PAYMENT_APPROVAL_UNAVAILABLE,
                     CoreErrorCode.PAYMENT_APPROVAL_UNAVAILABLE.defaultMessage(),

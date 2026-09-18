@@ -18,6 +18,10 @@ public record CatalogProductView(
     public record OptionGroup(String name, List<OptionValue> values) {
     }
 
-    public record OptionValue(String optionValueId, String label) {
+    public record OptionValue(String optionValueId, String label, Long priceAmount, Integer stockQuantity) {
+
+        public OptionValue(String optionValueId, String label) {
+            this(optionValueId, label, null, null);
+        }
     }
 }

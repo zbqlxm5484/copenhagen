@@ -121,6 +121,18 @@ public final class CoreCommerceService {
         return output("purchase.handoff", data);
     }
 
+    public Map<String, Object> purchaseStatus(McpIdentity identity, Map<String, Object> input, boolean resend) {
+        validate(resend ? CommerceSchemas.PURCHASE_NOTIFY : CommerceSchemas.PURCHASE_STATUS, input);
+        String path = "/internal/v1/purchase-requests/" + input.get("purchaseRequestId");
+        Map<String, Object> response = client.exchange(identity, resend ? "POST" : "GET",
+                resend ? path + "/notifications" : path, Map.of(), null,
+                resend ? (String) input.get("idempotencyKey") : null);
+        if (!input.get("purchaseRequestId").equals(response.get("purchaseRequestId"))) {
+            throw failure("CORE_INVALID_RESPONSE", resend);
+        }
+        return output("purchase.status", CommerceProjection.purchaseStatus(response));
+    }
+
     private void validate(Map<String, Object> schema, Map<String, Object> input) {
         if (input == null || !validator.validate(schema, input).valid()) {
             throw failure("INVALID_ARGUMENT", false);

@@ -88,6 +88,7 @@ public class InternalApiExceptionHandler {
             case CART_ITEM_NOT_FOUND -> InternalErrorCode.CART_ITEM_NOT_FOUND;
             case PRODUCT_NOT_FOUND -> InternalErrorCode.PRODUCT_NOT_FOUND;
             case ORDER_CART_EMPTY -> InternalErrorCode.CART_EMPTY;
+            case CART_ITEM_LIMIT_EXCEEDED -> InternalErrorCode.CART_ITEM_LIMIT_EXCEEDED;
             case CART_QUANTITY_LIMIT_EXCEEDED -> InternalErrorCode.QUANTITY_LIMIT_EXCEEDED;
             case INVALID_REQUEST, CART_OPTION_REQUIRED -> InternalErrorCode.INVALID_ARGUMENT;
             case AUTH_TOKEN_MISSING, AUTH_TOKEN_INVALID -> InternalErrorCode.UNAUTHENTICATED;

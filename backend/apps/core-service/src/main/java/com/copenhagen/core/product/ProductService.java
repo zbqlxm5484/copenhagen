@@ -10,6 +10,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
+import com.copenhagen.contract.ucp.CatalogOptionValue;
 import com.copenhagen.core.common.error.CoreErrorCode;
 import com.copenhagen.core.common.error.CoreException;
 
@@ -157,7 +158,8 @@ public class ProductService {
                         option.name(),
                         option.values().stream()
                                 .map(value -> new CatalogProductView.OptionValue(
-                                        value.optionValueId(), value.label()))
+                                        value.optionValueId(), value.label(),
+                                        value.priceOr(detail.price().amount()), value.stockQuantity()))
                                 .toList()))
                 .toList();
         return new CatalogProductView(
@@ -204,9 +206,16 @@ public class ProductService {
                 detail.title(),
                 productUrl(client, detail.productId()),
                 null,
-                detail.price().amount(),
+                optionPrice(detail, selected.get(0).optionValueId()),
                 KRW,
                 selected);
+    }
+
+    private long optionPrice(MerchantCatalogClient.CatalogProductDetail detail, String optionValueId) {
+        return detail.options().stream().flatMap(option -> option.values().stream())
+                .filter(value -> value.optionValueId().equals(optionValueId))
+                .findFirst().orElseThrow(() -> new CoreException(CoreErrorCode.INVALID_REQUEST))
+                .priceOr(detail.price().amount());
     }
 
     /** {@code optionValueId}(= variant sku) → 옵션 정보. 응답에 이미 구매 가능한 값만 담겨 온다. */
@@ -214,7 +223,7 @@ public class ProductService {
             MerchantCatalogClient.CatalogProductDetail detail) {
         Map<String, CartProductSnapshot.SelectedOption> options = new LinkedHashMap<>();
         for (MerchantCatalogClient.CatalogOption option : detail.options()) {
-            for (MerchantCatalogClient.CatalogOptionValue value : option.values()) {
+            for (CatalogOptionValue value : option.values()) {
                 options.put(value.optionValueId(), new CartProductSnapshot.SelectedOption(
                         value.optionValueId(), option.name(), value.label()));
             }
@@ -270,8 +279,9 @@ public class ProductService {
     private List<Variant> toVariants(MerchantCatalogClient.CatalogProductDetail detail) {
         List<Variant> variants = new ArrayList<>();
         for (MerchantCatalogClient.CatalogOption option : detail.options()) {
-            for (MerchantCatalogClient.CatalogOptionValue value : option.values()) {
-                variants.add(new Variant(value.optionValueId(), value.label(), null, "UNKNOWN", null));
+            for (CatalogOptionValue value : option.values()) {
+                variants.add(new Variant(value.optionValueId(), value.label(),
+                        value.priceOr(detail.price().amount()), detail.availability(), null));
             }
         }
         return List.copyOf(variants);
@@ -290,7 +300,9 @@ public class ProductService {
         }
         for (Variant variant : variants) {
             if (variant.optionId().equals(optionId)) {
-                return new Selection("VALID", optionId, baseOffer, true);
+                return new Selection("VALID", optionId, new Offer(
+                        baseOffer.merchantId(), baseOffer.merchantName(), variant.price(),
+                        baseOffer.currency(), variant.availability()), true);
             }
         }
         return new Selection("INVALID", null, priceless(baseOffer), false);

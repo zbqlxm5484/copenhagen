@@ -71,6 +71,11 @@ public class NotificationDispatchService {
                     event.attemptCount(),
                     fids.size());
             outboxRepository.ensureDeliveries(event.eventId(), fids, now);
+            if (fids.isEmpty()) {
+                outboxRepository.markEventRetry(event,
+                        now.plusSeconds(properties.worker().retryDelaySeconds()), "NO_ACTIVE_INSTALLATION");
+                return true;
+            }
             outboxRepository.pruneInactiveDeliveries(event.eventId());
             dispatchDeliveries(event);
             completeEvent(event);
@@ -146,7 +151,7 @@ public class NotificationDispatchService {
     private void completeEvent(NotificationOutboxEvent event) {
         NotificationOutboxRepository.DeliverySummary summary =
                 outboxRepository.summarizeDeliveries(event.eventId());
-        if (!summary.hasRetryableDeliveries()) {
+        if (!summary.hasRetryableDeliveries() && !summary.hasExhaustedDeliveries()) {
             boolean updated = outboxRepository.markEventSent(event, clock.instant());
             log.info(
                     "notification.dispatch.complete eventId={} status=SENT exhausted={} updated={}",
@@ -167,6 +172,13 @@ public class NotificationDispatchService {
     }
 
     private NotificationMessage toMessage(NotificationOutboxEvent event) {
+        if (event.eventType() == NotificationEventType.PURCHASE_HANDOFF) {
+            String purchaseId = new tools.jackson.databind.ObjectMapper()
+                    .readTree(event.payloadJson()).path("purchaseRequestId").asString();
+            UUID.fromString(purchaseId);
+            return new NotificationMessage(event.eventId(), event.eventType(), null, null,
+                    null, "OPEN_PURCHASE", purchaseId);
+        }
         String status = event.paymentStatus() == null ? null : event.paymentStatus().name();
         String nextAction = event.eventType() == NotificationEventType.APPROVAL_REQUESTED
                 ? "OPEN_APPROVAL"

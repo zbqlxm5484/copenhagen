@@ -117,7 +117,7 @@ class OrderValidationServiceTest {
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 userRepository,
                 paymentApprovalClient,
-                properties);
+                properties, new OrderValidationInputLoader(cartRepository, addressRepository));
 
         when(merchantCheckoutRepository.insertAll(any(), any()))
                 .thenReturn(List.of(MERCHANT_CHECKOUT_ROW_ID));

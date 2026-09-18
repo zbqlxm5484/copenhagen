@@ -32,6 +32,8 @@ import com.copenhagen.core.product.ProductService;
 @Service
 public class CartService {
 
+    public static final int MAX_CART_ITEMS = 100;
+
     static final String DEFAULT_CURRENCY = "KRW";
 
     /** 장바구니가 아직 없는 상태의 논리적 버전. 첫 담기 요청은 이 값을 보내야 한다. */
@@ -128,7 +130,7 @@ public class CartService {
 
         String selectedOptions = writeSelectedOptions(snapshot.selectedOptions());
         Optional<CartItem> existing = cartRepository.findItemByProductVariant(
-                cart.id(), snapshot.merchantProductId(), snapshot.merchantVariantId());
+                cart.id(), merchantRefId, snapshot.merchantProductId(), snapshot.merchantVariantId());
 
         if (existing.isPresent()) {
             // 같은 상품·같은 옵션은 한 줄만 존재할 수 있어(uq_cart_items_cart_product_variant) 수량을 합산한다.
@@ -143,6 +145,10 @@ public class CartService {
             return new CartAddResult(item.publicId(), newVersion);
         }
 
+        if (cartRepository.findItemsByCartId(cart.id()).size() >= MAX_CART_ITEMS) {
+            throw new CoreException(CoreErrorCode.CART_ITEM_LIMIT_EXCEEDED);
+        }
+        requireWithinQuantityLimit(quantity, maxQuantityPerItem);
         UUID cartItemId = UUID.randomUUID();
         cartRepository.insertItem(
                 cartItemId, toRow(cart.id(), merchantRefId, snapshot, selectedOptions, quantity), now);
@@ -185,7 +191,7 @@ public class CartService {
                 .orElseThrow(() -> new CoreException(CoreErrorCode.CART_ITEM_NOT_FOUND));
         String selectedOptions = writeSelectedOptions(snapshot.selectedOptions());
         Optional<CartItem> target = cartRepository.findItemByProductVariant(
-                cart.id(), snapshot.merchantProductId(), snapshot.merchantVariantId());
+                cart.id(), item.merchantId(), snapshot.merchantProductId(), snapshot.merchantVariantId());
 
         if (target.isPresent() && target.get().id() != item.id()) {
             int mergedQuantity = quantity + target.get().quantity();

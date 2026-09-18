@@ -57,11 +57,72 @@ public class JdbcMerchantCheckoutRepository implements MerchantCheckoutRepositor
     }
 
     @Override
+    public List<CreatingApprovalCheckout> findCreatingApprovals(Instant now) {
+        return jdbcTemplate.query("""
+                SELECT mc.id, pr.public_id AS purchase_id, u.public_id AS user_id, mc.merchant_id,
+                    mc.checkout_digest, cs.merchant_checkout_payload::text AS payload,
+                    mc.approval_request::text AS approval_request, mc.checkout_expires_at
+                FROM merchant_checkouts mc
+                JOIN purchase_requests pr ON pr.id = mc.purchase_request_id
+                JOIN users u ON u.id = pr.user_id
+                JOIN checkout_snapshots cs ON cs.merchant_checkout_id = mc.id
+                WHERE mc.status = 'CREATING' AND (mc.retry_after IS NULL OR mc.retry_after <= ?)
+                ORDER BY mc.retry_after NULLS FIRST, mc.id LIMIT 100
+                """, (row, index) -> new CreatingApprovalCheckout(
+                        row.getLong("id"), row.getString("purchase_id"), row.getString("user_id"),
+                        row.getLong("merchant_id"), row.getString("checkout_digest"), row.getString("payload"),
+                        row.getString("approval_request"), row.getTimestamp("checkout_expires_at") == null
+                                ? null : row.getTimestamp("checkout_expires_at").toInstant()), Timestamp.from(now));
+    }
+
+    @Override
+    public boolean claimApprovalCreation(long id, Instant now) {
+        return jdbcTemplate.update("""
+                UPDATE merchant_checkouts SET retry_after = ?, updated_at = ?
+                WHERE id = ? AND status = 'CREATING' AND (retry_after IS NULL OR retry_after <= ?)
+                """, Timestamp.from(now.plusSeconds(30)), Timestamp.from(now), id, Timestamp.from(now)) == 1;
+    }
+
+    @Override
+    public String saveApprovalRequestIfAbsent(long id, String request) {
+        return jdbcTemplate.queryForObject("""
+                UPDATE merchant_checkouts SET approval_request = COALESCE(approval_request, ?::jsonb)
+                WHERE id = ? RETURNING approval_request::text
+                """, String.class, request, id);
+    }
+
+    private static final String SELECT_APPROVAL = """
+            SELECT mc.id, mc.purchase_request_id, pr.user_id, mc.merchant_id,
+                mc.merchant_checkout_id, mc.payment_approval_id, mc.payment_approval_expires_at,
+                cs.id AS checkout_snapshot_id, cs.total_amount, cs.currency
+            FROM merchant_checkouts mc
+            JOIN purchase_requests pr ON pr.id = mc.purchase_request_id
+            JOIN checkout_snapshots cs ON cs.merchant_checkout_id = mc.id
+            """;
+
+    @Override
+    public List<AwaitingApprovalCheckout> findCompleting(Instant now) {
+        return jdbcTemplate.query(SELECT_APPROVAL + """
+                WHERE mc.status = 'COMPLETING'
+                    AND (mc.completion_lease_until IS NULL OR mc.completion_lease_until <= ?)
+                ORDER BY mc.completion_lease_until NULLS FIRST, mc.id LIMIT 100
+                """, JdbcMerchantCheckoutRepository::mapAwaitingApproval, Timestamp.from(now));
+    }
+
+    @Override
+    public java.util.Optional<AwaitingApprovalCheckout> findByMerchantCheckout(long merchantId, String checkoutId) {
+        return jdbcTemplate.query(SELECT_APPROVAL + " WHERE mc.merchant_id = ? AND mc.merchant_checkout_id = ?",
+                JdbcMerchantCheckoutRepository::mapAwaitingApproval, merchantId, checkoutId).stream().findFirst();
+    }
+
+    @Override
     @Transactional
     public List<Long> insertAll(List<MerchantCheckoutRecord> records, Instant now) {
         List<Long> checkoutIds = new ArrayList<>(records.size());
         for (MerchantCheckoutRecord record : records) {
             long checkoutId = insertCheckout(record.checkout(), now);
+            jdbcTemplate.update("UPDATE merchant_checkouts SET approval_request = ?::jsonb WHERE id = ?",
+                    record.approvalRequest(), checkoutId);
             long snapshotId = insertSnapshot(record.snapshot(), checkoutId, now);
             for (CheckoutSnapshotItem item : record.items()) {
                 insertItem(snapshotId, item);
@@ -110,11 +171,12 @@ public class JdbcMerchantCheckoutRepository implements MerchantCheckoutRepositor
         int updated = jdbcTemplate.update(
                 """
                 UPDATE merchant_checkouts
-                SET status = 'COMPLETING', updated_at = ?
-                WHERE id = ? AND status = 'AWAITING_APPROVAL'
+                SET status = 'COMPLETING', updated_at = ?, completion_lease_until = ?
+                WHERE id = ? AND (status = 'AWAITING_APPROVAL'
+                    OR (status = 'COMPLETING' AND (completion_lease_until IS NULL OR completion_lease_until <= ?)))
                 """,
-                Timestamp.from(now),
-                id);
+                Timestamp.from(now), Timestamp.from(now.plusSeconds(30)),
+                id, Timestamp.from(now));
         return updated == 1;
     }
 
@@ -137,7 +199,7 @@ public class JdbcMerchantCheckoutRepository implements MerchantCheckoutRepositor
                 """
                 UPDATE merchant_checkouts
                 SET status = 'CANCELLED', failure_code = ?, cancelled_at = ?, updated_at = ?
-                WHERE id = ?
+                WHERE id = ? AND status IN ('CREATING', 'AWAITING_APPROVAL', 'COMPLETING')
                 """,
                 failureCode,
                 Timestamp.from(now),
@@ -151,7 +213,7 @@ public class JdbcMerchantCheckoutRepository implements MerchantCheckoutRepositor
                 """
                 UPDATE merchant_checkouts
                 SET status = 'EXPIRED', updated_at = ?
-                WHERE id = ?
+                WHERE id = ? AND status IN ('CREATING', 'AWAITING_APPROVAL', 'COMPLETING')
                 """,
                 Timestamp.from(now),
                 id);
@@ -163,7 +225,7 @@ public class JdbcMerchantCheckoutRepository implements MerchantCheckoutRepositor
                 """
                 UPDATE merchant_checkouts
                 SET status = 'FAILED', failure_code = ?, updated_at = ?
-                WHERE id = ?
+                WHERE id = ? AND status IN ('CREATING', 'AWAITING_APPROVAL', 'COMPLETING')
                 """,
                 failureCode,
                 Timestamp.from(now),
@@ -179,7 +241,8 @@ public class JdbcMerchantCheckoutRepository implements MerchantCheckoutRepositor
                 resultSet.getLong("merchant_id"),
                 resultSet.getString("merchant_checkout_id"),
                 resultSet.getString("payment_approval_id"),
-                resultSet.getTimestamp("payment_approval_expires_at").toInstant(),
+                resultSet.getTimestamp("payment_approval_expires_at") == null ? null
+                        : resultSet.getTimestamp("payment_approval_expires_at").toInstant(),
                 resultSet.getLong("checkout_snapshot_id"),
                 resultSet.getLong("total_amount"),
                 resultSet.getString("currency"));

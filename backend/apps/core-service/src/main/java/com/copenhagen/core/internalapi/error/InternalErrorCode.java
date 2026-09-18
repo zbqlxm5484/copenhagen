@@ -16,6 +16,7 @@ public enum InternalErrorCode {
     VARIANT_NOT_FOUND(HttpStatus.NOT_FOUND, "선택할 수 없는 옵션입니다.", "CHECK_REQUEST"),
     CART_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "장바구니 항목을 찾을 수 없습니다.", "REFETCH_CART"),
     CART_VERSION_CONFLICT(HttpStatus.CONFLICT, "장바구니가 이미 변경되었습니다.", "REFETCH_CART"),
+    CART_ITEM_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "장바구니 항목 수를 초과했습니다.", "REMOVE_CART_ITEM"),
     CART_EMPTY(HttpStatus.CONFLICT, "장바구니가 비어 있습니다.", "ADD_CART_ITEM"),
     QUANTITY_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "한 항목에 담을 수 있는 수량을 초과했습니다.", "REDUCE_QUANTITY"),
     IDEMPOTENCY_KEY_CONFLICT(HttpStatus.CONFLICT, "같은 멱등키로 다른 요청이 이미 처리되었습니다.", "USE_NEW_KEY"),

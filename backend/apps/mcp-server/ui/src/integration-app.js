@@ -1,5 +1,6 @@
 import { App } from '@modelcontextprotocol/ext-apps';
 import { createHostSizing } from './host-sizing.js';
+import { purchaseProgress } from './purchase-progress.js';
 import { safeImage, availability, timedCall } from './catalog.js';
 import { amount, payload, searchArguments, variantLabel, purchaseLink, pendingRequest, restorablePending } from './live-state.js';
 
@@ -8,7 +9,8 @@ const el = (tag, text, className) => { const node = document.createElement(tag);
 const button = (text, action, secondary = false) => { const node = el('button', text, secondary ? 'secondary' : ''); node.onclick = () => void action(); return node; };
 const note = text => { $('status').textContent = text; $('cart-message').textContent = text; const detailNote = $('live-detail-note'); if (detailNote) detailNote.textContent = text; };
 let app, ready = false, currentSearch, currentCart, query = {}, cursors = [null], page = 0, busy = false;
-let pending = restorablePending(window.openai?.widgetState?.livePending), receipt;
+let pending = restorablePending(window.openai?.widgetState?.livePending), receipt = window.openai?.widgetState?.liveReceipt;
+let progressTimer, progressBusy = false, resendKey;
 let generation = 0, detailGeneration = 0, cartGeneration = 0, observedMode;
 const sizing = createHostSizing({ getApp: () => ready ? app : null,
   getDisplayState: () => ({ mode: observedMode, confirmed: observedMode !== undefined }),
@@ -20,7 +22,7 @@ function observeHostMode(context) {
 }
 observeHostMode(window.openai);
 window.addEventListener('resize', () => sizing.notify(), { passive: true });
-function save() { window.openai?.setWidgetState?.({ version: 4, livePending: pending, liveQuery: query }); }
+function save() { window.openai?.setWidgetState?.({ version: 4, livePending: pending, liveQuery: query, liveReceipt: receipt }); }
 function controls() {
   for (const id of ['cart-retry', 'cart-dialog-retry', 'handoff-retry']) { $(id).hidden = !pending; $(id).disabled = busy; }
   $('previous').disabled = busy || page === 0;
@@ -163,7 +165,7 @@ async function retryPending() {
     const data = await call(request.tool, request.args, purchase ? 'purchase.handoff' : 'cart.mutation');
     if (!purchase && data.outcome !== 'APPLIED') throw new Error('변경 결과를 확인하지 못했습니다.');
     pending = null; save();
-    if (purchase) { receipt = data; renderHandoff(); }
+    if (purchase) { receipt = data; save(); renderHandoff(); }
     else {
       note('장바구니에 반영했습니다.');
       if (data.cart) { cartGeneration++; acceptCart(data.cart); show('cart-dialog'); }
@@ -177,11 +179,33 @@ async function retryPending() {
 }
 function renderHandoff() {
   $('handoff-title').textContent = '앱에서 이어가기'; $('handoff-open').textContent = '앱 열기';
-  $('handoff-status').textContent = '구매 요청이 준비됐습니다. 앱에서 배송지를 선택하고 승인해주세요. 아직 결제되지 않았어요.';
+  $('handoff-status').textContent = '구매 요청이 준비됐습니다. 기본 배송지로 검증한 뒤 앱에 결제 승인 알림을 보냅니다.';
   $('handoff-expiry').textContent = `${new Date(receipt.expiresAt).toLocaleTimeString('ko-KR')}까지 유효`;
   $('handoff-open').hidden = false; show('handoff-dialog');
   try { purchaseLink(receipt, document.body.dataset.handoffLinkBase); $('handoff-open').disabled = false; }
   catch (error) { $('handoff-status').textContent = error.message; $('handoff-open').disabled = true; }
+  if (!$('purchase-refresh')) {
+    const refresh = button('결제 상태 확인', () => refreshPurchase()); refresh.id = 'purchase-refresh';
+    const resend = button('알림 다시 보내기', () => refreshPurchase(true), true); resend.id = 'purchase-resend';
+    $('handoff-status').after(refresh, resend);
+  }
+  void refreshPurchase();
+}
+
+async function refreshPurchase(resend = false) {
+  if (progressBusy || !receipt?.purchaseRequestId) return;
+  progressBusy = true; clearTimeout(progressTimer);
+  try {
+    const args = { purchaseRequestId: receipt.purchaseRequestId };
+    if (resend) args.idempotencyKey = resendKey ??= crypto.randomUUID();
+    const data = await call(resend ? 'resend_purchase_notification' : 'get_purchase_status', args, 'purchase.status');
+    if (resend) resendKey = undefined;
+    const progress = purchaseProgress(data);
+    $('handoff-status').textContent = progress.text;
+    $('purchase-resend').hidden = progress.terminal;
+    if (!progress.terminal && $('handoff-dialog').open && !document.hidden) progressTimer = setTimeout(() => void refreshPurchase(), 5000);
+  } catch (error) { $('handoff-status').textContent = '현재 상태를 확인하지 못했습니다. 결제 상태 확인을 다시 눌러주세요.'; }
+  finally { progressBusy = false; }
 }
 $('search-form').onsubmit = event => {
   event.preventDefault(); try { const fields = Object.fromEntries(['query', 'merchantId', 'brand', 'sort', 'minPrice', 'maxPrice'].map(id => [id, $(id).value]));
@@ -192,7 +216,11 @@ $('previous').onclick = () => void search(query, page - 1); $('next').onclick = 
 for (const [buttonId, dialogId] of [['close-dialog', 'comparison'], ['cart-close', 'cart-dialog'], ['handoff-close', 'handoff-dialog']]) $(buttonId).onclick = () => { detailGeneration++; $(dialogId).close(); };
 $('cart-open').hidden = false; $('cart-bar').hidden = false; $('cart-open').onclick = () => void refreshCart().catch(() => {});
 $('cart-confirm').textContent = '새로고침'; $('cart-confirm').onclick = () => void refreshCart().catch(() => {});
-$('cart-continue').textContent = '구매 진행'; $('cart-continue').onclick = () => currentCart && void mutate('prepare_purchase_handoff', { cartId: currentCart.cartId, cartVersion: currentCart.version });
+$('cart-continue').textContent = '구매 진행'; $('cart-continue').onclick = () => {
+  if (!currentCart) return;
+  if (receipt?.cartId === currentCart.cartId && receipt?.cartVersion === currentCart.version) { renderHandoff(); return; }
+  void mutate('prepare_purchase_handoff', { cartId: currentCart.cartId, cartVersion: currentCart.version });
+};
 for (const id of ['cart-retry', 'cart-dialog-retry', 'handoff-retry']) $(id).onclick = () => void retryPending();
 $('handoff-back').onclick = () => void refreshCart().catch(() => {});
 $('handoff-open').onclick = async () => {

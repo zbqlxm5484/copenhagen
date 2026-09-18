@@ -1,6 +1,9 @@
 package com.copenhagen.core.order;
 
 import java.time.Instant;
+import java.time.Clock;
+import java.time.ZoneOffset;
+import java.util.concurrent.CompletableFuture;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -38,14 +41,21 @@ import com.copenhagen.core.checkout.MerchantCheckoutRepository.AwaitingApprovalC
 import com.copenhagen.core.common.error.CoreErrorCode;
 import com.copenhagen.core.common.error.CoreException;
 import com.copenhagen.core.payment.PaymentApprovalClient;
+import com.copenhagen.core.payment.PaymentApprovalCreationWorker;
+import com.copenhagen.core.cart.CartMerchants;
+import com.copenhagen.core.product.MerchantsProperties;
+import com.copenhagen.core.orderwebhook.OrderWebhookRepository;
+import tools.jackson.databind.ObjectMapper;
 import com.copenhagen.core.payment.PaymentApprovalMessages.ApprovalCreatedResponse;
 import com.copenhagen.core.payment.PaymentCompletionRepository;
 import com.copenhagen.core.product.CartProductSnapshot;
 import com.copenhagen.core.product.ProductService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -98,7 +108,118 @@ class OrderValidationApiIntegrationTest {
     @MockitoBean
     private PaymentApprovalClient paymentApprovalClient;
 
+    @Autowired
+    private CartMerchants cartMerchants;
+
+    @Autowired
+    private MerchantsProperties merchantsProperties;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private OrderWebhookRepository webhooks;
+
     private MerchantCheckoutClient checkoutClient;
+
+    @Autowired
+    private PurchaseRequestRepository purchaseRequests;
+
+    @Autowired
+    private com.copenhagen.core.purchase.PurchaseWorkflowRepository workflowRepository;
+
+    @Autowired
+    private com.copenhagen.core.purchase.PurchaseWorkflowService workflow;
+
+    @Test
+    void mcpDefaultAddress_continuesOriginalPurchaseAndAgentConnection() throws Exception {
+        String token = signupAndLogin("handoff1", "테스트");
+        addCartItem(token);
+        registerAddress(token);
+        var row = createHandoff();
+        when(checkoutClient.create(any(), any())).thenReturn(readyCheckout());
+        workflow.process(row);
+        workflow.process(workflowRepository.require(row.publicId(), row.userId()));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM purchase_requests", Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM merchant_checkouts", Integer.class));
+        assertEquals(row.connectionId(), jdbcTemplate.queryForObject(
+                "SELECT agent_connection_id FROM purchase_requests", Long.class));
+        assertEquals("AWAITING_APPROVAL", workflow.view(row.publicId(), row.userId(), row.connectionId()).status());
+        org.mockito.Mockito.verify(checkoutClient).create(any(),
+                eq(OrderValidationService.idempotencyKey(row.publicId(), MERCHANT_ID)));
+    }
+
+    @Test
+    void mcpMissingAddress_resumeIsOwnedVersionedAndIdempotent() throws Exception {
+        String token = signupAndLogin("handoff2", "테스트");
+        addCartItem(token);
+        var row = createHandoff();
+        workflow.process(row);
+        assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM merchant_checkouts", Integer.class));
+        org.mockito.Mockito.verify(paymentApprovalClient).notifyPurchase(row.userPublicId(), row.publicId());
+        UUID addressId = UUID.fromString(registerAddress(token));
+        UUID key = UUID.randomUUID();
+        workflow.resume(row.publicId(), row.userId(), addressId, 1, key);
+        workflow.resume(row.publicId(), row.userId(), addressId, 1, key);
+        assertThrows(CoreException.class, () -> workflow.resume(
+                row.publicId(), row.userId() + 1, addressId, 1, key));
+        assertThrows(CoreException.class, () -> workflow.resume(
+                row.publicId(), row.userId(), addressId, 2, key));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM purchase_resume_commands", Integer.class));
+        assertEquals("MCP", jdbcTemplate.queryForObject("SELECT request_channel FROM purchase_requests", String.class));
+        when(checkoutClient.create(any(), any())).thenReturn(readyCheckout());
+        workflow.process(workflowRepository.require(row.publicId(), row.userId()));
+        assertEquals("AWAITING_APPROVAL", workflow.view(row.publicId(), row.userId(), row.connectionId()).status());
+    }
+
+    @Test
+    void mcpResume_rejectsExpiredAndChangedCartBeforeMerchantCalls() throws Exception {
+        String token = signupAndLogin("handoff3", "테스트");
+        addCartItem(token);
+        var row = createHandoff();
+        UUID addressId = UUID.fromString(registerAddress(token));
+        jdbcTemplate.update("UPDATE carts SET version = version + 1");
+        assertEquals(CoreErrorCode.CART_VERSION_CONFLICT, assertThrows(CoreException.class,
+                () -> workflow.resume(row.publicId(), row.userId(), addressId, 1, UUID.randomUUID())).errorCode());
+        jdbcTemplate.update("UPDATE purchase_requests SET expires_at = CURRENT_TIMESTAMP - INTERVAL '1 minute'");
+        assertEquals(CoreErrorCode.PURCHASE_REQUEST_EXPIRED, assertThrows(CoreException.class,
+                () -> workflow.resume(row.publicId(), row.userId(), addressId, 1, UUID.randomUUID())).errorCode());
+        assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM merchant_checkouts", Integer.class));
+    }
+
+    @Test
+    void mcpMerchantTimeout_retriesSamePurchaseAndIdempotencyKey() throws Exception {
+        String token = signupAndLogin("handoff4", "테스트");
+        addCartItem(token);
+        registerAddress(token);
+        var row = createHandoff();
+        when(checkoutClient.create(any(), any()))
+                .thenThrow(new CoreException(CoreErrorCode.MERCHANT_CHECKOUT_UNAVAILABLE));
+        workflow.process(row);
+        assertEquals("CREATING_CHECKOUTS", workflowRepository.require(row.publicId(), row.userId()).status());
+        doReturn(readyCheckout()).when(checkoutClient).create(any(), any());
+        workflow.process(workflowRepository.require(row.publicId(), row.userId()));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM merchant_checkouts", Integer.class));
+        org.mockito.Mockito.verify(checkoutClient, org.mockito.Mockito.times(2)).create(any(),
+                eq(OrderValidationService.idempotencyKey(row.publicId(), MERCHANT_ID)));
+    }
+
+    private com.copenhagen.core.purchase.PurchaseWorkflowRepository.Row createHandoff() {
+        long userId = jdbcTemplate.queryForObject("SELECT id FROM users", Long.class);
+        long cartId = jdbcTemplate.queryForObject("SELECT id FROM carts", Long.class);
+        long clientId = jdbcTemplate.queryForObject("""
+                INSERT INTO oauth_clients (client_id, client_name, client_type, redirect_uris, allowed_scopes)
+                VALUES (?, 'Test Agent', 'PUBLIC', '["https://agent.example/callback"]'::jsonb,
+                    '["purchase:handoff"]'::jsonb) RETURNING id
+                """, Long.class, UUID.randomUUID().toString());
+        long connectionId = jdbcTemplate.queryForObject("""
+                INSERT INTO agent_connections (public_id, user_id, oauth_client_id, granted_scopes)
+                VALUES (?, ?, ?, '["purchase:handoff"]'::jsonb) RETURNING id
+                """, Long.class, UUID.randomUUID(), userId, clientId);
+        PurchaseRequest purchase = purchaseRequests.insertPendingAddress(UUID.randomUUID(), userId, cartId,
+                connectionId, "v1", 1, Instant.now().plusSeconds(1800), Instant.now());
+        return workflowRepository.require(purchase.publicId(), userId);
+    }
 
     @BeforeEach
     void prepare() {
@@ -126,6 +247,87 @@ class OrderValidationApiIntegrationTest {
                         "p-1", "sku-1", "옵션상품", "http://ucp-merchant-mock:8080/products/p-1",
                         null, 5000L, "KRW",
                         List.of(new CartProductSnapshot.SelectedOption("sku-1", "색상", "화이트"))));
+    }
+
+    @Test
+    void completionRecovery_databaseLeaseAndConcurrentCallbacksRemainIdempotent() throws Exception {
+        AwaitingApprovalCheckout row = prepareAwaitingCheckout("recovery1");
+        Instant now = Instant.parse("2026-01-01T00:00:00Z");
+        assertEquals(true, merchantCheckoutRepository.beginCompleting(row.id(), now));
+        assertEquals(false, merchantCheckoutRepository.beginCompleting(row.id(), now.plusSeconds(29)));
+        assertEquals(1, merchantCheckoutRepository.findCompleting(now.plusSeconds(31)).size());
+        assertEquals(true, merchantCheckoutRepository.beginCompleting(row.id(), now.plusSeconds(31)));
+        Runnable complete = () -> paymentCompletionRepository.recordCompleted(row.checkoutSnapshotId(), row.userId(),
+                row.paymentApprovalId(), "order-1", "payment-1", row.totalAmountMinor(), row.currency(), "카드", now);
+        CompletableFuture.allOf(CompletableFuture.runAsync(complete), CompletableFuture.runAsync(complete)).join();
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM orders", Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM payment_transactions", Integer.class));
+        assertEquals("COMPLETED", jdbcTemplate.queryForObject("SELECT status FROM merchant_checkouts", String.class));
+        webhooks.apply(1L, row.checkoutSnapshotId(), "order-1", "event-shipped", "digest-shipped",
+                "SHIPPED", now.plusSeconds(2), now);
+        webhooks.apply(1L, row.checkoutSnapshotId(), "order-1", "event-shipped", "digest-shipped",
+                "SHIPPED", now.plusSeconds(2), now);
+        webhooks.apply(1L, row.checkoutSnapshotId(), "order-1", "event-old", "digest-old", "CREATED", now, now);
+        assertEquals("SHIPPED", jdbcTemplate.queryForObject("SELECT status FROM orders", String.class));
+        assertEquals(2, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM order_webhook_receipts", Integer.class));
+        assertThrows(CoreException.class, () -> webhooks.apply(1L, row.checkoutSnapshotId(), "order-1",
+                "event-shipped", "changed-payload", "CANCELLED", now.plusSeconds(3), now));
+    }
+
+    @Test
+    void failureWithoutTransactionId_isPersistedOnceAndCheckoutLeavesCompleting() throws Exception {
+        AwaitingApprovalCheckout row = prepareAwaitingCheckout("recovery2");
+        merchantCheckoutRepository.beginCompleting(row.id(), Instant.now());
+        for (int attempt = 0; attempt < 2; attempt++) {
+            paymentCompletionRepository.recordFailed(row.checkoutSnapshotId(), row.paymentApprovalId(), null,
+                    row.totalAmountMinor(), row.currency(), "INVALID_CREDENTIAL", Instant.now());
+        }
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM payment_transactions", Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM payment_transactions WHERE status = 'FAILED' AND pay_transaction_id IS NULL",
+                Integer.class));
+        assertEquals("FAILED", jdbcTemplate.queryForObject("SELECT status FROM merchant_checkouts", String.class));
+        assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM orders", Integer.class));
+    }
+
+    @Test
+    void approvalCreationFailure_replaysDurableRequestAndKeepsTheSamePurchase() throws Exception {
+        String token = signupAndLogin("recovery3", "테스트");
+        addCartItem(token);
+        String addressId = registerAddress(token);
+        when(checkoutClient.create(any(), any())).thenReturn(readyCheckout());
+        when(paymentApprovalClient.create(any(), any()))
+                .thenThrow(new CoreException(CoreErrorCode.PAYMENT_APPROVAL_UNAVAILABLE));
+        mockMvc.perform(post("/api/core/v1/orders/validations").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON).content(validationBody(1, addressId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.checkouts[0].status").value("PENDING_APPROVAL_CREATION"));
+        String saved = jdbcTemplate.queryForObject(
+                "SELECT approval_request::text FROM merchant_checkouts", String.class);
+        doReturn(new ApprovalCreatedResponse("approval-recovered", "PAYMENT_METHOD_REQUIRED", null,
+                Instant.parse("2026-01-01T00:05:00Z"), "APPROVE_IN_APP"))
+                .when(paymentApprovalClient).create(any(), any());
+        new PaymentApprovalCreationWorker(merchantCheckoutRepository, paymentApprovalClient, cartMerchants,
+                merchantsProperties, objectMapper, Clock.fixed(Instant.parse("2026-01-01T00:20:00Z"), ZoneOffset.UTC))
+                .retryPending();
+        assertEquals("AWAITING_APPROVAL", jdbcTemplate.queryForObject(
+                "SELECT status FROM merchant_checkouts", String.class));
+        assertEquals("approval-recovered", jdbcTemplate.queryForObject(
+                "SELECT payment_approval_id FROM merchant_checkouts", String.class));
+        assertEquals(saved, jdbcTemplate.queryForObject(
+                "SELECT approval_request::text FROM merchant_checkouts", String.class));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM purchase_requests", Integer.class));
+    }
+
+    private AwaitingApprovalCheckout prepareAwaitingCheckout(String loginId) throws Exception {
+        String token = signupAndLogin(loginId, "테스트");
+        addCartItem(token);
+        String addressId = registerAddress(token);
+        when(checkoutClient.create(any(), any())).thenReturn(readyCheckout());
+        mockMvc.perform(post("/api/core/v1/orders/validations").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON).content(validationBody(1, addressId)))
+                .andExpect(status().isCreated());
+        return merchantCheckoutRepository.findAwaitingApproval().get(0);
     }
 
     @Test
@@ -394,12 +596,21 @@ class OrderValidationApiIntegrationTest {
                 """, Integer.class, row.checkoutSnapshotId()));
 
         merchantCheckoutRepository.markCancelled(row.id(), "USER_REJECTED", Instant.now());
+        assertEquals("FAILED", jdbcTemplate.queryForObject(
+                "SELECT status FROM merchant_checkouts WHERE id = ?", String.class, row.id()));
+        // 각 종료 전이는 승인 대기 행에만 적용되고 이미 끝난 결과는 덮어쓰지 않는다.
+        jdbcTemplate.update("UPDATE merchant_checkouts SET status = 'AWAITING_APPROVAL' WHERE id = ?", row.id());
+        merchantCheckoutRepository.markCancelled(row.id(), "USER_REJECTED", Instant.now());
         assertEquals("CANCELLED", jdbcTemplate.queryForObject(
                 "SELECT status FROM merchant_checkouts WHERE id = ?", String.class, row.id()));
         assertEquals(0, (int) jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM merchant_checkouts WHERE id = ? AND cancelled_at IS NULL",
                 Integer.class, row.id()));
 
+        merchantCheckoutRepository.markExpired(row.id(), Instant.now());
+        assertEquals("CANCELLED", jdbcTemplate.queryForObject(
+                "SELECT status FROM merchant_checkouts WHERE id = ?", String.class, row.id()));
+        jdbcTemplate.update("UPDATE merchant_checkouts SET status = 'AWAITING_APPROVAL' WHERE id = ?", row.id());
         merchantCheckoutRepository.markExpired(row.id(), Instant.now());
         assertEquals("EXPIRED", jdbcTemplate.queryForObject(
                 "SELECT status FROM merchant_checkouts WHERE id = ?", String.class, row.id()));

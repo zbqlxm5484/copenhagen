@@ -50,6 +50,8 @@ public class FirebaseNotificationSender implements NotificationSender {
         }
         Message.Builder builder = Message.builder()
                 .setFid(fid)
+                .setAndroidConfig(com.google.firebase.messaging.AndroidConfig.builder()
+                        .setPriority(com.google.firebase.messaging.AndroidConfig.Priority.HIGH).build())
                 .putAllData(data(message));
         try {
             String firebaseMessageId = messaging.send(builder.build());
@@ -85,7 +87,8 @@ public class FirebaseNotificationSender implements NotificationSender {
                 "eventId", message.eventId(),
                 "pushId", message.pushId(),
                 "type", message.type().name(),
-                "approvalId", message.approvalId(),
+                "approvalId", valueOrEmpty(message.approvalId()),
+                "purchaseRequestId", valueOrEmpty(message.purchaseRequestId()),
                 "paymentId", valueOrEmpty(message.paymentId()),
                 "status", valueOrEmpty(message.status()),
                 "nextAction", message.nextAction());

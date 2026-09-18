@@ -9,6 +9,7 @@ import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.copenhagen.core.common.auth.CoreAuthenticationFilter;
 import com.copenhagen.core.common.error.GlobalExceptionHandler;
@@ -18,13 +19,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Platform Profile이 광고하는 v1 Order Webhook 계약. 판단·상태 반영은 아직 없고 수신만 확인한다. */
+/** Platform Profile이 광고하는 v1 Order Webhook 계약. 실제 검증과 저장은 별도 서비스 테스트에서 확인한다. */
 @WebMvcTest(
         controllers = OrderWebhookController.class,
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.ASSIGNABLE_TYPE, classes = CoreAuthenticationFilter.class))
 @Import(GlobalExceptionHandler.class)
 class OrderWebhookControllerTest {
+
+    @MockitoBean
+    private OrderWebhookService service;
 
     @Autowired
     private MockMvc mockMvc;

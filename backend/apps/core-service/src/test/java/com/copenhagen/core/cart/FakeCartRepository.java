@@ -44,9 +44,10 @@ public class FakeCartRepository implements CartRepository {
 
     @Override
     public Optional<CartItem> findItemByProductVariant(
-            long cartId, String merchantProductId, String merchantVariantId) {
+            long cartId, long merchantId, String merchantProductId, String merchantVariantId) {
         return items.stream()
                 .filter(item -> item.cartId() == cartId
+                        && item.merchantId() == merchantId
                         && item.merchantProductId().equals(merchantProductId)
                         && item.merchantVariantId().equals(merchantVariantId))
                 .findFirst();

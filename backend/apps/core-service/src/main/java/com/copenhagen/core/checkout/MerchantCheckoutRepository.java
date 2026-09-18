@@ -14,6 +14,20 @@ public interface MerchantCheckoutRepository {
      */
     List<Long> insertAll(List<MerchantCheckoutRecord> records, Instant now);
 
+    List<CreatingApprovalCheckout> findCreatingApprovals(Instant now);
+
+    boolean claimApprovalCreation(long id, Instant now);
+
+    String saveApprovalRequestIfAbsent(long id, String request);
+
+    List<AwaitingApprovalCheckout> findCompleting(Instant now);
+
+    java.util.Optional<AwaitingApprovalCheckout> findByMerchantCheckout(long merchantId, String checkoutId);
+
+    record CreatingApprovalCheckout(long id, String purchaseRequestId, String userId, long merchantRefId,
+            String checkoutDigest, String checkoutPayload, String approvalRequest, Instant expiresAt) {
+    }
+
     /** 승인 세션 생성 성공. {@code CREATING -> AWAITING_APPROVAL}. */
     void markAwaitingApproval(long id, String paymentApprovalId, Instant paymentApprovalExpiresAt, Instant now);
 
