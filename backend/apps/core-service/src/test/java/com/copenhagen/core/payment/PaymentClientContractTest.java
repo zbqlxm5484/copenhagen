@@ -23,12 +23,20 @@ class PaymentClientContractTest {
                 .defaultHeader("Authorization", "Bearer test-service-token");
         var server = MockRestServiceServer.bindTo(builder).build();
         UUID purchaseId = UUID.randomUUID();
-        server.expect(requestTo("https://pay.example/internal/v1/purchase-notifications"))
+        String expectedKey = PaymentApprovalRequests.purchaseNotificationIdempotencyKey(purchaseId.toString());
+        // Pay는 상태 변경 경계에서 UUID가 아닌 키를 400으로 거절한다(docs/api/pay-idempotency.md).
+        assertEquals(expectedKey, UUID.fromString(expectedKey).toString());
+        server.expect(org.springframework.test.web.client.ExpectedCount.twice(),
+                        requestTo("https://pay.example/internal/v1/purchase-notifications"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Authorization", "Bearer test-service-token"))
-                .andExpect(header("Idempotency-Key", "purchase-handoff-" + purchaseId))
+                .andExpect(header("Idempotency-Key", expectedKey))
                 .andRespond(withSuccess());
-        new PaymentApprovalClient(builder.build()).notifyPurchase(UUID.randomUUID(), purchaseId);
+        var client = new PaymentApprovalClient(builder.build());
+        UUID userId = UUID.randomUUID();
+        // 재시도가 같은 키를 재사용해야 Pay 알림이 1건으로 유지된다.
+        client.notifyPurchase(userId, purchaseId);
+        client.notifyPurchase(userId, purchaseId);
         server.verify();
     }
 

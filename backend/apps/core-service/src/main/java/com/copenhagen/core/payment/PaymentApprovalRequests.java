@@ -23,6 +23,14 @@ public final class PaymentApprovalRequests {
                 .toString();
     }
 
+    /** 구매 요청별로 고정된 키. 재시도·재전송이 같은 값을 써야 인계 알림이 1건으로 유지된다. */
+    public static String purchaseNotificationIdempotencyKey(String purchaseRequestId) {
+        return UUID.nameUUIDFromBytes(
+                ("copenhagen-pay-purchase-handoff:" + purchaseRequestId)
+                        .getBytes(StandardCharsets.UTF_8))
+                .toString();
+    }
+
     public static CreateApprovalRequest create(String purchaseRequestId, String userId, String merchantId,
             String merchantName, String checkoutDigest, Checkout checkout) {
         List<SummaryItem> summary = checkout.lineItems().stream()

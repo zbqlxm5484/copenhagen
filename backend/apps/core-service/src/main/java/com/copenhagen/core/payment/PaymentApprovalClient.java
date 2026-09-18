@@ -20,7 +20,8 @@ public class PaymentApprovalClient {
 
     public void notifyPurchase(java.util.UUID userId, java.util.UUID purchaseId) {
         restClient.post().uri("/internal/v1/purchase-notifications")
-                .header("Idempotency-Key", "purchase-handoff-" + purchaseId)
+                .header(IDEMPOTENCY_KEY_HEADER,
+                        PaymentApprovalRequests.purchaseNotificationIdempotencyKey(purchaseId.toString()))
                 .body(java.util.Map.of("userId", userId, "purchaseRequestId", purchaseId))
                 .retrieve().toBodilessEntity();
     }
@@ -35,7 +36,7 @@ public class PaymentApprovalClient {
 
     public void resendNotification(java.util.UUID userId, java.util.UUID purchaseId, java.util.UUID key) {
         restClient.post().uri("/internal/v1/purchase-notifications/{id}/resend?userId={userId}", purchaseId, userId)
-                .header("Idempotency-Key", key.toString()).retrieve().toBodilessEntity();
+                .header(IDEMPOTENCY_KEY_HEADER, key.toString()).retrieve().toBodilessEntity();
     }
 
     private static final String CREATE_PATH = "/internal/v1/payment-approvals";
