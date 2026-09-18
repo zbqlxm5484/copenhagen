@@ -28,8 +28,8 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 class PayMigrationPostgresIntegrationTest {
 
     private static final Instant NOW = Instant.parse("2026-09-15T00:00:00Z");
-    private static final String LATEST_MIGRATION_VERSION = "13";
-    private static final int MIGRATION_COUNT = 13;
+    private static final String LATEST_MIGRATION_VERSION = "14";
+    private static final int MIGRATION_COUNT = 14;
     private static final String MERCHANT_ACCOUNT_ID = "00000000-0000-0000-0000-000000000001";
     private static final String USER_ID = "00000000-0000-0000-0000-000000000002";
     private static final String VALID_SESSION_ID = "00000000-0000-0000-0000-000000000003";
@@ -78,7 +78,8 @@ class PayMigrationPostgresIntegrationTest {
         assertEquals(MIGRATION_COUNT, flyway.migrate().migrationsExecuted);
 
         assertEquals(
-                List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", LATEST_MIGRATION_VERSION),
+                List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
+                        LATEST_MIGRATION_VERSION),
                 appliedVersions());
         assertTrue(tableExists("pay_idempotency_records"));
         assertTrue(tableExists("pay_notification_installations"));
@@ -101,7 +102,7 @@ class PayMigrationPostgresIntegrationTest {
         assertEquals("8", currentVersion());
         assertFalse(tableExists("pay_idempotency_records"));
 
-        assertEquals(5, flyway.migrate().migrationsExecuted);
+        assertEquals(6, flyway.migrate().migrationsExecuted);
         assertEquals(LATEST_MIGRATION_VERSION, currentVersion());
         assertEquals(MIGRATION_COUNT, appliedVersions().size());
         assertTrue(columnExists("payment_reconciliation_jobs", "request_id"));

@@ -1,5 +1,7 @@
 package com.copenhagen.pay.payment.credential.mandate;
 
+import java.sql.Timestamp;
+import java.time.Instant;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -47,8 +49,8 @@ public class JdbcMandateCredentialRepository implements MandateCredentialReposit
                 issuance.checkoutDigest(),
                 issuance.checkoutArtifactEncrypted(),
                 issuance.checkoutArtifactHash(),
-                issuance.issuedAt(),
-                issuance.expiresAt());
+                toTimestamp(issuance.issuedAt()),
+                toTimestamp(issuance.expiresAt()));
         jdbcTemplate.update(
                 INSERT_PAYMENT_MANDATE_SQL,
                 issuance.paymentMandateId(),
@@ -62,8 +64,8 @@ public class JdbcMandateCredentialRepository implements MandateCredentialReposit
                 issuance.paymentMethodRef(),
                 issuance.paymentArtifactEncrypted(),
                 issuance.paymentArtifactHash(),
-                issuance.issuedAt(),
-                issuance.expiresAt());
+                toTimestamp(issuance.issuedAt()),
+                toTimestamp(issuance.expiresAt()));
         jdbcTemplate.update(
                 INSERT_CREDENTIAL_SQL,
                 issuance.credentialId(),
@@ -77,7 +79,12 @@ public class JdbcMandateCredentialRepository implements MandateCredentialReposit
                 issuance.checkoutDigest(),
                 issuance.amountMinor(),
                 issuance.currency(),
-                issuance.issuedAt(),
-                issuance.expiresAt());
+                toTimestamp(issuance.issuedAt()),
+                toTimestamp(issuance.expiresAt()));
+    }
+
+    /** pgjdbc는 Instant의 SQL 타입을 추론하지 못해 드라이버에서 바로 던진다. */
+    private static Timestamp toTimestamp(Instant instant) {
+        return instant == null ? null : Timestamp.from(instant);
     }
 }

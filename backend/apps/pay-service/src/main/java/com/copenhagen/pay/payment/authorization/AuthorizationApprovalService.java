@@ -69,16 +69,9 @@ public class AuthorizationApprovalService {
             return new PreparedDetail(session, Optional.empty());
         }
 
-        try {
-            BiometricChallengeService.IssuedChallenge challenge = challengeService.issue(
-                    session.userId(),
-                    session,
-                    deviceId);
-            return new PreparedDetail(session, Optional.of(challenge));
-        } catch (PayException exception) {
-            if (exception.errorCode() != PayErrorCode.BIOMETRIC_CREDENTIAL_NOT_REGISTERED) {
-                throw exception;
-            }
+        // 생체 미등록은 예외 상황이 아니라 PIN 폴백이라는 정상 분기다. issue()가 던지게
+        // 두면 같은 트랜잭션이 rollback-only로 표시돼, 폴백을 마쳐도 커밋에서 터진다.
+        if (!challengeService.hasRegisteredCredential(session.userId(), deviceId)) {
             sessionStore.setRequiredAction(
                     session.id(),
                     session.userId(),
@@ -90,6 +83,12 @@ public class AuthorizationApprovalService {
                     .orElse(session);
             return new PreparedDetail(fallbackSession, Optional.empty());
         }
+
+        BiometricChallengeService.IssuedChallenge challenge = challengeService.issue(
+                session.userId(),
+                session,
+                deviceId);
+        return new PreparedDetail(session, Optional.of(challenge));
     }
 
     @Transactional
