@@ -3,6 +3,9 @@ package com.copenhagen.wallet.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +18,14 @@ import com.copenhagen.wallet.data.*
 
 @Composable fun WalletScreen(app: AppModel) = Page {
     Heading("나의 지갑")
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        OutlinedButton({ app.open(Screen.T01) }, Modifier.weight(1f), enabled = !app.busy) {
+            Icon(Icons.Outlined.ShoppingCart, null); Spacer(Modifier.width(8.dp)); Text("장바구니")
+        }
+        OutlinedButton({ app.open(Screen.G01) }, Modifier.weight(1f), enabled = !app.busy) {
+            Icon(Icons.Outlined.Search, null); Spacer(Modifier.width(8.dp)); Text("상품 탐색")
+        }
+    }
     Section("등록된 카드", "카드 관리") { app.open(Screen.W02) }
     Data(app.cards.items, app.busy, "카드를 불러오지 못했어요.", { app.execute { app.cards.load() } }) { cards ->
         if (cards.isEmpty()) Notice("등록된 카드가 없어요.")

@@ -109,6 +109,18 @@ class HttpTest {
         assertEquals(JsonNull, http.request(server.url("/").toString(), "DELETE", "/card"))
         assertTrue(logs.any { it.endsWith("response=<empty>") })
     }
+    @Test fun notificationDisconnectPreservesFidOnWireButMasksItsPathInLogs() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(204))
+        val result = http.request(server.url("/").toString(), "DELETE",
+            "/api/pay/v1/notification-installations/private-fid", token = "old-account-token")
+        val request = server.takeRequest(2, TimeUnit.SECONDS)!!
+        assertEquals("DELETE", request.method)
+        assertEquals("/api/pay/v1/notification-installations/private-fid", request.path)
+        assertEquals("Bearer old-account-token", request.getHeader("Authorization"))
+        assertEquals(JsonNull, result)
+        assertFalse(logs.any { it.contains("private-fid") || it.contains("old-account-token") })
+        assertTrue(logs.any { it.contains("/notification-installations/***") })
+    }
     @Test fun errorBodyIsNotShownToUser() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(400).setBody("""{"code":"INVALID_CARD_DATA","message":"secret-card-payload","cardNumber":"sensitive-card-number"}"""))
         val failure = runCatching { http.request(server.url("/").toString(), "GET", "/card") }.exceptionOrNull()!!
