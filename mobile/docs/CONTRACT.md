@@ -62,6 +62,58 @@ PIN·카드 등록·변경·삭제·기본 지정·생체 등록·승인·거절
 주문 조회는 `size=20`, `cursor`, `status`를 사용한다. 승인 검색어는 로컬 필터이며 정의되지 않은 검색 파라미터를 보내지 않는다.
 Core 응답이 기대 구조와 다르면 오류로 표시하며 가짜 프로필/배송지/주문으로 채우지 않는다.
 
+## Core: AI 서비스 연결
+
+저장소 `AgentConnectionController`와 `AgentConnectionResponse`를 기준으로 확인했다.
+`GET /api/core/v1/users/me/agent-connections`는 래퍼 없는 배열이며 각 항목은
+`connectionId`, `clientName`, `logoUrl?`, `scopes[]`, `connectedAt`, `lastUsedAt?`다.
+`DELETE /api/core/v1/users/me/agent-connections/{connectionId}`는 UUID와 사용자 Bearer를 사용하며 204 빈 본문을 허용한다.
+해제 성공 후 목록을 재조회한다. 해제 실패는 기존 목록을 유지하고, 해제 후 재조회 실패는 이전 목록을 숨겨 재시도를 제공한다.
+세션 종료 시 목록을 비운다. 로고 로딩·캐시·취소는 Coil Compose 2.7.0을 사용하며, 이미지 요청에 사용자 Bearer를 전달하지 않는다.
+로고가 없거나 로딩에 실패하면 대체 아이콘을 표시한다. 실제 서버 연결은 미검증이다.
+
+## Core: 장바구니 조회·편집
+
+저장소 `CartController`·`CartView`에 맞춰 `GET /api/core/v1/cart`를 연결했다.
+응답은 `{cartId?, version, items[], summary}`이며 아직 장바구니가 없는 사용자는 `cartId=null`, `version=0`, `items=[]`다.
+상품은 `cartItemId`, `merchantId`, `productId`, `optionValueIds[]`, `productName`, `productUrl?`, `imageUrl?`,
+`quantity`, `unitPrice:{amount,currency}`, `lineTotal`을 사용한다. 옵션 이름이 없으므로 옵션 ID로 표시한다.
+합계는 서버의 `itemsTotal`, `discountTotal`, `shippingFee`, `estimatedTotal`, `currency`를 그대로 표시하며 금액은 Long으로 보존한다.
+현재 서버의 할인·배송비는 0 고정이다. 합계를 예상 금액으로 표시하며 정보 아이콘을 누르면 할인·배송비 미확정 상태를 확인할 수 있다. 결제 확정이나 무료 배송으로 단정하지 않는다.
+조회 실패와 정상 빈 장바구니를 구분하며 세션 종료 시 데이터를 비운다. AI 내부 장바구니와의 공유 및 Checkout 연결은 미검증이다.
+
+수량 변경은 `PATCH /cart/items/{cartItemId}`에 `{cartVersion,quantity}`를 보내며 수량은 1 이상이다.
+삭제는 확인 후 `DELETE /cart/items/{cartItemId}?cartVersion=...`로 호출한다. 두 응답의 `{cartVersion}`을 반영하고 GET으로 상품·합계를 재조회한다.
+DELETE는 200 응답 본문이 필요하며 204를 버전 응답으로 취급하지 않는다.
+모든 편집은 기존 `AppModel.execute`로 직렬화하고 진행 중 입력을 막는다. 상품 수량·금액을 낙관적으로 변경하지 않는다.
+`CART_VERSION_CONFLICT`·`CART_ITEM_NOT_FOUND`는 최신 장바구니를 조회하고 변경 안내를 표시한다. 쓰기 요청을 자동 반복하지 않는다.
+네트워크 실패·5xx·응답 파싱 실패로 결과가 불명확하면 이전 상태를 숨기고, 사용자가 GET을 성공시킨 후에만 다시 편집할 수 있다.
+확정적인 일반 4xx 거절은 기존 내용을 유지한다. 취소 및 성공 후 GET 실패에도 불확실한 버전으로 편집하지 않는다.
+
+## Core: 상품 검색
+
+저장소 `ProductController`·`ProductService` 및 공개 DTO를 기준으로 `POST /api/core/v1/products/search`를 연결했다.
+본문은 `query`, `category`, `brand`, `merchantId`, 선택적인 `minPrice`/`maxPrice`, `page`(1부터), `pageSize`(앱은 10), `sort`다.
+정렬은 `RELEVANCE`, `PRICE_ASC`, `PRICE_DESC`이며 가격은 0 이상의 Long 및 최솟값 ≤ 최댓값을 검증한다.
+검색어·판매처·가격·정렬을 변경하면 페이지와 결과를 초기화한다. 페이지 이동은 기존 결과를 교체하며 늦은 이전 응답은 폐기한다.
+응답은 `{publicUserRef, connectionRef, data}`이며 `data.products[].offers[]`의 판매처·nullable 가격·판매 상태를 표시한다.
+`total`, `hasNext`, `checkedAt`, `failedMerchants`로 페이지와 일부 판매처 실패를 구분한다. 같은 productId라도 판매처가 다를 수 있어 ID만으로 합치거나 제거하지 않는다.
+판매처 선택지는 서버의 `merchants[]`에서 얻는다. 누락 가격을 0으로 표시하지 않고 알 수 없는 판매 상태는 확인 필요로 표시한다.
+현재 공개 서버는 category 또는 brand가 비어 있지 않으면 모든 상품을 제외한다. 두 값은 빈 문자열로 보내고 해당 필터는 UI에 노출하지 않는다.
+서버가 해당 메타데이터/필터를 지원하면 후속으로 노출할 수 있다. 내부 MCP 검색 계약을 공개 API와 혼용하지 않는다.
+
+## Core: 상품 상세
+
+`GET /api/core/v1/products/{productId}`는 선택한 offer의 `merchantId`를 필수 쿼리로 보내고, 옵션 선택 시에만 `optionId`를 보낸다.
+동적 productId에 경로 구분자(`/`, `\`) 또는 상위 경로(`.`, `..`)를 허용하지 않는다. 나머지 경로 문자와 쿼리는 기존 Http/OkHttp가 인코딩한다.
+응답은 외부 envelope의 `data`이며 `status=FOUND`의 `product`와 `status=NOT_FOUND, product=null`을 구분한다.
+ProductDetail의 `offer`, `variants`, `selectionStatus`, `selectedOptionId`, `optionsComplete`, `optionsRequired?`, `stockQuantity?`, `shipping`을 읽는다.
+옵션 선택·재시도 시 상세를 다시 읽는다. 이전 선택의 늦은 응답을 폐기하며 상세에서 돌아와도 검색 조건·페이지·결과는 유지한다.
+다른 판매처는 검색 결과로 돌아가 선택한다. 새 상세 진입에는 이전 판매처의 optionId를 전달하지 않는다.
+nullable 가격·재고·배송비·구매 허용을 0/무료/구매 가능으로 바꾸지 않는다. `purchaseAllowed`는 아이콘과 접근성 설명으로 표시한다.
+현재 공개 서버는 stockQuantity=null, shipping=UNKNOWN, purchaseAllowed=null을 반환하며 상세 brand/category/specs도 제공하지 않는다.
+상품 설명·사양 등 부가 정보는 펼쳐서 확인한다. 장바구니 추가·구매 시작 버튼과 optionId→optionValueIds 변환은 구현하지 않는다.
+
 ## 약관·배송지 검색·앱 링크
 
 원본의 5개 필수 약관 선택 화면은 유지했다. 원문은 `app/src/main/assets/terms/1.txt`~`5.txt`에서 읽는다.
@@ -92,4 +144,10 @@ notification+data 배경 수신은 Firebase가 알림을 표시한 뒤 launcher 
 알림 권한이 거부되면 알림이 표시되지 않는다. 승인 목록 조회는 계속 사용할 수 있다.
 
 등록 API 문서의 상태는 조회 시점에 `시작 전`이다. 실제 배포 여부와 FID 대상 발송은 확인하지 않았다.
-해제 API는 문서에 없어 임의로 추가하지 않았다. 로그아웃 시 서버의 사용자/FID 연결 해제 정책은 별도 계약이 필요하다.
+v5 및 저장소 NotificationInstallationController의 계약으로 `DELETE /api/pay/v1/notification-installations/{fid}`를 연결했다.
+로그아웃·로그인 상태에서의 계정 전환·서버 주소 변경은 이전 계정/서버의 인증으로 FID 해제 → Core 로그아웃 → 로컬 세션 정리 순서다.
+204 빈 본문을 처리하며, 해제와 Core 로그아웃은 각각 최대 10초 시도한다. 해제 실패 후에도 Core 로그아웃을 시도한다.
+실패·타임아웃·취소에도 로컬 세션을 정리하고, 원격 작업 실패는 로그인 화면에 안내한다. 취소 후 새 요청이나 백그라운드 재시도를 만들지 않는다.
+계정 전환 중 원격 정리를 확인하지 못하면 로컬 로그아웃 후 안내를 먼저 표시하며, 사용자가 새 로그인을 다시 시작할 수 있다.
+FID는 요청 경로에 그대로 전달하지만 HTTP 진단 로그의 해당 경로에서는 마스킹한다.
+실제 Firebase/Pay 연결 해제·계정 전환은 개발 서버와 기기에서 추가 확인해야 한다.

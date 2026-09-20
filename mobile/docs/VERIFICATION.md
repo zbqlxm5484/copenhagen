@@ -1,5 +1,66 @@
 # 검증 기록
 
+## S15P21A207-463 — 최종 UI 정리
+
+- 상시 안내문을 제거하고 수량·삭제·새로고침을 아이콘으로 바꿨다. 예상 금액 안내와 AI 연결 메타데이터는 사용자가 펼칠 때만 표시한다.
+- 아이콘에 접근성 설명을 유지하고 삭제·연결 해제 확인 및 busy 중 중복 요청 차단을 보존했다.
+- JDK 21.0.11의 `./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --offline --console=plain` 성공. JUnit 67개 통과, Lint 오류 0·경고 15, `tools/audit.py` 59개 통과.
+- 실기기·에뮬레이터 화면/터치 검증과 실제 Core/Pay/Firebase E2E는 실행하지 않았다. 이 기록은 클라이언트 컴파일·단위/계약 테스트 결과다.
+
+## S15P21A207-469 — 상품 상세·옵션 조회
+
+JDK 21.0.11에서 debug 빌드·JUnit·Lint(`assembleDebug testDebugUnitTest lintDebug`, offline)와 `tools/audit.py`를 실행했다.
+
+- 빌드 성공, JUnit 67개 통과, Lint 오류 0·경고 15, 정적 검사 59개 통과.
+- 추가 테스트 10개: 인증/경로 인코딩/merchantId/optionId, 옵션별 가격·재고·배송 매핑, 판매처 변경 시 옵션 초기화, nullable 정보 보존, 품절·구매 불가, 200 NOT_FOUND와 HTTP 오류 구분/재시도, 잘못된 경로 거절, 늦은 옵션 응답·종료 후 응답 폐기, FOUND 불완전 응답 거절.
+- 검색 조건·결과는 Catalog에 유지하며 상세 상태는 ProductDetails에서 별도로 정리한다. 실제 화면 뒤로 가기·옵션 클릭 E2E와 배포 서버 연결은 미검증이다.
+- 검색·상세 화면은 안내문 대신 검색/필터/페이지/새로고침 아이콘과 선택 칩을 사용한다. 부가 상품 정보는 펼침 방식이며 아이콘에 접근성 설명을 제공한다.
+
+## S15P21A207-468 — 상품 검색·가격 비교
+
+JDK 21.0.11에서 debug 빌드·JUnit·Lint(`assembleDebug testDebugUnitTest lintDebug`, offline)와 `tools/audit.py`를 실행했다.
+
+- 빌드 성공, JUnit 57개 통과, Lint 오류 0·경고 15, 정적 검사 59개 통과.
+- 추가 테스트 9개: 인증된 POST 조건 매핑, 외부 envelope·nullable 가격·판매처별 동일 상품 ID, 페이지 교체/조건 초기화, 가격 범위/Long 초과 입력 거절, 실패한 페이지 재시도, 일부 판매처 실패, 늦은 응답·늦은 오류 폐기, 세션 정리 중 응답 도착.
+- 공개 ProductService에서 브랜드·카테고리 필터 미지원을 확인해 해당 입력을 노출하지 않았다. 실제 서버/기기 화면 검증은 미실행이다.
+- 사용자 요청에 따라 장바구니·로그아웃의 긴 안내를 짧은 상태 문구로 바꾸고 동일 테스트를 재실행했다.
+
+## S15P21A207-467 — 장바구니 수량·삭제와 충돌 처리
+
+JDK 21.0.11에서 debug 빌드·JUnit·Lint(`assembleDebug testDebugUnitTest lintDebug`, offline)와 `tools/audit.py`를 실행했다.
+
+- 빌드 성공, JUnit 48개 통과, Lint 오류 0·경고 15, 정적 검사 59개 통과.
+- 추가 테스트 9개: 연속 수량 변경의 최신 버전/합계, DELETE 쿼리·200 및 마지막 상품 삭제, 버전 충돌 후 재조회, 삭제된 항목의 재조회 실패/복구, 4xx 거절, 요청 수신 후 연결 종료로 응답 유실, 잘못된 수량/ID, 잘못된 204 응답, 취소 전파.
+- 응답 유실 뒤에는 GET 성공 전 추가 쓰기가 없고 충돌 요청을 자동 재전송하지 않는 것을 확인했다.
+- 중복 입력 차단은 기존 AppModel 직렬 실행과 busy UI를 사용한다. 실제 기기의 연속 클릭·삭제 확인·서버 동시 편집 E2E는 미검증이다.
+
+## S15P21A207-466 — 장바구니 조회
+
+JDK 21.0.11에서 debug 빌드·JUnit·Lint(`assembleDebug testDebugUnitTest lintDebug`, offline)와 `tools/audit.py`를 실행했다.
+
+- 빌드 성공, JUnit 39개 통과, Lint 오류 0·경고 15, 정적 검사 59개 통과.
+- 새 MockWebServer 테스트 4개로 cartId=null인 빈 장바구니, 인증된 조회, 버전·옵션·Int 범위를 넘는 금액, 세션 정리, 실패 후 재조회 및 불완전 응답을 확인했다.
+- 실제 Core/AI 장바구니 공유 및 기기 화면 E2E는 미검증이다.
+
+## S15P21A207-465 — AI 서비스 연결 관리
+
+JDK 21.0.11에서 `./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --console=plain` 및 `python3 tools/audit.py`를 실행했다.
+
+- debug 빌드 성공, JUnit 35개 통과. 새 MockWebServer 테스트 4개는 배열 매핑·nullable 메타데이터·세션 정리·DELETE 204 후 재조회·해제 실패·재조회 실패 후 복구를 확인한다.
+- Android Lint 오류 0·경고 15, 정적 검사 59개 통과. 경고는 기존 저장소 코드 및 라이브러리 업데이트 안내다.
+- 서비스 로고 표시에 Coil Compose 2.7.0을 추가했다. 기존 Kotlin/Compose/OkHttp 조합으로 컴파일했다.
+- 실제 서버, 이미지 다운로드, 확인 대화상자 및 화면 이동 E2E는 실행하지 않았다.
+
+## S15P21A207-464 — FID 해제와 세션 종료
+
+JDK 21.0.11에서 `./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --offline --console=plain` 및 `python3 tools/audit.py`를 실행했다.
+
+- debug 빌드 성공, JUnit 31개 통과(기존 23개 + 로그아웃 7개 + FID 경로 마스킹 1개).
+- FID 해제 → Core 로그아웃 → 로컬 정리 순서, 해제/로그아웃 실패, 10초 타임아웃, 각 원격 단계의 취소 후 정리를 검증했다.
+- MockWebServer로 FID DELETE 경로·기존 계정 Bearer·204 빈 본문과 로그의 FID/토큰 마스킹을 확인했다.
+- Android Lint 오류 0·경고 14, 정적 검사 59개 통과.
+- 실제 Firebase/Pay 서버 해제 및 계정 전환 UI/E2E는 실행하지 않았다. 단위 테스트의 콜백 순서 검증과 서버 연동 성공을 구분한다.
+
 ## 2026-09-20 — 모노레포 mobile 이전
 
 스토리 [S15P21A207-456](https://ssafy.atlassian.net/browse/S15P21A207-456)의 현재 Android 앱을 모노레포 `mobile/`로 이전한 뒤, 해당 위치에서 검증했다. 기존 샘플 프로젝트를 교체했으며 production Kotlin 20개, 리소스, JUnit 테스트 2개 파일과 검증 도구의 내용은 이전 전 소스와 동일하다.

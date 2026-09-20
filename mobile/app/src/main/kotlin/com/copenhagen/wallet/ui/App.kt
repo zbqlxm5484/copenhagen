@@ -74,6 +74,10 @@ import com.copenhagen.wallet.*
                 Screen.H02 -> OrderDetailScreen(app)
                 Screen.S01 -> SettingsScreen(app, activity)
                 Screen.S02 -> ChangePinScreen(app)
+                Screen.S03 -> ConnectionsScreen(app)
+                Screen.T01 -> CartScreen(app)
+                Screen.G01 -> ProductSearchScreen(app)
+                Screen.G02 -> ProductDetailScreen(app)
                 Screen.X01 -> ServerScreen(app)
             }
         }

@@ -5,11 +5,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import coil.compose.AsyncImage
+import com.copenhagen.wallet.BuildConfig
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -25,6 +30,14 @@ object Carbon {
     val Layer = Color(0xFFF4F4F4)
     val Line = Color(0xFFE0E0E0)
     val Error = Color(0xFFDA1E28)
+}
+@Composable fun RemoteImage(url: String?, description: String, modifier: Modifier = Modifier) {
+    val placeholder = rememberVectorPainter(Icons.Outlined.Image)
+    AsyncImage(
+        model = url?.takeIf { it.startsWith("https://") || (BuildConfig.DEBUG && it.startsWith("http://")) },
+        contentDescription = description, modifier = modifier,
+        placeholder = placeholder, error = placeholder, fallback = placeholder
+    )
 }
 @Composable fun CopenhagenTheme(content: @Composable () -> Unit) {
     MaterialTheme(

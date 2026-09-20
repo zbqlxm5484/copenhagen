@@ -43,6 +43,8 @@ fun normalizeHost(input: String, debug: Boolean): String {
     return uri.toASCIIString().trimEnd('/') + "/"
 }
 fun money(value: Long) = NumberFormat.getIntegerInstance(Locale.KOREA).format(value) + "원"
+fun money(value: Long, currency: String) = if (currency == "KRW") money(value)
+    else NumberFormat.getIntegerInstance(Locale.KOREA).format(value) + " " + currency
 val approvalStatuses = listOf("PAYMENT_METHOD_REQUIRED", "PENDING", "APPROVED", "COMPLETED", "REJECTED", "EXPIRED", "INVALIDATED")
 fun statusLabel(status: String): String = when (status) {
     "PAYMENT_METHOD_REQUIRED" -> "카드 선택 필요"

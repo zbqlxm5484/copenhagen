@@ -21,10 +21,12 @@ enum class Screen(val title: String, val focused: Boolean = true) {
     A01("로그인"), A02("로그인"), A03("회원가입"), A04("보안 확인"), A08("본인 확인"),
     A05("PIN 등록"), A06("PIN 확인"), A07("생체 인증"),
     W01("나의 지갑", false), W02("카드 관리", false), C01("카드 등록"), C02("약관 동의"), C03("카드 등록"),
+    T01("장바구니"),
+    G01("상품 탐색"), G02("상품 상세"),
     D01("배송지", false), D02("배송지 편집"), D03("주소 검색"),
     P01("승인 요청", false), P02("승인 요청"), P03("PIN 인증"), P04("생체 인증"),
     P05("승인 결과"), P06("인증 잠김"), P07("처리 확인"),
-    H01("기록", false), H02("주문 상세", false), S01("설정", false), S02("PIN 변경"), X01("서버 설정");
+    H01("기록", false), H02("주문 상세", false), S01("설정", false), S02("PIN 변경"), S03("연결된 AI 서비스"), X01("서버 설정");
     companion object { val tabs = listOf(W01, D01, H01, S01) }
 }
 data class Route(val screen: Screen, val id: String? = null)
@@ -36,6 +38,10 @@ class AppModel(application: Application) : AndroidViewModel(application) {
     val cards = Cards(api)
     val approvals = Approvals(api)
     val account = Account(api)
+    val connections = Connections { method, path -> api.core(method, path) }
+    val cart = Cart(api::core)
+    val catalog = Catalog(api::core)
+    val products = ProductDetails(api::core)
     val biometrics = Biometrics()
     var busy by mutableStateOf(false); private set
     var error by mutableStateOf<String?>(null)
@@ -98,6 +104,7 @@ class AppModel(application: Application) : AndroidViewModel(application) {
             Screen.A06 -> firstPin = ""
             Screen.P02 -> approvals.close()
             Screen.P03, Screen.P04, Screen.P07 -> approvals.clearAttempt()
+            Screen.G02 -> products.clear()
             else -> Unit
         }
         if (route.screen == Screen.A06) { show(Screen.A05, replace = true); return }
@@ -123,13 +130,25 @@ class AppModel(application: Application) : AndroidViewModel(application) {
             Screen.H01 -> if (historyTab == 0) approvals.loadHistory() else account.loadOrders()
             Screen.H02 -> account.openOrder(requireNotNull(route.id))
             Screen.S01 -> { pin = api.pay("GET", "/users/me/payment-pin").read(); account.loadProfile() }
+            Screen.S03 -> connections.load()
+            Screen.T01 -> cart.load()
+            Screen.G01 -> catalog.search(catalog.page ?: 1)
+            Screen.G02 -> products.reload()
             Screen.A04, Screen.P06 -> checkPin()
             else -> Unit
         }
     }
     fun open(screen: Screen) { if (!busy) { show(screen); execute { refresh() } } }
+    fun openProduct(productId: String, merchantId: String) = execute {
+        show(Screen.G02)
+        products.load(ProductSelection(productId, merchantId))
+    }
     fun login(password: String, reauthenticate: Boolean = false) = execute {
         require(password.isNotBlank()) { "비밀번호를 입력해 주세요." }
+        if (signedIn && loginId != store.loginId) {
+            val result = closeSession()
+            if (result.warning != null) { error = result.warning; return@execute }
+        }
         if (loginId != store.loginId) { biometrics.clear(); store.credentialId = null; biometricRegistered = false }
         api.login(loginId, password)
         signedIn = true
@@ -243,18 +262,31 @@ class AppModel(application: Application) : AndroidViewModel(application) {
         root(if (toHistory) Screen.H01 else Screen.W01)
         execute { refresh() }
     }
-    fun saveHosts(core: String, pay: String, pg: String) {
-        if (busy) return
-        try {
-            val coreUrl = normalizeHost(core, BuildConfig.DEBUG)
-            val payUrl = normalizeHost(pay, BuildConfig.DEBUG)
-            val pgUrl = if (pg.isBlank()) "" else normalizeHost(pg, BuildConfig.DEBUG)
-            resetSession(); store.saveHosts(coreUrl, payUrl, pgUrl)
-        } catch (failure: Exception) { error = failure.userMessage() }
+    fun saveHosts(core: String, pay: String, pg: String) = execute {
+        val coreUrl = normalizeHost(core, BuildConfig.DEBUG)
+        val payUrl = normalizeHost(pay, BuildConfig.DEBUG)
+        val pgUrl = if (pg.isBlank()) "" else normalizeHost(pg, BuildConfig.DEBUG)
+        val result = if (signedIn) closeSession() else { resetSession(); null }
+        store.saveHosts(coreUrl, payUrl, pgUrl)
+        error = result?.warning
     }
-    fun logout() = execute { try { api.logout() } finally { resetSession() } }
+    fun logout() = execute { error = closeSession().warning }
+    private suspend fun closeSession() = endSession(
+        disconnect = {
+            check(FirebaseApp.getApps(getApplication()).isNotEmpty())
+            val fid = FirebaseInstallations.getInstance().id.await()
+            require(fid.isNotBlank())
+            api.pay("DELETE", "/notification-installations/$fid")
+        },
+        revoke = { api.logout() },
+        clear = ::resetSession
+    )
     private fun resetSession() {
         store.clearSession(); biometrics.clear(); cards.clear(); approvals.clear(); account.clear()
+        connections.clear()
+        cart.clear()
+        catalog.clear()
+        products.clear()
         signedIn = false; pin = null; biometricRegistered = false; firstPin = ""; pinKey = ""
         notificationsRegistered = false; notificationError = null
         incomingApproval = null; tabRoutes.clear(); routes = listOf(Route(Screen.A01)); secretRevision++

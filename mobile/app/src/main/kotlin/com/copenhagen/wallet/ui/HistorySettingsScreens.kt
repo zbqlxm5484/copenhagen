@@ -94,6 +94,7 @@ import com.copenhagen.wallet.data.*
                 .putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName))
         }
         Section("앱")
+        Secondary("연결된 AI 서비스", !app.busy) { app.open(Screen.S03) }
         Secondary("서버 설정", !app.busy) { app.show(Screen.X01) }
         Text("버전 ${BuildConfig.VERSION_NAME}", color = Carbon.Muted)
         Secondary("로그아웃", !app.busy) { logout = true }

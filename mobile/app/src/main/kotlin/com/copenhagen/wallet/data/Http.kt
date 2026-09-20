@@ -65,7 +65,10 @@ class Http(private val client: OkHttpClient = OkHttpClient.Builder()
                 (body?.toString() ?: "").toRequestBody("application/json".toMediaType()) else null
             method(method, payload)
         }.build()
-        val endpoint = "$method ${url.encodedPath}"
+        val loggedPath = if ("/notification-installations/" in url.encodedPath)
+            url.encodedPath.substringBefore("/notification-installations/") + "/notification-installations/***"
+        else url.encodedPath
+        val endpoint = "$method $loggedPath"
         val startedAt = System.nanoTime()
         log("--> $endpoint")
         if (BuildConfig.DEBUG) {
