@@ -112,6 +112,8 @@ public class CatalogSeedLoader {
                 mall,
                 externalId,
                 product.path("title").asString(),
+                product.path("category").asString(null),
+                product.path("brand").asString(null),
                 product.path("imageUrl").asString(null),
                 product.path("basePrice").asLong(),
                 product.path("currency").asString("KRW"),

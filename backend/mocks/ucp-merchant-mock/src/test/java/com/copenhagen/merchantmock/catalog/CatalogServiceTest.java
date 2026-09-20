@@ -22,7 +22,7 @@ class CatalogServiceTest {
 
     @Test
     void productDetail_includesEffectiveVariantPriceAndStock() {
-        Product product = new Product("sample", "merchant-a", "kurly:1000025270", "상품", "설명", null,
+        Product product = new Product("sample", "merchant-a", "kurly:1000025270", "상품", "설명", null, null, null,
                 10500L, "KRW", Product.ProductStatus.ACTIVE, List.of(new Product.Variant(
                         "kurly:1000025270-M00000008360", "종류", "추가 구성", 9100L, 100, Product.ProductStatus.ACTIVE)));
         CatalogOptionValue option = CatalogMessages.ProductDetail.of(product).options().get(0).values().get(0);
@@ -281,5 +281,78 @@ class CatalogServiceTest {
         ApiException unknown = assertThrows(ApiException.class, () -> service.search("merchant-z", all));
         assertEquals("MERCHANT_NOT_FOUND", unknown.errorCode());
         assertEquals(404, unknown.status().value());
+    }
+
+    @Test
+    @DisplayName("동의어 묶음으로 운동화를 치면 러닝화도 나온다")
+    void search_synonymGroup_findsOtherWordsForTheSameThing() {
+        // given: 시드에는 "러닝화 A" 가 있고 "운동화" 라는 낱말은 어디에도 없다
+        // when
+        CatalogMessages.ItemsResponse response =
+                service.search("merchant-a", new CatalogMessages.SearchRequest("운동화", null));
+
+        // then 470 이전에는 제목 부분문자열 하나뿐이라 0건이었다
+        assertEquals(List.of("product-101"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("제목에서 맞은 상품이 카테고리로만 맞은 상품보다 앞에 온다")
+    void search_titleMatch_outranksCategoryOnlyMatch() {
+        // given: product-201 은 제목에 "운동화" 가 없고 카테고리에만 있다
+        List<Product> products = new ArrayList<>(CatalogFixture.seed());
+        products.add(CatalogFixture.categoryOnlyMatch());
+        CatalogService ranked = serviceOf(products);
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("운동화", null));
+
+        // then 첫 화면이 pageSize 4 라 순서가 곧 결과다
+        assertEquals(List.of("product-101", "product-201"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("낱말 여러 개는 전부 맞아야 하고 브랜드에서 맞아도 된다")
+    void search_multipleTokens_requiresAllAndLooksAtBrand() {
+        // given & when: "나이키" 는 브랜드에만, "러닝화" 는 제목에만 있다
+        CatalogMessages.ItemsResponse matched =
+                service.search("merchant-a", new CatalogMessages.SearchRequest("나이키 러닝화", null));
+        CatalogMessages.ItemsResponse unmatched =
+                service.search("merchant-a", new CatalogMessages.SearchRequest("아디다스 러닝화", null));
+
+        // then 470 이전에는 통짜 부분문자열이라 둘 다 0건이었다
+        assertEquals(List.of("product-101"), idsOf(matched));
+        assertTrue(unmatched.items().isEmpty(), "브랜드는 맞아도 제목이 안 맞으면 빠진다");
+    }
+
+    @Test
+    @DisplayName("낱말로 맞은 상품이 부분문자열로만 맞은 상품보다 앞에 온다")
+    void search_wordBoundaryMatch_outranksSubstringMatch() {
+        // given: 우유팩 키링이 시드에서 먼저다. 부분문자열만 보면 실제 우유와 구분되지 않는다
+        CatalogService ranked = serviceOf(CatalogFixture.milkAndLookalikes());
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("우유", null));
+
+        // then
+        assertEquals(List.of("product-302", "product-301"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("결과가 많아도 몰 하나가 100건을 넘겨 주지 않는다")
+    void search_manyMatches_isCappedPerMall() {
+        // given: 상한이 없으면 빈 검색어 한 번에 카탈로그 전량이 나간다
+        CatalogService bulk = serviceOf(CatalogFixture.many(120));
+
+        // when
+        CatalogMessages.ItemsResponse byKeyword =
+                bulk.search("merchant-a", new CatalogMessages.SearchRequest("대량", null));
+        CatalogMessages.ItemsResponse byBlank =
+                bulk.search("merchant-a", new CatalogMessages.SearchRequest("", null));
+
+        // then
+        assertEquals(100, byKeyword.items().size());
+        assertEquals(100, byBlank.items().size());
     }
 }

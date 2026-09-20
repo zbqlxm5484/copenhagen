@@ -3,6 +3,7 @@ package com.copenhagen.merchantmock.support;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -40,7 +41,7 @@ public record MerchantProperties(
             throw new IllegalArgumentException("merchant.malls 가 비어 있다. 몰이 최소 하나 있어야 한다");
         }
         malls = List.copyOf(malls);
-        catalog = catalog == null ? new Catalog(List.of()) : catalog;
+        catalog = catalog == null ? new Catalog(List.of(), List.of()) : catalog;
     }
 
     /** 몰 하나의 UCP REST base endpoint. Core 는 이 값을 그 몰의 Profile 에서 읽어 간다. */
@@ -85,7 +86,7 @@ public record MerchantProperties(
      * <p>파일마다 {@code mall} 필드가 어느 몰의 시드인지 말한다. 한 DB 에 몰 셋의 파일을 다 넣는다(393).
      * 환경변수 하나에 쉼표로 이어 준다 — 목록을 항목별 환경변수로 덮으면 Spring 이 나머지 항목을 지운다.
      */
-    public record Catalog(List<String> seedFiles) {
+    public record Catalog(List<String> seedFiles, List<List<String>> synonyms) {
         public Catalog {
             List<String> cleaned = new ArrayList<>();
             if (seedFiles != null) {
@@ -96,6 +97,30 @@ public record MerchantProperties(
                 }
             }
             seedFiles = List.copyOf(cleaned);
+            synonyms = normalizeSynonyms(synonyms);
+        }
+
+        /** 소문자로 눕히고 두 낱말 미만인 묶음은 버린다. 혼자인 낱말은 확장할 것이 없다. */
+        private static List<List<String>> normalizeSynonyms(List<List<String>> groups) {
+            if (groups == null) {
+                return List.of();
+            }
+            List<List<String>> cleaned = new ArrayList<>();
+            for (List<String> group : groups) {
+                if (group == null) {
+                    continue;
+                }
+                List<String> words = new ArrayList<>();
+                for (String word : group) {
+                    if (word != null && !word.isBlank()) {
+                        words.add(word.trim().toLowerCase(Locale.ROOT));
+                    }
+                }
+                if (words.size() >= 2) {
+                    cleaned.add(List.copyOf(words));
+                }
+            }
+            return List.copyOf(cleaned);
         }
 
         public boolean hasSeedFiles() {

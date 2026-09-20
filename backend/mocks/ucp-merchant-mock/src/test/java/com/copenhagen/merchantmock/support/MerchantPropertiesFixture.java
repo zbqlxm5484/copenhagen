@@ -16,6 +16,16 @@ public final class MerchantPropertiesFixture {
             new MerchantProperties.Mall(MERCHANT_C, "별빛몰"));
 
     /**
+     * 검색 동의어 묶음(470). application.yml 과 같은 모양이고 묶음 수만 줄였다.
+     *
+     * <p>묶음은 좁아야 한다. 상위어를 넣으면 재현율 대신 정밀도가 무너진다 — 실측으로 "오일" 을 넣었더니
+     * "올리브유" 검색에 클렌징 오일과 립 오일이 48건 걸렸다(DESIGN.md 5.7절).
+     */
+    public static final List<List<String>> SYNONYMS = List.of(
+            List.of("신발", "운동화", "러닝화", "스니커즈", "워킹화", "스포츠화"),
+            List.of("올리브유", "올리브오일"));
+
+    /**
      * 도서산간 추가금 구간(427). 판정 규칙은 application.yml 과 같은 모양이고 낱말 목록만 줄였다.
      *
      * <p>기본 배송비는 여기서 3000 이다. 실제 설정은 0(일반 지역 무료)이지만 픽스처까지 0 으로 두면
@@ -48,7 +58,7 @@ public final class MerchantPropertiesFixture {
                 "2026-08-25",
                 "KRW",
                 "http://ucp-merchant-mock:8080",
-                new MerchantProperties.Catalog(List.of()),
+                new MerchantProperties.Catalog(List.of(), SYNONYMS),
                 new MerchantProperties.Checkout(Duration.ofMinutes(5), Duration.ofSeconds(5)),
                 new MerchantProperties.Fulfillment(3000L, REMOTE_AREAS),
                 signing,
@@ -73,7 +83,7 @@ public final class MerchantPropertiesFixture {
                 base.ucpVersion(),
                 base.currency(),
                 base.publicBaseUrl(),
-                new MerchantProperties.Catalog(seedFiles),
+                new MerchantProperties.Catalog(seedFiles, SYNONYMS),
                 base.checkout(),
                 base.fulfillment(),
                 base.signing(),
