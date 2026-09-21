@@ -346,3 +346,18 @@ UI는 `MCP_UI_ENABLED=true`일 때 등록되며 운영 기본 인증 차단은 �
 상품 탐색은 [QA2 실행 문서](docs/qa2.md), 장바구니 구성과 상태 유지는
 [QA3 실행 문서](docs/qa3.md)를 참고하세요. QA3의 장바구니 저장은 테스트용 Mock Core가 담당하며,
 실제 Core API 계약이 확정되면 내부 포트의 어댑터를 교체합니다.
+
+### Core 연동 프로필의 쇼핑 권한 동의
+
+`core-integration`은 최초 연결부터 `catalog:read cart:read cart:write`를 요구합니다.
+검색 전용 토큰으로 연결한 뒤 장바구니에서 추가 동의를 반복하던 경로를 줄이기 위한 정책입니다.
+검색만 사용하는 클라이언트에도 이 프로필에서는 장바구니 권한 동의가 필요합니다.
+결제 요청 권한 `purchase:handoff`는 기존처럼 해당 기능 사용 시 별도로 동의합니다.
+Core는 요청한 권한을 그대로 승인 화면에 표시하며, 동의 없이 DB 권한을 확장하지 않습니다.
+
+배포 후 ChatGPT 연결의 도구/인증 정보를 새로고침하고 다시 동의해야 합니다.
+호스트에 scope가 `catalog:read`로 고정돼 있다면 연결 설정의 OAuth scope를 위 세 권한으로
+수정하거나 변경된 서버 정보를 사용해 연결을 다시 등록해야 합니다.
+서버가 보낸 challenge만으로 호스트에 저장된 설정이 자동 변경되는 것은 보장하지 않습니다.
+완료 기준은 최신 요청의 requested_scopes, 연결의 granted_scopes, 갱신 토큰 scopes에
+세 권한이 모두 포함되고 prepare_cart/get_cart가 재인증 없이 성공하는 것입니다.

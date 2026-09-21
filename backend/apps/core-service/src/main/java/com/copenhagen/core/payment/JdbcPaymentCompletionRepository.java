@@ -34,9 +34,11 @@ public class JdbcPaymentCompletionRepository implements PaymentCompletionReposit
             """;
 
     private final JdbcTemplate jdbcTemplate;
+    private final PaidCartCleanupRepository cartCleanup;
 
-    public JdbcPaymentCompletionRepository(JdbcTemplate jdbcTemplate) {
+    public JdbcPaymentCompletionRepository(JdbcTemplate jdbcTemplate, PaidCartCleanupRepository cartCleanup) {
         this.jdbcTemplate = jdbcTemplate;
+        this.cartCleanup = cartCleanup;
     }
 
     @Override
@@ -51,6 +53,7 @@ public class JdbcPaymentCompletionRepository implements PaymentCompletionReposit
             String currency,
             String paymentLabel,
             Instant now) {
+        long purchaseId = cartCleanup.lockPurchaseForSnapshot(checkoutSnapshotId);
         lockSnapshot(checkoutSnapshotId);
         List<Long> existingOrders = jdbcTemplate.queryForList(
                 "SELECT id FROM orders WHERE checkout_snapshot_id = ?", Long.class, checkoutSnapshotId);
@@ -84,6 +87,7 @@ public class JdbcPaymentCompletionRepository implements PaymentCompletionReposit
                     updated_at = ?, completion_lease_until = NULL
                 WHERE id = (SELECT merchant_checkout_id FROM checkout_snapshots WHERE id = ?)
                 """, Timestamp.from(now), Timestamp.from(now), checkoutSnapshotId);
+        cartCleanup.cleanup(purchaseId, now);
     }
 
     @Override

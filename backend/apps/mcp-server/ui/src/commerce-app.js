@@ -122,6 +122,14 @@ function productCard(product, label) {
   card.append(productImage(product.imageUrl), body); return card;
 }
 function renderSearch(data) {
+  if (data.searchGroups) {
+    for (const group of data.searchGroups) {
+      if (!group.data) continue;
+      $('content').append(el('h2', group.request?.query || '검색 상품'));
+      renderSearch(group.data);
+    }
+    return;
+  }
   heading('상품 검색 결과', '', '');
   const { section, grid } = productRail('검색 상품');
   for (const p of data.products ?? []) grid.append(productCard(p, ''));

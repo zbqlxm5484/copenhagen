@@ -391,7 +391,7 @@ public class OrderValidationService {
                     line.item().price(),
                     NO_AMOUNT,
                     line.item().price() * line.quantity(),
-                    checkout.currency()));
+                    checkout.currency(), item.publicId()));
         }
         return List.copyOf(snapshotItems);
     }
