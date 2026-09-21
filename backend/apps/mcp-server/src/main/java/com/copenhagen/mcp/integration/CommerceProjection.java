@@ -150,6 +150,10 @@ final class CommerceProjection {
                 || !Set.of("ESTIMATED", "CONFIRMED", "INCOMPLETE", "UNAVAILABLE").contains(status)) {
             throw invalid();
         }
+        if (value.get("discountAmount") == null
+                || value.get("discountAmount") instanceof Number discount && discount.longValue() == 0) {
+            value.remove("discountAmount");
+        }
         return value;
     }
 

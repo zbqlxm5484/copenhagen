@@ -118,7 +118,7 @@ class CoreIntegrationTransportTest {
                     "update_cart_item", "delete_cart_item", "prepare_purchase_handoff", "open_copenhagen",
                     "display_products", "get_purchase_status", "resend_purchase_notification", "prepare_cart",
                     "prepare_widget_action", "resolve_widget_action", "search_products_batch",
-                    "display_search_batch", "get_product_details_batch"),
+                    "display_search_batch", "get_product_details_batch", "display_cart", "display_product_detail"),
                     tools.stream().map(McpSchema.Tool::name).collect(Collectors.toSet()));
             var result = client.callTool(McpSchema.CallToolRequest.builder().name("open_copenhagen")
                     .arguments(Map.of("query", "삼성")).build());
@@ -142,7 +142,9 @@ class CoreIntegrationTransportTest {
             }
             for (var tool : tools) {
                 if (Set.of("search_products", "prepare_widget_action", "resolve_widget_action",
-                        "search_products_batch", "get_product_details_batch").contains(tool.name())) {
+                        "search_products_batch", "get_product_details_batch", "get_cart", "prepare_cart",
+                        "add_cart_item", "update_cart_item", "delete_cart_item",
+                        "get_product_detail").contains(tool.name())) {
                     assertFalse(tool.meta().containsKey("openai/outputTemplate"));
                     if (tool.meta().get("ui") instanceof Map<?, ?> ui) {
                         assertFalse(ui.containsKey("resourceUri"));
@@ -150,8 +152,8 @@ class CoreIntegrationTransportTest {
                     continue;
                 }
                 String view = switch (tool.name()) {
-                    case "get_product_detail" -> "detail";
-                    case "get_cart", "prepare_cart", "add_cart_item", "update_cart_item", "delete_cart_item"
+                    case "display_product_detail" -> "detail";
+                    case "display_cart"
                             -> "cart";
                     case "prepare_purchase_handoff", "get_purchase_status", "resend_purchase_notification"
                             -> "purchase";

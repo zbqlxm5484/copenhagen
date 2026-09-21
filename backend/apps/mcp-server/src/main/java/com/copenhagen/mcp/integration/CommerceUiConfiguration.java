@@ -80,6 +80,30 @@ public class CommerceUiConfiguration {
         return display("display_products", views, service);
     }
 
+    @Bean
+    McpToolDefinition coreDisplayCart(CommerceViews views, CoreCommerceService service) {
+        return new McpToolDefinition(McpSchema.Tool.builder("display_cart", CommerceSchemas.EMPTY)
+                .title("최종 장바구니 표시")
+                .description("사용자가 장바구니를 보여달라고 하거나 요청한 모든 변경이 끝난 뒤 한 번 호출합니다. "
+                        + "중간 조회·추가·삭제 단계에서는 호출하지 않습니다. 최신 서버 상태만 표시하며 변경하지 않습니다.")
+                .outputSchema(CommerceSchemas.OUTPUT).meta(views.metadata("display_cart", "cart:read"))
+                .annotations(McpSchema.ToolAnnotations.builder().readOnlyHint(true).destructiveHint(false)
+                        .idempotentHint(true).openWorldHint(true).build()).build(), Set.of("cart:read"),
+                (identity, request) -> service.cart(identity));
+    }
+
+    @Bean
+    McpToolDefinition coreDisplayProductDetail(CommerceViews views, CoreCommerceService service) {
+        return new McpToolDefinition(McpSchema.Tool.builder("display_product_detail", CommerceSchemas.DETAIL)
+                .title("상품 옵션 카드 표시")
+                .description("사용자가 특정 상품의 옵션 카드를 요청한 경우에만 호출합니다. "
+                        + "다중 상품 담기의 옵션 확인은 get_product_details_batch와 채팅 질문으로 진행합니다.")
+                .outputSchema(CommerceSchemas.OUTPUT).meta(views.metadata("display_product_detail", "catalog:read"))
+                .annotations(McpSchema.ToolAnnotations.builder().readOnlyHint(true).destructiveHint(false)
+                        .idempotentHint(true).openWorldHint(true).build()).build(), Set.of("catalog:read"),
+                (identity, request) -> service.detail(identity, request.arguments()));
+    }
+
     private McpToolDefinition display(String name, CommerceViews views, CoreCommerceService service) {
         return new McpToolDefinition(McpSchema.Tool.builder(name, CommerceSchemas.SEARCH)
                 .title("코펜하겐 상품 검색 카드")
@@ -103,8 +127,9 @@ public class CommerceUiConfiguration {
 
         Map<String, Object> metadata(String tool, Set<String> scopes) {
             String view = switch (tool) {
-                case "get_product_detail" -> "detail";
-                case "get_cart", "add_cart_item", "update_cart_item", "delete_cart_item", "prepare_cart" -> "cart";
+                case "get_product_detail", "display_product_detail" -> "detail";
+                case "display_cart", "get_cart", "add_cart_item", "update_cart_item", "delete_cart_item", "prepare_cart"
+                        -> "cart";
                 case "prepare_purchase_handoff", "get_purchase_status", "resend_purchase_notification" -> "purchase";
                 default -> "search";
             };

@@ -24,6 +24,10 @@ import org.springframework.context.annotation.Configuration;
 @ConditionalOnProperty(name = "mcp.integration.enabled", havingValue = "true")
 @EnableConfigurationProperties({AgentJwtProperties.class, ServiceAuthProperties.class})
 public class CommerceConfiguration {
+    static final String OPTION_GUIDANCE = "장바구니에 담아달라는 요청만으로 복수 옵션을 임의 확정하지 마세요. "
+            + "실제 optionGroups·variants의 옵션명·가격·수량을 텍스트로 묶어 질문하고 사용자의 답을 기다리세요. "
+            + "이미 지정된 조건은 재질문하지 않습니다. 선택 위임이 명시된 경우에만 대신 고르고 기준을 안내합니다. "
+            + "데이터에 없는 옵션은 만들지 말고, 택1 상품인데 기본 옵션뿐이면 데이터 부족을 설명합니다. ";
     static final String SEARCH_GUIDANCE = "상품 검색 조건이 모호하면 먼저 용도·예산·종류 중 중요한 조건을 "
             + "1~2개 질문하고 사용자의 답으로 범위를 좁히세요. 충분히 구체적이거나 바로 검색 요청이면 "
             + "추가 질문 없이 실행합니다. query에는 직접 검색어를, relatedQueries에는 용도에 맞는 유사 객체 "
@@ -61,7 +65,7 @@ public class CommerceConfiguration {
         return tool("search_products", "상품 검색", SEARCH_GUIDANCE
                 + " 여러 재료를 함께 찾을 때 search_products_batch가 제공되면 해당 도구를 우선 사용하세요."
                 + " 먼저 이 도구로 조회하세요. 오류 또는 직접·유사 상품이 모두 없으면 짧은 텍스트로만 안내하고 "
-                + "표시 도구를 호출하지 마세요. 상품이 있으면 같은 조건으로 display_products를 한 번 호출하세요.",
+                + "표시 도구를 호출하지 마세요. 검색 결과를 보여달라는 요청일 때만 display_products를 한 번 호출하세요. 담기 작업 중에는 표시하지 마세요.",
                 CommerceSchemas.SEARCH, "catalog:read", true,
                 (identity, request) -> service.search(identity, request.arguments()));
     }
@@ -69,7 +73,7 @@ public class CommerceConfiguration {
     @Bean
     McpToolDefinition coreProductDetail(CoreCommerceService service) {
         return tool("get_product_detail", "상품 옵션·재고 조회", "검색 offer의 merchantId와 merchantProductId로 조회합니다. "
-                + "사용자가 선택할 옵션은 반환된 merchantVariantId만 사용합니다.", CommerceSchemas.DETAIL,
+                + "사용자가 선택할 옵션은 반환된 merchantVariantId만 사용합니다. " + OPTION_GUIDANCE, CommerceSchemas.DETAIL,
                 "catalog:read", true, (identity, request) -> service.detail(identity, request.arguments()));
     }
 
@@ -84,7 +88,7 @@ public class CommerceConfiguration {
     @Bean
     McpToolDefinition coreGetCart(CoreCommerceService service) {
         return tool("get_cart", "장바구니 조회", "사용자가 텍스트 또는 음성으로 장바구니 보여줘, 담은 상품 확인 등 "
-                + "장바구니 조회를 요청하면 호출하여 상품 카드와 결제 요청 UI를 표시합니다. 검색 UI를 먼저 열 필요가 "
+                + "장바구니 데이터를 조회합니다. 사용자에게 최종 장바구니를 보여줄 때만 display_cart를 한 번 호출합니다. "
                 + "없습니다. 조회만 하며 변경하거나 결제를 요청하지 않습니다. 미확정 금액은 null입니다.",
                 CommerceSchemas.EMPTY, "cart:read", true, (identity, request) -> service.cart(identity));
     }
@@ -116,10 +120,12 @@ public class CommerceConfiguration {
 
     private McpToolDefinition mutation(String name, String title, String method,
             Map<String, Object> schema, CoreCommerceService service) {
-        return tool(name, title, "사용자가 선택한 변경만 반영합니다. cartVersion은 get_cart의 version입니다. "
+        return tool(name, title, OPTION_GUIDANCE + "추가는 selectionBasis에 실제 사용자 선택 또는 명시적 위임 근거를 반영합니다. "
+                + "사용자가 선택한 변경만 반영합니다. cartVersion은 get_cart의 version입니다. "
                 + "수량은 최종 수량이며 옵션과 함께 원자적으로 변경됩니다. idempotencyKey는 UUID입니다. "
                 + "결과 불명 시 같은 키·본문으로 재호출하고 새 키로 중복 변경하지 마세요. APPLIED 이후 조회 실패 시 "
-                + "get_cart만 다시 호출합니다.", schema, "cart:write", false,
+                + "get_cart만 다시 호출합니다. 여러 변경을 모두 마친 뒤 display_cart를 한 번만 호출하고 "
+                + "중간 UI는 표시하지 마세요.", schema, "cart:write", false,
                 (identity, request) -> service.mutate(identity, method, request.arguments()));
     }
 
@@ -150,9 +156,12 @@ public class CommerceConfiguration {
             Set<String> scopes, boolean readOnly,
             java.util.function.BiFunction<com.copenhagen.mcp.auth.McpIdentity,
                     McpSchema.CallToolRequest, Map<String, Object>> handler) {
-        return new McpToolDefinition(McpSchema.Tool.builder(name, input).title(title).description(description)
+        return new McpToolDefinition(McpSchema.Tool.builder(name, input).title(title).description(description
+                        + " 할인은 현재 제공하지 않으므로 할인 및 할인 미확정 문구를 출력하지 마세요. "
+                        + "배송비는 확인된 금액만 안내하고 null을 무료로 해석하지 마세요.")
                 .outputSchema(CommerceSchemas.OUTPUT)
-                .meta(views.getIfAvailable() == null || "search_products".equals(name)
+                .meta(views.getIfAvailable() == null || !Set.of("prepare_purchase_handoff", "get_purchase_status",
+                        "resend_purchase_notification").contains(name)
                         ? Map.of("securitySchemes", List.of(Map.of("type", "oauth2", "scopes",
                                 scopes.stream().sorted().toList())),
                                 "ui", Map.of("visibility", List.of("model", "app")), "openai/widgetAccessible", true)

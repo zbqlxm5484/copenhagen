@@ -30,6 +30,28 @@ class CoreCommerceServiceTest {
             Instant.now().plusSeconds(300));
 
     @Test
+    void confirmedSelection_isNotForwardedAsCoreContractField() {
+        String key = UUID.randomUUID().toString();
+        when(client.exchange(eq(identity), eq("POST"), any(), any(), any(), eq(key)))
+                .thenReturn(Map.of());
+        service.mutate(identity, "POST", Map.of("cartVersion", 1, "merchantId", "m1",
+                "merchantProductId", "p1", "merchantVariantId", "v1", "quantity", 1,
+                "idempotencyKey", key, "selectionBasis", "USER_SELECTED"));
+        verify(client).exchange(eq(identity), eq("POST"), eq("/internal/v1/carts/current/items"),
+                eq(Map.of()), eq(Map.of("cartVersion", 1, "merchantId", "m1", "merchantProductId", "p1",
+                        "merchantVariantId", "v1", "quantity", 1)), eq(key));
+    }
+
+    @Test
+    void addWithoutUserSelectionBasis_neverCallsCore() {
+        Map<String, Object> args = Map.of("cartVersion", 1, "merchantId", "m1",
+                "merchantProductId", "p1", "merchantVariantId", "v1", "quantity", 1,
+                "idempotencyKey", UUID.randomUUID().toString());
+        assertThrows(CoreApiException.class, () -> service.mutate(identity, "POST", args));
+        org.mockito.Mockito.verifyNoInteractions(client);
+    }
+
+    @Test
     void relatedSearch_preservesFiltersAndSkipsDuplicateOffers() throws Exception {
         Map<String, Object> response = json("""
                 {"products":[{"name":"컵","category":{"id":"cup","name":"컵"},
