@@ -11,6 +11,8 @@ package com.copenhagen.core.common.auth;
  * 소유 자원이라 같은 등급으로 보호한다. {@code /oauth/authorize}·{@code /oauth/token}·
  * {@code /.well-known/*}는 Agent·MCP가 익명으로 호출하는 OAuth 표준 공개 엔드포인트라 이 필터의 보호
  * 대상에 넣지 않는다 — 각자 자기 인증 방식(로그인 폼, client 인증)을 스스로 검증한다.
+ * {@code /api/core/v1/purchase-requests}(이슈 423)는 앱이 구매 인계를 조회하고 배송지를 골라 재개하는
+ * 사용자 소유 경로라 같은 등급으로 보호한다.
  */
 public final class CoreAuthenticationPolicy {
 
@@ -22,6 +24,8 @@ public final class CoreAuthenticationPolicy {
     private static final String CART_PATH_PREFIX = CART_PATH + "/";
     private static final String ORDERS_PATH = "/api/core/v1/orders";
     private static final String ORDERS_PATH_PREFIX = ORDERS_PATH + "/";
+    private static final String PURCHASE_REQUESTS_PATH = "/api/core/v1/purchase-requests";
+    private static final String PURCHASE_REQUESTS_PATH_PREFIX = PURCHASE_REQUESTS_PATH + "/";
     private static final String AGENT_CONNECTIONS_PATH = "/api/core/v1/users/me/agent-connections";
     private static final String AGENT_CONNECTIONS_PATH_PREFIX = AGENT_CONNECTIONS_PATH + "/";
 
@@ -37,6 +41,8 @@ public final class CoreAuthenticationPolicy {
                 || path.startsWith(CART_PATH_PREFIX)
                 || ORDERS_PATH.equals(path)
                 || path.startsWith(ORDERS_PATH_PREFIX)
+                || PURCHASE_REQUESTS_PATH.equals(path)
+                || path.startsWith(PURCHASE_REQUESTS_PATH_PREFIX)
                 || AGENT_CONNECTIONS_PATH.equals(path)
                 || path.startsWith(AGENT_CONNECTIONS_PATH_PREFIX);
     }

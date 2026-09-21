@@ -98,8 +98,8 @@ public class PurchaseWorkflowService {
                 repository.finish(row.id(), "EXPIRED", null, clock.instant());
                 return;
             }
-            repository.selectDefault(row.id(), row.userId());
-            row = repository.require(row.publicId(), row.userId());
+            // 배송지는 사용자가 앱에서 직접 고른다(PAY-05.1). 기본 배송지를 서버가 대신 선택하지 않는다.
+            // shipping_address_id를 채우는 경로는 resume 하나뿐이다.
             if (row.addressId() == null) {
                 pay.notifyPurchase(row.userPublicId(), row.publicId());
                 repository.notificationError(row.id(), null);

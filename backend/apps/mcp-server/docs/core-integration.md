@@ -95,13 +95,14 @@ UI 상태에 저장하지 않는다. Service JWT는 만료 30초 전까지만 �
 Core의 version/수량 충돌은 최신 장바구니 확인 또는 옵션 재선택으로 처리한다.
 
 구매 생성의 200/201은 모두 성공으로 처리한다. 재응답은 생성 당시의 스냅샷이며
-현재 구매·결제 상태가 아니다. Core가 기본 배송지로 주문을 검증하고 Pay 승인 알림을 보낸다.
+현재 구매·결제 상태가 아니다. Core는 앱에 배송지 선택 알림을 보내고, 사용자가 고른 배송지로
+주문을 검증한 뒤 Pay 승인 알림을 보낸다.
 사용자는 알림을 선택해 별도 앱에서 주문 확인·결제 승인을 한다. MCP는 App Link를 생성하거나
 열지 않으며 `MCP_APP_LINK_BASE`를 요구하지 않는다. 웹은 상태 확인과 알림 재전송을 제공한다.
 
 구매 응답 필드는 `purchaseRequestId`, `status`, `cartId`, `cartVersion`, `expiresAt`, `nextAction`이다.
-최초 `PENDING_ADDRESS`는 worker 처리 전 스냅샷이다. worker는 기본 배송지가 있으면 검증·승인
-생성을 진행하고 없으면 앱에서 배송지를 보완하도록 알린다. 최신 상태는 `get_purchase_status`로
+최초 `PENDING_ADDRESS`는 worker 처리 전 스냅샷이다. worker는 앱에서 배송지를 고르도록 알리고,
+선택이 들어온 뒤에 검증·승인 생성을 진행한다. 최신 상태는 `get_purchase_status`로
 조회한다. 만료된 생성 응답을 재생해도 같은 구매 ID를 유지하며 새 구매를 자동으로 만들지 않는다.
 Core와 MCP를 함께 배포해야 하며 이전에 저장된 멱등 응답의 `appLink`는 MCP가 제외한다.
 

@@ -107,7 +107,8 @@ public class CommerceConfiguration {
     @Bean
     McpToolDefinition corePreparePurchase(CoreCommerceService service) {
         return tool("prepare_purchase_handoff", "앱 구매 인계", "사용자가 구매 진행을 요청한 경우에만 호출합니다. "
-                + "기본 배송지로 검증 후 앱에 승인 알림을 보냅니다. 미등록 정보는 앱에서 등록합니다. "
+                + "앱에 배송지 선택 알림을 보내고 사용자가 고른 배송지로 검증한 뒤 승인 알림을 보냅니다. "
+                + "배송지와 결제수단은 앱에서 선택·등록합니다. "
                 + "UUID 멱등키는 같은 요청에 재사용하고 결과 불명 시 본문을 바꾸지 않습니다. "
                 + "재호출은 생성 당시 결과이며 현재 결제 상태를 조회하지 않습니다.", CommerceSchemas.PURCHASE,
                 "purchase:handoff", false, (identity, request) -> service.purchase(identity, request.arguments()));
