@@ -11,6 +11,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import com.copenhagen.contract.internalapi.ApprovalStatus;
+import com.copenhagen.contract.internalapi.PaymentApprovalItem;
 import com.copenhagen.contract.internalapi.PaymentApprovalStatusResponse;
 import com.copenhagen.contract.internalapi.PaymentStatus;
 import com.copenhagen.core.cart.CartMerchants;
@@ -94,7 +95,9 @@ class PaymentRecoveryTest {
         when(repository.beginCompleting(1L, NOW)).thenReturn(true);
         when(approvals.status("approval-1")).thenReturn(new PaymentApprovalStatusResponse(
                 "approval-1", ApprovalStatus.COMPLETED, "payment-1", PaymentStatus.SUCCESS,
-                19600, "KRW", null, null, "카드", null));
+                19600, "KRW", null, null, "카드", null,
+                List.of(new PaymentApprovalItem("merchant-a", "checkout-1", null, null,
+                        "payment-1", PaymentStatus.SUCCESS, "카드"))));
         when(merchant.current("checkout-1")).thenReturn(completed());
         new PaymentApprovalPollingWorker(repository, approvals, completion, Clock.fixed(NOW, ZoneOffset.UTC)).poll();
         verify(repository).markCompleted(1L, NOW);
@@ -103,6 +106,8 @@ class PaymentRecoveryTest {
 
     private PaymentApprovalStatusResponse status() {
         return new PaymentApprovalStatusResponse("approval-1", ApprovalStatus.COMPLETED, "payment-1",
-                PaymentStatus.SUCCESS, 19600L, "KRW", "credential-1", NOW.minusSeconds(30), "카드", null);
+                PaymentStatus.SUCCESS, 19600L, "KRW", "credential-1", NOW.minusSeconds(30), "카드", null,
+                List.of(new PaymentApprovalItem("merchant-a", "checkout-1", "credential-1",
+                        NOW.minusSeconds(30), "payment-1", PaymentStatus.SUCCESS, "카드")));
     }
 }

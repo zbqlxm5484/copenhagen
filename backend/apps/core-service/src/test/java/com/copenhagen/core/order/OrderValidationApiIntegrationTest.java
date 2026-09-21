@@ -12,6 +12,7 @@ import com.jayway.jsonpath.JsonPath;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +48,7 @@ import com.copenhagen.core.product.MerchantsProperties;
 import com.copenhagen.core.orderwebhook.OrderWebhookRepository;
 import tools.jackson.databind.ObjectMapper;
 import com.copenhagen.core.payment.PaymentApprovalMessages.ApprovalCreatedResponse;
+import com.copenhagen.core.payment.PaymentApprovalMessages.CreateApprovalRequest;
 import com.copenhagen.core.payment.PaymentCompletionRepository;
 import com.copenhagen.core.product.CartProductSnapshot;
 import com.copenhagen.core.product.ProductService;
@@ -120,6 +122,9 @@ class OrderValidationApiIntegrationTest {
 
     @Autowired
     private OrderWebhookRepository webhooks;
+
+    @Autowired
+    private PurchaseSuspensionProperties suspension;
 
     private MerchantCheckoutClient checkoutClient;
 
@@ -323,7 +328,8 @@ class OrderValidationApiIntegrationTest {
     void prepare() {
         jdbcTemplate.update("""
                 TRUNCATE users, carts, cart_items, addresses, purchase_requests, merchant_checkouts,
-                    checkout_snapshots, checkout_snapshot_items, checkout_fulfillment_option_snapshots
+                    checkout_snapshots, checkout_snapshot_items, checkout_fulfillment_option_snapshots,
+                    order_webhook_receipts
                 RESTART IDENTITY CASCADE
                 """);
         // merchants 는 V7 시드다. 다른 통합 테스트가 TRUNCATE 하고 갈 수 있어 멱등하게 되살린다.
@@ -339,7 +345,7 @@ class OrderValidationApiIntegrationTest {
         when(merchantCheckoutClients.get(MERCHANT_ID)).thenReturn(checkoutClient);
         when(paymentApprovalClient.create(any(), any())).thenReturn(new ApprovalCreatedResponse(
                 "approval-1", "PAYMENT_METHOD_REQUIRED", null,
-                Instant.parse("2026-01-01T00:05:00Z"), "APPROVE_IN_APP"));
+                Instant.parse("2026-01-01T00:05:00Z"), "APPROVE_IN_APP", List.of()));
         when(productService.captureForCart(eq(MERCHANT_ID), eq("p-1"), any()))
                 .thenReturn(new CartProductSnapshot(
                         "p-1", "sku-1", "옵션상품", "http://ucp-merchant-mock:8080/products/p-1",
@@ -389,6 +395,90 @@ class OrderValidationApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("판매처 두 곳이면 승인은 한 번만 만들고 checkout 두 행이 같은 승인을 공유한다(이슈 486)")
+    void twoMerchants_createSingleApprovalSharedByEveryCheckout() throws Exception {
+        String token = signupAndLogin("batch1", "테스트");
+        addCartItem(token);
+        addCartItemForMerchantB(token);
+        String addressId = registerAddress(token);
+        MerchantCheckoutClient merchantB = mock(MerchantCheckoutClient.class);
+        when(merchantCheckoutClients.get("merchant-b")).thenReturn(merchantB);
+        when(checkoutClient.create(any(), any())).thenReturn(readyCheckout());
+        when(merchantB.create(any(), any())).thenReturn(readyCheckoutOf("checkout-2"));
+
+        mockMvc.perform(post("/api/core/v1/orders/validations").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON).content(validationBody(2, addressId)))
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<CreateApprovalRequest> request = ArgumentCaptor.captor();
+        org.mockito.Mockito.verify(paymentApprovalClient, org.mockito.Mockito.times(1))
+                .create(request.capture(), any());
+        assertEquals(2, request.getValue().items().size());
+        assertEquals(26000L, request.getValue().totalAmountMinor());
+        assertEquals(2, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM merchant_checkouts", Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(DISTINCT payment_approval_id) FROM merchant_checkouts", Integer.class));
+        assertEquals(2, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM merchant_checkouts WHERE status = 'AWAITING_APPROVAL'", Integer.class));
+        // 재시도 본문은 구매 요청 단위로 남는다.
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM purchase_requests WHERE approval_request IS NOT NULL", Integer.class));
+    }
+
+    @Test
+    @DisplayName("드레인 중에는 실제 요청 경로에서 503 PURCHASE_SUSPENDED로 반려하고 checkout을 만들지 않는다")
+    void approvalSuspended_returns503AndCreatesNoCheckout() throws Exception {
+        String token = signupAndLogin("suspend1", "테스트");
+        addCartItem(token);
+        String addressId = registerAddress(token);
+        when(checkoutClient.create(any(), any())).thenReturn(readyCheckout());
+        suspension.setApprovalSuspended(true);
+        try {
+            mockMvc.perform(post("/api/core/v1/orders/validations").header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON).content(validationBody(1, addressId)))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.errorCode").value("PURCHASE_SUSPENDED"))
+                    .andExpect(jsonPath("$.nextAction").value("RETRY_LATER"));
+        } finally {
+            suspension.setApprovalSuspended(false);
+        }
+        // merchant를 부르기 전에 막아야 승인 없는 checkout이 남지 않는다.
+        org.mockito.Mockito.verify(checkoutClient, org.mockito.Mockito.never()).create(any(), any());
+        assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM merchant_checkouts", Integer.class));
+        org.mockito.Mockito.verify(paymentApprovalClient, org.mockito.Mockito.never()).create(any(), any());
+    }
+
+    @Test
+    @DisplayName("checkout 저장이 실패하면 같은 트랜잭션의 승인 요청 본문도 함께 롤백된다")
+    void checkoutInsertFailure_rollsBackStoredApprovalRequest() throws Exception {
+        String token = signupAndLogin("rollback1", "테스트");
+        addCartItem(token);
+        String addressId = registerAddress(token);
+        when(checkoutClient.create(any(), any())).thenReturn(readyCheckout());
+        mockMvc.perform(post("/api/core/v1/orders/validations").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON).content(validationBody(1, addressId)))
+                .andExpect(status().isCreated());
+
+        // 같은 장바구니로 한 번 더 검증하면 merchant가 같은 checkout id를 돌려주고
+        // uq_merchant_checkouts_merchant_checkout에 걸려 insertAll이 중간에 실패한다.
+        // 승인 요청 본문은 그 앞에서 쓰므로 함께 롤백돼야 한다.
+        try {
+            mockMvc.perform(post("/api/core/v1/orders/validations").header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON).content(validationBody(1, addressId)));
+        } catch (Exception expected) {
+            // 저장 실패가 예외로 전파되든 5xx 응답으로 매핑되든, 확인 대상은 아래 DB 상태다.
+        }
+
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM merchant_checkouts", Integer.class));
+        assertEquals(2, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM purchase_requests", Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM purchase_requests WHERE approval_request IS NOT NULL", Integer.class));
+        assertEquals("FAILED", jdbcTemplate.queryForObject(
+                "SELECT status FROM purchase_requests ORDER BY id DESC LIMIT 1", String.class));
+    }
+
+    @Test
     void approvalCreationFailure_replaysDurableRequestAndKeepsTheSamePurchase() throws Exception {
         String token = signupAndLogin("recovery3", "테스트");
         addCartItem(token);
@@ -401,9 +491,9 @@ class OrderValidationApiIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.checkouts[0].status").value("PENDING_APPROVAL_CREATION"));
         String saved = jdbcTemplate.queryForObject(
-                "SELECT approval_request::text FROM merchant_checkouts", String.class);
+                "SELECT approval_request::text FROM purchase_requests", String.class);
         doReturn(new ApprovalCreatedResponse("approval-recovered", "PAYMENT_METHOD_REQUIRED", null,
-                Instant.parse("2026-01-01T00:05:00Z"), "APPROVE_IN_APP"))
+                Instant.parse("2026-01-01T00:05:00Z"), "APPROVE_IN_APP", List.of()))
                 .when(paymentApprovalClient).create(any(), any());
         new PaymentApprovalCreationWorker(merchantCheckoutRepository, paymentApprovalClient, cartMerchants,
                 merchantsProperties, objectMapper, Clock.fixed(Instant.parse("2026-01-01T00:20:00Z"), ZoneOffset.UTC))
@@ -413,7 +503,7 @@ class OrderValidationApiIntegrationTest {
         assertEquals("approval-recovered", jdbcTemplate.queryForObject(
                 "SELECT payment_approval_id FROM merchant_checkouts", String.class));
         assertEquals(saved, jdbcTemplate.queryForObject(
-                "SELECT approval_request::text FROM merchant_checkouts", String.class));
+                "SELECT approval_request::text FROM purchase_requests", String.class));
         assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM purchase_requests", Integer.class));
     }
 
@@ -820,6 +910,39 @@ class OrderValidationApiIntegrationTest {
                                  "optionValueIds":["sku-1"],"quantity":2}
                                 """))
                 .andExpect(status().isCreated());
+    }
+
+    /** merchant-b는 V8 시드의 ref-id 2다. 장바구니가 두 판매처로 갈려야 배치 승인이 검증된다. */
+    private void addCartItemForMerchantB(String accessToken) throws Exception {
+        // merchants 는 V8 시드다. 다른 통합 테스트가 TRUNCATE 하고 갈 수 있어 멱등하게 되살린다.
+        jdbcTemplate.update("""
+                INSERT INTO merchants (id, merchant_name, ucp_profile_url, base_url, business_profile,
+                                       active_capabilities, status)
+                VALUES (2, '노을상점', 'http://ucp-merchant-mock:8080/merchant-b/.well-known/ucp',
+                        'http://ucp-merchant-mock:8080/merchant-b', '{}'::jsonb, '[]'::jsonb, 'ACTIVE')
+                ON CONFLICT (id) DO NOTHING
+                """);
+        when(productService.captureForCart(eq("merchant-b"), eq("p-2"), any()))
+                .thenReturn(new CartProductSnapshot(
+                        "p-2", "sku-2", "노을상점 상품", "http://ucp-merchant-mock:8080/products/p-2",
+                        null, 13000L, "KRW",
+                        List.of(new CartProductSnapshot.SelectedOption("sku-2", "색상", "블랙"))));
+        mockMvc.perform(post("/api/core/v1/cart/items")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"cartVersion":1,"productId":"p-2","merchantId":"merchant-b",
+                                 "optionValueIds":["sku-2"],"quantity":1}
+                                """))
+                .andExpect(status().isCreated());
+    }
+
+    private static Checkout readyCheckoutOf(String checkoutId) {
+        return new Checkout(checkoutId, "ready_for_complete", "KRW",
+                List.of(new LineItem("line-2", new Item("p-2", "노을상점 상품", 13000L), 1)),
+                new FulfillmentResult("shipping", "available", 0L),
+                List.of(new Total("subtotal", 13000L), new Total("fulfillment", 0L), new Total("total", 13000L)),
+                null, "2026-01-01T00:15:00Z", JWS);
     }
 
     private void removeAllCartItems() {

@@ -12,11 +12,5 @@ public record MerchantCheckoutRecord(
         MerchantCheckout checkout,
         CheckoutSnapshot snapshot,
         List<CheckoutSnapshotItem> items,
-        List<CheckoutFulfillmentOption> fulfillmentOptions,
-        String approvalRequest) {
-
-    public MerchantCheckoutRecord(MerchantCheckout checkout, CheckoutSnapshot snapshot,
-            List<CheckoutSnapshotItem> items, List<CheckoutFulfillmentOption> fulfillmentOptions) {
-        this(checkout, snapshot, items, fulfillmentOptions, null);
-    }
+        List<CheckoutFulfillmentOption> fulfillmentOptions) {
 }

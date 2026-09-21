@@ -65,8 +65,8 @@ public class PaymentApprovalClient {
             }
             return response;
         } catch (RestClientException exception) {
-            log.warn("Pay 승인 세션 생성 실패: purchaseRequestId={}, merchantId={}, error={}",
-                    request.purchaseRequestId(), request.merchantId(), exception.getClass().getSimpleName());
+            log.warn("Pay 승인 세션 생성 실패: purchaseRequestId={}, items={}, error={}",
+                    request.purchaseRequestId(), request.items().size(), exception.getClass().getSimpleName());
             throw new CoreException(
                     CoreErrorCode.PAYMENT_APPROVAL_UNAVAILABLE,
                     CoreErrorCode.PAYMENT_APPROVAL_UNAVAILABLE.defaultMessage(),

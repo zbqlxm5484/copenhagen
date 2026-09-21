@@ -21,6 +21,7 @@
 | [0009](0009-idempotency-and-payment-reconciliation.md) | 멱등성과 Payment UNKNOWN 복구 | Proposed | 본문 전체 + Required Follow-up 4건 |
 | [0010](0010-ucp-ap2-reference-scope.md) | UCP/AP2 부분 적용 범위 | Proposed | 본문 전체 + Required Follow-up 3건 |
 | [0011](0011-push-notification-purchase-handoff.md) | Pay 푸시 기반 앱 결제 승인 진입 | Proposed | App Link 제거와 배포 전환·실기기 검증 |
+| [0012](0012-purchase-request-scoped-approval.md) | 결제 승인 단위는 구매 요청, Credential 단위는 Checkout | Accepted | 판매처 N곳 인증 1회, 기각한 대안 2건 |
 
 ### 회의 전 확인
 
