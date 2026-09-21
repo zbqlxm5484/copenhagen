@@ -6,6 +6,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Set;
 import java.util.UUID;
 
 import com.jayway.jsonpath.JsonPath;
@@ -26,7 +27,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import com.copenhagen.core.agent.authorize.OauthAuthorizationRequestRepository;
+import com.copenhagen.core.agent.connection.AgentConnection;
 import com.copenhagen.core.agent.connection.AgentConnectionRepository;
+import com.copenhagen.core.agent.connection.AgentConnectionService;
 import com.copenhagen.core.agent.jwt.AgentJwtIssuer;
 import com.copenhagen.core.agent.refreshtoken.AgentRefreshTokenService;
 import com.copenhagen.core.auth.signup.SignupService;
@@ -68,6 +71,8 @@ class OauthTokenTransactionIntegrationTest {
     private SignupService signupService;
     @Autowired
     private AgentConnectionRepository connections;
+    @Autowired
+    private AgentConnectionService connectionService;
     @Autowired
     private OauthAuthorizationRequestRepository requests;
     @Autowired
@@ -182,6 +187,40 @@ class OauthTokenTransactionIntegrationTest {
         assertEquals(0, countTokens());
     }
 
+    @Test
+    @DisplayName("같은 scope 재인가는 연동을 유지해 먼저 연동한 기기의 refresh token이 계속 갱신된다")
+    void reauthorizeSameScopes_keepsOtherDeviceTokenUsable() throws Exception {
+        seedAuthorizationCode();
+        String deviceA = JsonPath.read(mockMvc.perform(codeRequest())
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(), "$.refresh_token");
+
+        AgentConnection reused = connectionService.upsertOnAuthorization(userId, clientId, Set.of("catalog:read"));
+
+        assertEquals(connectionId, reused.id());
+        assertEquals(1, countActiveConnections());
+        // 기기 A는 재인가 이후에도 재로그인 없이 갱신된다.
+        assertNotEquals(deviceA, refresh(deviceA));
+        assertEquals(1, countActive(connectionId));
+    }
+
+    @Test
+    @DisplayName("scope가 달라진 재인가는 연동을 폐기해 먼저 연동한 기기의 refresh token을 무효화한다")
+    void reauthorizeChangedScopes_invalidatesOtherDeviceToken() throws Exception {
+        seedAuthorizationCode();
+        String deviceA = JsonPath.read(mockMvc.perform(codeRequest())
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(), "$.refresh_token");
+
+        AgentConnection replaced =
+                connectionService.upsertOnAuthorization(userId, clientId, Set.of("catalog:read", "cart:read"));
+
+        assertNotEquals(connectionId, replaced.id());
+        assertEquals(1, countActiveConnections());
+        assertInvalidGrant(deviceA);
+        assertEquals(0, countActive(connectionId));
+    }
+
     private void failSigning() {
         doThrow(new IllegalStateException("Test signing failure"))
                 .when(jwtIssuer).issueAgentAccessToken(any(), anyString(), any());
@@ -224,6 +263,12 @@ class OauthTokenTransactionIntegrationTest {
 
     private int countTokens() {
         return jdbc.queryForObject("SELECT COUNT(*) FROM agent_refresh_tokens", Integer.class);
+    }
+
+    private int countActiveConnections() {
+        return jdbc.queryForObject(
+                "SELECT COUNT(*) FROM agent_connections WHERE user_id = ? AND revoked_at IS NULL",
+                Integer.class, userId);
     }
 
     private int countActive(long id) {

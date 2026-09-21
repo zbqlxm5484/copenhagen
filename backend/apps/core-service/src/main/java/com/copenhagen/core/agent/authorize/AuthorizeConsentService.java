@@ -132,7 +132,7 @@ public class AuthorizeConsentService {
         }
 
         Set<String> grantedScopes = Set.copyOf(readStrings(authorizationRequest.requestedScopesJson()));
-        connectionService.replaceOnAuthorization(loginResult.userInternalId(), client.id(), grantedScopes);
+        connectionService.upsertOnAuthorization(loginResult.userInternalId(), client.id(), grantedScopes);
 
         byte[] codeBytes = new byte[CODE_BYTES];
         secureRandom.nextBytes(codeBytes);
