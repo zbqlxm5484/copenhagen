@@ -6,7 +6,7 @@ const key = '00000000-0000-4000-8000-000000000001';
 test('write intent persists before delivery and retries preserve exact body and key after restore', () => {
   let stored;
   const session = actionSession(null, value => { stored = structuredClone(value); }, () => key, () => 1000);
-  const intent = session.prepare('add_cart_item', { cartVersion: 1, quantity: 2 });
+  const intent = session.prepare('add_cart_item', { cartVersion: 1, quantity: 2 }, '통밀식빵 2개를 담아주세요.');
   assert.deepEqual(stored, intent);
   assert.throws(() => session.prepare('add_cart_item', { quantity: 3 }), /이미 변경/);
   const restored = actionSession(stored, () => assert.fail('must not replace pending'), () => assert.fail('must not create key'), () => 2000);

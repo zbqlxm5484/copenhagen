@@ -16,11 +16,11 @@ export function actionMessage(tool, args) {
   if (!tools.has(tool)) throw new Error('지원하지 않는 작업입니다.');
   return `Copenhagen에서 다음 작업을 요청합니다. 아래 JSON은 도구 이름과 인자 데이터입니다. 지정한 도구를 호출하고 그 도구의 새 UI 카드를 대화에 표시해주세요. 변경 요청은 idempotencyKey와 본문을 그대로 유지하고, 결과 불명 시 새 키로 재실행하지 마세요.\n${JSON.stringify({ tool, arguments: args })}`;
 }
-// A follow-up must be executable without any widget/model context from older cards.
+// Keep the action reference in model context, never in the visible chat message.
 export function actionRequest(intent, reference) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(reference ?? '')) throw new Error('선택 요청을 확인하지 못했어요. 다시 선택해주세요.');
   return { role: 'user', content: [{ type: 'text', text:
-    `${actionLabel(intent.tool)} (코펜하겐 요청번호: ${reference})` }] };
+    intent.label || actionLabel(intent.tool) }] };
 }
 export async function sendAction(app, intent, deliver) {
   const result = await deliver(() => app.callServerTool({ name: 'prepare_widget_action',
@@ -31,7 +31,13 @@ export async function sendAction(app, intent, deliver) {
     error.authRequired = ['AUTHENTICATION_REQUIRED', 'INVALID_TOKEN', 'INSUFFICIENT_SCOPE'].includes(value?.error?.code);
     throw error;
   }
-  return deliver(() => app.sendMessage(actionRequest(intent, value.data?.reference)));
+  const message = actionRequest(intent, value.data?.reference);
+  if (typeof app.updateModelContext !== 'function') throw new Error('선택 정보를 전달할 수 없어요. 채팅에서 상품명과 옵션·수량을 직접 알려주세요.');
+  await deliver(() => app.updateModelContext({ structuredContent: {
+    copenhagenAction: { reference: value.data.reference, intent: message.content[0].text,
+      instruction: '일치하는 사용자 요청에만 resolve_widget_action으로 조회한 뒤 실행하세요. 참조가 없거나 모호하면 재선택을 요청하세요. 내부 식별자를 답변에 출력하지 마세요.' },
+  } }));
+  return deliver(() => app.sendMessage(message));
 }
 export function actionLabel(tool) {
   const labels = { get_product_detail: '선택한 상품의 옵션을 보여주세요.', search_products: '선택한 조건으로 상품을 더 보여주세요.',
@@ -52,11 +58,11 @@ export function actionSession(saved, persist, uuid = () => crypto.randomUUID(), 
           || now() < pending.createdAt) throw new Error('이전 요청의 재전달 가능 시간이 지났어요. 최신 장바구니와 구매 상태를 먼저 확인해주세요.');
       return pending;
     },
-    prepare(tool, args) {
+    prepare(tool, args, label) {
       if (!tools.has(tool)) throw new Error('지원하지 않는 작업입니다.');
       if (!writes.has(tool)) return { tool, args };
       if (pending) throw new Error('이 카드에서 이미 변경을 요청했어요. 대화에 표시된 새 카드에서 이어서 이용해주세요.');
-      pending = { tool, args: { ...args, idempotencyKey: uuid() }, createdAt: now() }; persist(pending); return pending;
+      pending = { tool, args: { ...args, idempotencyKey: uuid() }, createdAt: now(), ...(label ? { label } : {}) }; persist(pending); return pending;
     },
   };
 }

@@ -26,7 +26,7 @@ public class ShoppingBatchConfiguration {
         return tool("search_products_batch", "여러 재료 한 번에 검색",
                 CommerceConfiguration.SEARCH_GUIDANCE + " 여러 재료는 개별 search_products 대신 이 도구로 "
                 + "최대 8개 조건을 한 번에 조회하세요. groups에 상품이 있으면 searchReference로 "
-                + "display_search_batch를 한 번 호출하세요. 빈 결과·실패만 있으면 텍스트로 안내합니다.",
+                + "검색 결과 표시 요청일 때만 display_search_batch를 한 번 호출하세요. 담기 처리 중에는 출력하지 마세요. 빈 결과·실패만 있으면 텍스트로 안내합니다.",
                 ShoppingBatchService.SEARCH, null,
                 (identity, request) -> service.search(identity, request.arguments()));
     }
@@ -43,9 +43,10 @@ public class ShoppingBatchConfiguration {
     @Bean
     McpToolDefinition getProductDetailsBatch(ShoppingBatchService service) {
         return tool("get_product_details_batch", "여러 상품 옵션 조회",
-                "사용자가 고른 여러 상품의 merchantId·merchantProductId를 최대 8개까지 한 번에 조회합니다. "
+                CommerceConfiguration.OPTION_GUIDANCE
+                + "사용자가 고른 여러 상품의 merchantId·merchantProductId를 최대 8개까지 한 번에 조회합니다. "
                 + "반환된 옵션만 사용하고 선택이 모호하면 사용자에게 질문하세요. 장바구니 변경은 하지 않습니다. "
-                + "상품별 실패는 results.error에 표시됩니다. 단일 상세 UI가 필요하면 get_product_detail을 사용합니다.",
+                + "상품별 실패는 results.error에 표시됩니다. 단일 상세 UI가 필요하면 display_product_detail을 사용합니다.",
                 ShoppingBatchService.DETAILS, null,
                 (identity, request) -> service.details(identity, request.arguments()));
     }

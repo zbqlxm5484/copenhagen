@@ -125,6 +125,7 @@ public final class CoreCommerceService {
         validate(schema, input);
         Map<String, Object> body = new LinkedHashMap<>(input);
         String key = (String) body.remove("idempotencyKey");
+        body.remove("selectionBasis");
         String path = "/internal/v1/carts/current/items";
         if (!operation.equals("POST")) {
             path += "/" + body.remove("cartItemId");

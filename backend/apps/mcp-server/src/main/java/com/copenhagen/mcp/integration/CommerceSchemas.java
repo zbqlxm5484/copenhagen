@@ -16,9 +16,11 @@ public final class CommerceSchemas {
     public static final Map<String, Object> DETAIL = object(Map.of("merchantId", ID, "merchantProductId", ID),
             List.of("merchantId", "merchantProductId"));
     public static final Map<String, Object> ADD = object(Map.of("cartVersion", VERSION, "merchantId", ID,
-            "merchantProductId", ID, "merchantVariantId", ID, "quantity", QUANTITY, "idempotencyKey", KEY),
+            "merchantProductId", ID, "merchantVariantId", ID, "quantity", QUANTITY, "idempotencyKey", KEY,
+            "selectionBasis", Map.of("type", "string", "enum", List.of("USER_SELECTED", "USER_DELEGATED"),
+                    "description", "사용자가 옵션·수량을 선택했으면 USER_SELECTED, 선택을 명시적으로 위임했으면 USER_DELEGATED")),
             List.of("cartVersion", "merchantId", "merchantProductId", "merchantVariantId",
-                    "quantity", "idempotencyKey"));
+                    "quantity", "idempotencyKey", "selectionBasis"));
     public static final Map<String, Object> UPDATE = object(Map.of("cartVersion", VERSION, "cartItemId", ID,
             "merchantVariantId", ID, "quantity", QUANTITY, "idempotencyKey", KEY),
             List.of("cartVersion", "cartItemId", "merchantVariantId", "quantity", "idempotencyKey"));

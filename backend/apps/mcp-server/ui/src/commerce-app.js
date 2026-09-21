@@ -74,12 +74,14 @@ async function deliver(intent) {
     progress.finish(token, 'delivered', '요청을 전달했어요. 새 결과가 대화에 표시됩니다.');
   } finally { sending = false; }
 }
-async function next(tool, args = {}) {
+async function next(tool, args = {}, label) {
   if (isCartWrite(tool)) {
     progress.begin('authorization', '장바구니 이용 권한을 확인하고 있어요.', '동의 창이 열려 있다면 완료해주세요. 선택한 정보는 유지됩니다.');
     await cartPreparation.ensure();
   }
-  await deliver(session.prepare(tool, args));
+  const intent = session.prepare(tool, args, label);
+  if (label) intent.label = label;
+  await deliver(intent);
 }
 function heading(title, subtitle, eyebrow) { $('title').textContent = title; $('subtitle').textContent = subtitle; $('eyebrow').textContent = eyebrow; }
 function productRail(label) {
@@ -105,7 +107,7 @@ function productCard(product, label) {
   if (label) body.append(el('span', label, 'match-label'));
   if (best) {
     body.append(el('p', best.merchantName, 'price-caption'));
-    const choose = offer => next('get_product_detail', { merchantId: offer.merchantId, merchantProductId: offer.merchantProductId });
+    const choose = offer => next('get_product_detail', { merchantId: offer.merchantId, merchantProductId: offer.merchantProductId }, `${product.name} (${offer.merchantName})의 옵션을 보여주세요.`);
     body.append(button('옵션 선택', () => choose(best)));
     if (others.length) {
       const details = el('details', null, 'other-offers');
@@ -170,7 +172,7 @@ function renderDetail(data) {
     remember(); progress.begin('authorization', '장바구니 이용 권한을 확인하고 있어요.', '동의 창이 열려 있다면 완료해주세요. 옵션과 수량은 유지됩니다.');
     const cart = await cartPreparation.ensure();
     await next('add_cart_item', { cartVersion: cart.version, merchantId: data.merchantId,
-      merchantProductId: data.merchantProductId, merchantVariantId: v.merchantVariantId, quantity: count });
+      merchantProductId: data.merchantProductId, merchantVariantId: v.merchantVariantId, quantity: count, selectionBasis: 'USER_SELECTED' }, `${data.name}, ${variantLabel(data, v)} 옵션을 ${count}개 담아주세요.`);
   });
   const update = () => { const v = data.variants.find(v => v.merchantVariantId === select.value);
     price.textContent = v ? amount(v.priceAmount) : '옵션 선택 후 가격 확인';
@@ -196,8 +198,8 @@ function renderCart(data) {
       const label = el('label', '수량'); label.append(quantity);
       actions.append(label, button('수량 변경 ↗', () => {
         const count = Number(quantity.value); if (!Number.isInteger(count) || count < 1 || count > 99) throw new Error('수량은 1~99 사이로 입력해주세요.');
-        return next('update_cart_item', { cartVersion: data.version, cartItemId: item.cartItemId, merchantVariantId: item.merchantVariantId, quantity: count });
-      }, true), button('삭제 ↗', () => next('delete_cart_item', { cartVersion: data.version, cartItemId: item.cartItemId }), true));
+        return next('update_cart_item', { cartVersion: data.version, cartItemId: item.cartItemId, merchantVariantId: item.merchantVariantId, quantity: count }, `${item.name}의 현재 옵션 수량을 ${count}개로 변경해주세요.`);
+      }, true), button('삭제 ↗', () => next('delete_cart_item', { cartVersion: data.version, cartItemId: item.cartItemId }, `${item.name}을 장바구니에서 삭제해주세요.`), true));
       info.append(actions); row.append(productImage(item.imageUrl), info); grid.append(row);
     }
   }
