@@ -319,6 +319,66 @@ class OrderValidationApiIntegrationTest {
         assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM purchase_requests", Integer.class));
     }
 
+    @Test
+    void paidCartCleanup_preservesAddedQuantityAndIsIdempotent() throws Exception {
+        AwaitingApprovalCheckout row = prepareAwaitingCheckout("cleanup1");
+        jdbcTemplate.update("UPDATE cart_items SET quantity = 5");
+        jdbcTemplate.update("UPDATE carts SET version = version + 1");
+        completeForCleanup(row);
+        assertEquals(3, jdbcTemplate.queryForObject("SELECT quantity FROM cart_items", Integer.class));
+        int version = jdbcTemplate.queryForObject("SELECT version FROM carts", Integer.class);
+        completeForCleanup(row);
+        assertEquals(3, jdbcTemplate.queryForObject("SELECT quantity FROM cart_items", Integer.class));
+        assertEquals(version, jdbcTemplate.queryForObject("SELECT version FROM carts", Integer.class));
+    }
+
+    @Test
+    void paidCartCleanup_preservesReAddedLine() throws Exception {
+        AwaitingApprovalCheckout row = prepareAwaitingCheckout("cleanup2");
+        jdbcTemplate.update("UPDATE cart_items SET public_id = ?", UUID.randomUUID());
+        completeForCleanup(row);
+        assertEquals(2, jdbcTemplate.queryForObject("SELECT quantity FROM cart_items", Integer.class));
+    }
+
+    @Test
+    void paidCartCleanup_waitsForEveryMerchantAndRecoversFromWorker() throws Exception {
+        AwaitingApprovalCheckout row = prepareAwaitingCheckout("cleanup3");
+        // Other integration suites may remove the migration seeds; own this fixture explicitly.
+        jdbcTemplate.update("""
+                INSERT INTO merchants (id, merchant_name, ucp_profile_url, base_url, business_profile,
+                                       active_capabilities, status)
+                VALUES (2, 'Cleanup Test Merchant', 'http://merchant-b.example/.well-known/ucp',
+                        'http://merchant-b.example', '{}'::jsonb, '[]'::jsonb, 'ACTIVE')
+                ON CONFLICT (id) DO NOTHING
+                """);
+        long purchaseId = jdbcTemplate.queryForObject(
+                "SELECT purchase_request_id FROM merchant_checkouts WHERE id = ?", Long.class, row.id());
+        jdbcTemplate.update("""
+                INSERT INTO merchant_checkouts
+                    (purchase_request_id, merchant_id, merchant_checkout_id, checkout_digest, status)
+                SELECT purchase_request_id, 2, 'second-checkout', checkout_digest, 'AWAITING_APPROVAL'
+                FROM merchant_checkouts WHERE id = ?
+                """, row.id());
+        completeForCleanup(row);
+        assertEquals(2, jdbcTemplate.queryForObject("SELECT quantity FROM cart_items", Integer.class));
+        jdbcTemplate.update("UPDATE merchant_checkouts SET status = 'FAILED' WHERE merchant_id = 2");
+        completeForCleanup(row);
+        assertEquals(2, jdbcTemplate.queryForObject("SELECT quantity FROM cart_items", Integer.class));
+        jdbcTemplate.update("UPDATE merchant_checkouts SET status = 'COMPLETED' WHERE merchant_id = 2");
+        paidCartCleanup.cleanup(purchaseId, Instant.now());
+        assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM cart_items", Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM purchase_requests WHERE cart_cleaned_at IS NOT NULL", Integer.class));
+    }
+
+    private void completeForCleanup(AwaitingApprovalCheckout row) {
+        paymentCompletionRepository.recordCompleted(row.checkoutSnapshotId(), row.userId(), row.paymentApprovalId(),
+                "cleanup-order", "cleanup-payment", row.totalAmountMinor(), row.currency(), "test", Instant.now());
+    }
+
+    @Autowired
+    private com.copenhagen.core.payment.PaidCartCleanupRepository paidCartCleanup;
+
     private AwaitingApprovalCheckout prepareAwaitingCheckout(String loginId) throws Exception {
         String token = signupAndLogin(loginId, "테스트");
         addCartItem(token);

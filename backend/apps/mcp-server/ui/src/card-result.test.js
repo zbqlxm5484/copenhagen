@@ -12,3 +12,10 @@ test('partial or related successes and empty carts remain visible', () => {
   assert.equal(resultDisposition(search({ products: [], relatedSearches: [{ products: [{}] }] }), 'search'), 'render');
   assert.equal(resultDisposition({ kind: 'cart.view', data: { items: [] } }, 'cart'), 'render');
 });
+
+test('batch cards render successful groups but collapse all empty or failed groups', () => {
+  assert.equal(resultDisposition(search({ searchGroups: [{ error: 'CORE_UNAVAILABLE' },
+    { data: { products: [{}] } }] }), 'search'), 'render');
+  assert.equal(resultDisposition(search({ searchGroups: [{ error: 'CORE_UNAVAILABLE' },
+    { data: { products: [] } }] }), 'search'), 'empty');
+});

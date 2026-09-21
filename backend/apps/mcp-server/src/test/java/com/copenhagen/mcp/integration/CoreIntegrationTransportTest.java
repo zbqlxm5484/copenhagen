@@ -117,7 +117,8 @@ class CoreIntegrationTransportTest {
             assertEquals(Set.of("search_products", "get_product_detail", "get_cart", "add_cart_item",
                     "update_cart_item", "delete_cart_item", "prepare_purchase_handoff", "open_copenhagen",
                     "display_products", "get_purchase_status", "resend_purchase_notification", "prepare_cart",
-                    "prepare_widget_action", "resolve_widget_action"),
+                    "prepare_widget_action", "resolve_widget_action", "search_products_batch",
+                    "display_search_batch", "get_product_details_batch"),
                     tools.stream().map(McpSchema.Tool::name).collect(Collectors.toSet()));
             var result = client.callTool(McpSchema.CallToolRequest.builder().name("open_copenhagen")
                     .arguments(Map.of("query", "삼성")).build());
@@ -140,7 +141,8 @@ class CoreIntegrationTransportTest {
                 assertFalse(html.text().contains("로컬 Mock 안내 시나리오"));
             }
             for (var tool : tools) {
-                if (Set.of("search_products", "prepare_widget_action", "resolve_widget_action").contains(tool.name())) {
+                if (Set.of("search_products", "prepare_widget_action", "resolve_widget_action",
+                        "search_products_batch", "get_product_details_batch").contains(tool.name())) {
                     assertFalse(tool.meta().containsKey("openai/outputTemplate"));
                     if (tool.meta().get("ui") instanceof Map<?, ?> ui) {
                         assertFalse(ui.containsKey("resourceUri"));
@@ -164,8 +166,9 @@ class CoreIntegrationTransportTest {
     }
 
     @Test
-    void authenticatedIdentity_canReadStaticCartTemplateWithoutCartDataScope() throws Exception {
-        try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application), token("catalog:read"))) {
+    void shoppingIdentity_canReadStaticCartTemplate() throws Exception {
+        try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application),
+                token("catalog:read cart:read cart:write"))) {
             client.initialize();
             var resource = client.listResources().resources().stream()
                     .filter(value -> value.uri().startsWith("ui://copenhagen/cart-")).findFirst().orElseThrow();
@@ -178,7 +181,7 @@ class CoreIntegrationTransportTest {
     @Test
     void purchase_withoutAppLink_returnsReceiptForPushApproval() throws Exception {
         try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application),
-                token("catalog:read purchase:handoff"))) {
+                token("catalog:read cart:read cart:write purchase:handoff"))) {
             client.initialize();
             var result = client.callTool(McpSchema.CallToolRequest.builder().name("prepare_purchase_handoff")
                     .arguments(Map.of("cartId", "cart1", "cartVersion", 12,
@@ -186,19 +189,6 @@ class CoreIntegrationTransportTest {
             assertFalse(result.isError());
             assertTrue(result.structuredContent().toString().contains("request1"));
             assertFalse(result.structuredContent().toString().contains("appLink"));
-        }
-    }
-
-    @Test
-    void insufficientScope_returnsOAuthChallengeWithoutCallingCore() throws Exception {
-        try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application), token("catalog:read"))) {
-            client.initialize();
-            var result = client.callTool(McpSchema.CallToolRequest.builder().name("get_cart")
-                    .arguments(Map.of()).build());
-            assertTrue(result.isError());
-            assertTrue(result.meta().get("mcp/www_authenticate") instanceof List<?>);
-            assertTrue(result.meta().toString().contains("cart:read"));
-            assertTrue(result.structuredContent().toString().contains("NOT_APPLIED"));
         }
     }
 
@@ -218,21 +208,19 @@ class CoreIntegrationTransportTest {
     }
 
     @Test
-    void prepareCart_partialGrant_requestsBothScopesAndKeepsCatalogGrant() throws Exception {
-        try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application), token("catalog:read cart:read"))) {
-            client.initialize();
-            var tool = client.listTools().tools().stream().filter(t -> t.name().equals("prepare_cart"))
-                    .findFirst().orElseThrow();
-            assertTrue(tool.annotations().readOnlyHint());
-            assertTrue(tool.meta().toString().contains("cart:write"));
-            var result = client.callTool(McpSchema.CallToolRequest.builder().name("prepare_cart")
-                    .arguments(Map.of()).build());
-            assertTrue(result.isError());
-            String challenge = result.meta().get("mcp/www_authenticate").toString();
-            assertTrue(challenge.contains("cart:read"));
-            assertTrue(challenge.contains("cart:write"));
-            assertTrue(challenge.contains("catalog:read"));
-            assertFalse(challenge.contains("purchase:handoff"));
+    void shoppingConnection_rejectsPartialGrantWithCompleteConsentScopes() throws Exception {
+        try (var http = HttpClient.newHttpClient()) {
+            for (String scopes : List.of("catalog:read", "catalog:read cart:read")) {
+                var denied = http.send(HttpRequest.newBuilder(URI.create(McpTestSupport.baseUrl(application) + "/mcp"))
+                        .header("Authorization", "Bearer " + token(scopes))
+                        .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString("{}"))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+                assertEquals(403, denied.statusCode());
+                assertTrue(denied.body().contains("INSUFFICIENT_SCOPE"));
+                String challenge = denied.headers().firstValue("WWW-Authenticate").orElseThrow();
+                assertTrue(challenge.contains("scope=\"cart:read cart:write catalog:read\""));
+                assertFalse(challenge.contains("purchase:handoff"));
+            }
         }
     }
 
@@ -250,6 +238,8 @@ class CoreIntegrationTransportTest {
                     .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString("{}"))
                     .build(), HttpResponse.BodyHandlers.ofString());
             assertEquals(401, denied.statusCode());
+            assertTrue(denied.headers().firstValue("WWW-Authenticate").orElseThrow()
+                    .contains("scope=\"cart:read cart:write catalog:read\""));
             assertTrue(denied.headers().firstValue("WWW-Authenticate").orElseThrow()
                     .contains("https://mcp.example/.well-known/oauth-protected-resource/mcp"));
         }

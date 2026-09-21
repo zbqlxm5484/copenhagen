@@ -59,6 +59,7 @@ public class CommerceConfiguration {
     @Bean
     McpToolDefinition coreSearchProducts(CoreCommerceService service) {
         return tool("search_products", "상품 검색", SEARCH_GUIDANCE
+                + " 여러 재료를 함께 찾을 때 search_products_batch가 제공되면 해당 도구를 우선 사용하세요."
                 + " 먼저 이 도구로 조회하세요. 오류 또는 직접·유사 상품이 모두 없으면 짧은 텍스트로만 안내하고 "
                 + "표시 도구를 호출하지 마세요. 상품이 있으면 같은 조건으로 display_products를 한 번 호출하세요.",
                 CommerceSchemas.SEARCH, "catalog:read", true,

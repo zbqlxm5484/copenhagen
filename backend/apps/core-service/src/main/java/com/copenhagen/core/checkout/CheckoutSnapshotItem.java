@@ -16,5 +16,12 @@ public record CheckoutSnapshotItem(
         long unitPriceAmount,
         long discountAmount,
         long lineTotalAmount,
-        String currency) {
+        String currency,
+        java.util.UUID cartItemPublicId) {
+    public CheckoutSnapshotItem(String merchantProductId, String merchantVariantId, String productName,
+            String productUrl, String selectedOptions, int quantity, long unitPriceAmount,
+            long discountAmount, long lineTotalAmount, String currency) {
+        this(merchantProductId, merchantVariantId, productName, productUrl, selectedOptions, quantity,
+                unitPriceAmount, discountAmount, lineTotalAmount, currency, null);
+    }
 }
