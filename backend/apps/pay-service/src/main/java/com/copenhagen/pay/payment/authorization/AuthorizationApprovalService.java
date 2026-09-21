@@ -132,8 +132,11 @@ public class AuthorizationApprovalService {
             return result;
         }
 
+        // required_action 은 "가능하면 생체"라는 선호일 뿐 위험도 정책이 아니다. 생체를 요구하는
+        // 세션에도 PIN 승인을 받는다. 앱이 생체 실패·취소나 사용자 선택으로 PIN 화면을 열어도
+        // 서버가 거절하지 않게 한다. 반대로 PIN 세션에 생체를 보내는 것은 계속 막는다 —
+        // 그 경우 챌린지가 발급되지 않아 서명할 대상 자체가 없다.
         if (PIN.equals(authentication.method())) {
-            ensureRequiredAction(session, PIN);
             paymentPinService.verify(userId, authentication.pin());
             ApprovalResult result = approveSession(session, PIN);
             log.info("pay.approval.approve.complete approvalId={} authMethod=PIN", approvalId);
