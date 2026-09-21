@@ -39,6 +39,12 @@ public class JdbcBiometricCredentialRepository implements BiometricCredentialRep
             WHERE id = ? AND user_id = ? AND status = 'ACTIVE'
             """;
 
+    private static final String REVOKE_SQL = """
+            UPDATE biometric_credentials
+            SET status = 'REVOKED', revoked_at = ?
+            WHERE user_id = ? AND device_id = ? AND status = 'ACTIVE'
+            """;
+
     private static final RowMapper<BiometricCredential> ROW_MAPPER =
             JdbcBiometricCredentialRepository::mapCredential;
 
@@ -93,6 +99,15 @@ public class JdbcBiometricCredentialRepository implements BiometricCredentialRep
                 deviceId,
                 publicKey,
                 Timestamp.from(registeredAt));
+    }
+
+    @Override
+    public boolean revoke(String userId, String deviceId, Instant revokedAt) {
+        return jdbcTemplate.update(
+                REVOKE_SQL,
+                Timestamp.from(revokedAt),
+                userId,
+                deviceId) > 0;
     }
 
     private static BiometricCredential mapCredential(

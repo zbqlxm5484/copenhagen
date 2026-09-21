@@ -49,6 +49,15 @@ public class JdbcAuthorizationSessionRepository
             WHERE id = ? AND user_id = ? AND status = ? AND expires_at > ?
             """;
 
+    private static final String FALLBACK_PENDING_TO_PIN_SQL = """
+            UPDATE authorization_sessions
+            SET required_action = 'PIN', updated_at = ?, version = version + 1
+            WHERE user_id = ?
+              AND status = 'PENDING'
+              AND required_action = 'BIOMETRIC'
+              AND expires_at > ?
+            """;
+
     private static final String SELECT_PAYMENT_METHOD_SQL = """
             UPDATE authorization_sessions
             SET selected_payment_method_id = ?,
@@ -304,6 +313,15 @@ public class JdbcAuthorizationSessionRepository
                 userId,
                 expectedStatus.name(),
                 toTimestamp(now)) == 1;
+    }
+
+    @Override
+    public int fallbackPendingToPin(String userId, Instant now) {
+        return jdbcTemplate.update(
+                FALLBACK_PENDING_TO_PIN_SQL,
+                toTimestamp(now),
+                userId,
+                toTimestamp(now));
     }
 
     @Override

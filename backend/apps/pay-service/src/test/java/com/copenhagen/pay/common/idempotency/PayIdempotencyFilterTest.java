@@ -27,6 +27,7 @@ class PayIdempotencyFilterTest {
         "POST, /api/pay/v1/payment-approvals/approval-001/reject",
         "PATCH, /api/pay/v1/payment-approvals/approval-001/payment-method",
         "POST, /api/pay/v1/users/me/biometric-credentials",
+        "DELETE, /api/pay/v1/users/me/biometric-credentials",
         "POST, /api/pay/v1/users/me/payment-pin",
         "PUT, /api/pay/v1/users/me/payment-pin",
         "POST, /api/pay/v1/payment-methods/cards",
