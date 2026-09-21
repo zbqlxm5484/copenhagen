@@ -204,4 +204,58 @@ class AuthorizeConsentServiceTest {
                 CODE_CHALLENGE, "S256");
         return ((AuthorizeStartResult.Started) result).requestId();
     }
+
+    @Test
+    void shoppingConsent_displaysAndPersistsBaselineBeforeApproval() {
+        addShoppingClient(CLIENT_ID);
+        UUID requestId = startPendingRequest();
+        assertEquals("[\"cart:read\",\"cart:write\",\"catalog:read\",\"purchase:handoff\"]",
+                requestRepository.findByRequestId(requestId).orElseThrow().requestedScopesJson());
+        org.mockito.Mockito.verifyNoInteractions(connectionService);
+        when(loginService.login("user1", "password"))
+                .thenReturn(new LoginResult(UUID.randomUUID(), 42L, "user1", "테스트"));
+        assertInstanceOf(AuthorizeDecisionResult.Approved.class,
+                service.decide(requestId, "user1", "password", "APPROVE"));
+        verify(connectionService).replaceOnAuthorization(42L, 1L,
+                Set.of("catalog:read", "cart:read", "cart:write", "purchase:handoff"));
+    }
+
+    @Test
+    void shoppingConsent_denialDoesNotGrantExpandedScopes() {
+        addShoppingClient(CLIENT_ID);
+        UUID requestId = startPendingRequest();
+        service.decide(requestId, "user1", "password", "DENY");
+        org.mockito.Mockito.verifyNoInteractions(connectionService, loginService);
+    }
+
+    @Test
+    void shoppingConsent_preservesExplicitPurchaseScope() {
+        addShoppingClient(CLIENT_ID);
+        AuthorizeStartResult.Started result = assertInstanceOf(AuthorizeStartResult.Started.class,
+                service.start(CLIENT_ID, REDIRECT_URI, "catalog:read purchase:handoff", "state",
+                        CODE_CHALLENGE, "S256"));
+        assertEquals(Set.of("catalog:read", "cart:read", "cart:write", "purchase:handoff"),
+                Set.copyOf(result.scopes()));
+    }
+
+    @Test
+    void otherShoppingClient_alsoRequestsAllScopes() {
+        addShoppingClient("other-client");
+        AuthorizeStartResult.Started result = assertInstanceOf(AuthorizeStartResult.Started.class,
+                service.start("other-client", REDIRECT_URI, "catalog:read", "state", CODE_CHALLENGE, "S256"));
+        assertEquals(Set.of("catalog:read", "cart:read", "cart:write", "purchase:handoff"),
+                Set.copyOf(result.scopes()));
+    }
+
+    private void addShoppingClient(String clientId) {
+        clientRepository = new FakeOauthClientRepository();
+        clientRepository.add(new OauthClient(
+                1L, clientId, null, "ChatGPT", OauthClient.TYPE_PUBLIC,
+                "[\"" + REDIRECT_URI + "\"]",
+                "[\"catalog:read\",\"cart:read\",\"cart:write\",\"purchase:handoff\"]", null,
+                OauthClient.STATUS_ACTIVE, null));
+        service = new AuthorizeConsentService(
+                clientRepository, requestRepository, connectionService, loginService,
+                new ObjectMapper(), Clock.fixed(BASE_INSTANT, ZoneOffset.UTC));
+    }
 }
