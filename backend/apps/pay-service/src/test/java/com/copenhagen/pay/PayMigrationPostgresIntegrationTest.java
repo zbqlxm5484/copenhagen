@@ -28,8 +28,8 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 class PayMigrationPostgresIntegrationTest {
 
     private static final Instant NOW = Instant.parse("2026-09-15T00:00:00Z");
-    private static final String LATEST_MIGRATION_VERSION = "14";
-    private static final int MIGRATION_COUNT = 14;
+    private static final String LATEST_MIGRATION_VERSION = "15";
+    private static final int MIGRATION_COUNT = 15;
     private static final String MERCHANT_ACCOUNT_ID = "00000000-0000-0000-0000-000000000001";
     private static final String USER_ID = "00000000-0000-0000-0000-000000000002";
     private static final String VALID_SESSION_ID = "00000000-0000-0000-0000-000000000003";
@@ -78,14 +78,20 @@ class PayMigrationPostgresIntegrationTest {
         assertEquals(MIGRATION_COUNT, flyway.migrate().migrationsExecuted);
 
         assertEquals(
-                List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
+                List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14",
                         LATEST_MIGRATION_VERSION),
                 appliedVersions());
         assertTrue(tableExists("pay_idempotency_records"));
+        assertTrue(tableExists("authorization_session_items"), "authorization_session_items");
+        assertTrue(columnExists("authorization_sessions", "total_amount_minor"), "total_amount_minor");
+        assertFalse(columnExists("authorization_sessions", "merchant_account_id"));
+        assertTrue(columnExists("payment_credential_tokens", "session_item_id"), "credential session_item_id");
+        assertTrue(columnExists("pay_verified_checkout_evidence", "session_item_id"), "evidence session_item_id");
         assertTrue(tableExists("pay_notification_installations"));
         assertTrue(tableExists("pay_notification_outbox"));
         assertTrue(tableExists("pay_notification_deliveries"));
-        assertTrue(columnExists("authorization_sessions", "display_snapshot"));
+        // display_snapshot 은 V15 에서 판매처별 item 으로 옮겼다.
+        assertTrue(columnExists("authorization_session_items", "display_snapshot"));
         assertTrue(columnExists("biometric_challenges", "challenge_value"));
         assertTrue(columnExists("pay_verified_checkout_evidence", "merchant_key_id"));
         assertTrue(columnExists("payment_reconciliation_jobs", "request_id"));
@@ -102,7 +108,7 @@ class PayMigrationPostgresIntegrationTest {
         assertEquals("8", currentVersion());
         assertFalse(tableExists("pay_idempotency_records"));
 
-        assertEquals(6, flyway.migrate().migrationsExecuted);
+        assertEquals(7, flyway.migrate().migrationsExecuted);
         assertEquals(LATEST_MIGRATION_VERSION, currentVersion());
         assertEquals(MIGRATION_COUNT, appliedVersions().size());
         assertTrue(columnExists("payment_reconciliation_jobs", "request_id"));
@@ -227,23 +233,36 @@ class PayMigrationPostgresIntegrationTest {
         jdbc.update(
                 """
                 INSERT INTO authorization_sessions
-                    (id, purchase_request_id, user_id, merchant_account_id,
-                     external_checkout_id, checkout_digest, display_snapshot,
-                     amount_minor, currency, selected_payment_method_id, status,
+                    (id, purchase_request_id, user_id, total_amount_minor, currency,
+                     selected_payment_method_id, status,
                      idempotency_key, request_hash, required_action, expires_at,
                      created_at, updated_at, version)
-                VALUES (?, ?, ?, ?, 'checkout-constraint', ?, '{}'::jsonb, ?, 'KRW',
+                VALUES (?, ?, ?, ?, 'KRW',
                         NULL, 'PAYMENT_METHOD_REQUIRED', ?, ?, 'BIOMETRIC', ?, ?, ?, 0)
                 """,
                 sessionId,
                 purchaseRequestId,
                 USER_ID,
-                merchantAccountId,
-                "a".repeat(64),
                 amountMinor,
                 "approval-" + sessionId,
                 "b".repeat(64),
                 java.sql.Timestamp.from(NOW.plusSeconds(300)),
+                java.sql.Timestamp.from(NOW),
+                java.sql.Timestamp.from(NOW));
+        jdbc.update(
+                """
+                INSERT INTO authorization_session_items
+                    (id, authorization_session_id, merchant_account_id, external_checkout_id,
+                     checkout_digest, display_snapshot, amount_minor, currency, status,
+                     created_at, updated_at, version)
+                VALUES (?, ?, ?, 'checkout-constraint', ?, '{}'::jsonb, ?, 'KRW', 'PENDING',
+                        ?, ?, 0)
+                """,
+                UUID.randomUUID().toString(),
+                sessionId,
+                merchantAccountId,
+                "a".repeat(64),
+                amountMinor,
                 java.sql.Timestamp.from(NOW),
                 java.sql.Timestamp.from(NOW));
     }

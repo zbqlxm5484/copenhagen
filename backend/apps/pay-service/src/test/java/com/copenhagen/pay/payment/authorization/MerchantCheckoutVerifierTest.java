@@ -50,7 +50,7 @@ class MerchantCheckoutVerifierTest {
     void verifiesSignatureAndRequiredClaims() {
         String checkoutJwt = signedCheckout(signingKey, KEY_ID, "merchant-001", "purchase-001", NOW.plusSeconds(300));
 
-        MerchantCheckoutVerifier.VerificationResult result = verifier.verify(command(checkoutJwt));
+        MerchantCheckoutVerifier.VerificationResult result = verifier.verify(PURCHASE_REQUEST_ID, command(checkoutJwt));
 
         assertEquals(KEY_ID, result.merchantKeyId());
         assertEquals("ES256", result.signatureAlgorithm());
@@ -70,7 +70,7 @@ class MerchantCheckoutVerifierTest {
 
         PayException exception = assertThrows(
                 PayException.class,
-                () -> verifier.verify(command(checkoutJwt)));
+                () -> verifier.verify(PURCHASE_REQUEST_ID, command(checkoutJwt)));
 
         assertEquals(PayErrorCode.CHECKOUT_SIGNATURE_INVALID, exception.errorCode());
     }
@@ -90,7 +90,7 @@ class MerchantCheckoutVerifierTest {
                         properties("RS256"),
                         new ObjectMapper(),
                         Clock.fixed(NOW, ZoneOffset.UTC))
-                        .verify(command(checkoutJwt)));
+                        .verify(PURCHASE_REQUEST_ID, command(checkoutJwt)));
 
         assertEquals(PayErrorCode.CHECKOUT_SIGNATURE_INVALID, exception.errorCode());
     }
@@ -108,7 +108,7 @@ class MerchantCheckoutVerifierTest {
 
         PayException exception = assertThrows(
                 PayException.class,
-                () -> inactiveKeyVerifier.verify(command(checkoutJwt)));
+                () -> inactiveKeyVerifier.verify(PURCHASE_REQUEST_ID, command(checkoutJwt)));
 
         assertEquals(PayErrorCode.CHECKOUT_SIGNATURE_INVALID, exception.errorCode());
     }
@@ -124,7 +124,7 @@ class MerchantCheckoutVerifierTest {
 
         PayException exception = assertThrows(
                 PayException.class,
-                () -> verifier.verify(command(checkoutJwt)));
+                () -> verifier.verify(PURCHASE_REQUEST_ID, command(checkoutJwt)));
 
         assertEquals(PayErrorCode.INVALID_REQUEST, exception.errorCode());
     }
@@ -135,7 +135,7 @@ class MerchantCheckoutVerifierTest {
 
         PayException exception = assertThrows(
                 PayException.class,
-                () -> verifier.verify(command(checkoutJwt)));
+                () -> verifier.verify(PURCHASE_REQUEST_ID, command(checkoutJwt)));
 
         assertEquals(PayErrorCode.INVALID_REQUEST, exception.errorCode());
     }
@@ -153,7 +153,7 @@ class MerchantCheckoutVerifierTest {
 
         PayException exception = assertThrows(
                 PayException.class,
-                () -> unavailableVerifier.verify(command(checkoutJwt)));
+                () -> unavailableVerifier.verify(PURCHASE_REQUEST_ID, command(checkoutJwt)));
 
         assertEquals(PayErrorCode.MERCHANT_KEY_UNAVAILABLE, exception.errorCode());
     }
@@ -167,10 +167,10 @@ class MerchantCheckoutVerifierTest {
                 allowedAlgorithms);
     }
 
-    private CreateAuthorizationSessionCommand command(String checkoutJwt) {
-        return new CreateAuthorizationSessionCommand(
-                "purchase-001",
-                "user-001",
+    private static final String PURCHASE_REQUEST_ID = "purchase-001";
+
+    private CreateAuthorizationSessionCommand.Item command(String checkoutJwt) {
+        return new CreateAuthorizationSessionCommand.Item(
                 "merchant-001",
                 "checkout-001",
                 "sha256:checkout-hash",

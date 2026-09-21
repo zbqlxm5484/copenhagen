@@ -145,17 +145,23 @@ class AuthorizationPaymentMethodSelectionPostgresIntegrationTest {
         assertEquals(AuthorizationSessionStatus.PENDING, after.status());
         assertEquals(paymentMethodId, after.selectedPaymentMethodId());
         assertEquals(before.purchaseRequestId(), after.purchaseRequestId());
-        assertEquals(before.externalCheckoutId(), after.externalCheckoutId());
-        assertEquals(before.checkoutDigest(), after.checkoutDigest());
-        assertEquals(service.displaySnapshot(before), service.displaySnapshot(after));
-        assertEquals(before.amountMinor(), after.amountMinor());
+        assertEquals(
+                before.items().getFirst().externalCheckoutId(),
+                after.items().getFirst().externalCheckoutId());
+        assertEquals(
+                before.items().getFirst().checkoutDigest(),
+                after.items().getFirst().checkoutDigest());
+        assertEquals(
+                service.displaySnapshot(before.items().getFirst()),
+                service.displaySnapshot(after.items().getFirst()));
+        assertEquals(before.totalAmountMinor(), after.totalAmountMinor());
         assertEquals(before.currency(), after.currency());
         assertEquals(before.expiresAt(), after.expiresAt());
 
         Map<String, Object> row = jdbc.queryForMap(
                 """
-                SELECT selected_payment_method_id, status, amount_minor, currency,
-                       checkout_digest,
+                SELECT selected_payment_method_id, status, total_amount_minor, currency,
+
                        expires_at
                 FROM authorization_sessions
                 WHERE id = ?
@@ -163,9 +169,9 @@ class AuthorizationPaymentMethodSelectionPostgresIntegrationTest {
                 before.id());
         assertEquals(paymentMethodId, row.get("selected_payment_method_id").toString().trim());
         assertEquals("PENDING", row.get("status"));
-        assertEquals(99000L, ((Number) row.get("amount_minor")).longValue());
+        assertEquals(99000L, ((Number) row.get("total_amount_minor")).longValue());
         assertEquals("KRW", row.get("currency").toString().trim());
-        assertEquals(before.checkoutDigest(), row.get("checkout_digest").toString().trim());
+
         assertEquals(
                 before.expiresAt(),
                 ((java.sql.Timestamp) row.get("expires_at")).toInstant());
@@ -207,7 +213,9 @@ class AuthorizationPaymentMethodSelectionPostgresIntegrationTest {
             assertEquals(AuthorizationSessionStatus.PENDING, finalSession.status());
             assertTrue(Set.of(firstPaymentMethodId, secondPaymentMethodId)
                     .contains(finalSession.selectedPaymentMethodId()));
-            assertEquals(before.checkoutDigest(), finalSession.checkoutDigest());
+            assertEquals(
+                    before.items().getFirst().checkoutDigest(),
+                    finalSession.items().getFirst().checkoutDigest());
             assertEquals(before.expiresAt(), finalSession.expiresAt());
         } finally {
             executor.shutdownNow();
@@ -225,7 +233,7 @@ class AuthorizationPaymentMethodSelectionPostgresIntegrationTest {
         created.registerBean(Clock.class, () -> Clock.fixed(NOW, ZoneOffset.UTC));
         created.registerBean(ObjectMapper.class, () -> new ObjectMapper());
         created.registerBean(IdempotencyGuard.class);
-        created.registerBean(ApprovalProperties.class, () -> new ApprovalProperties(300, 60));
+        created.registerBean(ApprovalProperties.class, () -> new ApprovalProperties(300, 60, true));
         created.registerBean(MerchantServiceProperties.class, () -> new MerchantServiceProperties(
                 "http://merchant.test",
                 "/.well-known/ucp",
@@ -264,19 +272,22 @@ class AuthorizationPaymentMethodSelectionPostgresIntegrationTest {
         return new CreateAuthorizationSessionCommand(
                 purchaseRequestId,
                 USER_ID,
-                MERCHANT_ID,
-                "checkout-test",
-                externalHash(checkoutJwt),
-                checkoutJwt,
-                new AuthorizationDisplaySnapshot(
-                        "Test Merchant",
-                        List.of(new AuthorizationDisplaySnapshot.SummaryItem(
-                                "테스트 상품",
-                                null,
-                                1,
-                                99000))),
                 99000,
-                "KRW");
+                "KRW",
+                List.of(new CreateAuthorizationSessionCommand.Item(
+                        MERCHANT_ID,
+                        "checkout-test",
+                        externalHash(checkoutJwt),
+                        checkoutJwt,
+                        new AuthorizationDisplaySnapshot(
+                                "Test Merchant",
+                                List.of(new AuthorizationDisplaySnapshot.SummaryItem(
+                                        "테스트 상품",
+                                        null,
+                                        1,
+                                        99000))),
+                        99000,
+                        "KRW")));
     }
 
     private String signedCheckout(String purchaseRequestId) {

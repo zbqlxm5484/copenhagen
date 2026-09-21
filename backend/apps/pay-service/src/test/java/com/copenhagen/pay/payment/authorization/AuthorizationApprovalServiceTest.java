@@ -15,6 +15,8 @@ import com.copenhagen.pay.payment.credential.biometric.BiometricCredentialReposi
 import com.copenhagen.pay.payment.credential.pin.PaymentPinCredential;
 import com.copenhagen.pay.payment.credential.pin.PaymentPinCredentialRepository;
 import com.copenhagen.pay.payment.credential.pin.PaymentPinService;
+import com.copenhagen.pay.payment.credential.mandate.IssuedPaymentCredential;
+import com.copenhagen.pay.payment.credential.mandate.PaymentCredentialIssuer;
 import com.copenhagen.pay.payment.credential.pin.PaymentPinStatus;
 import com.copenhagen.pay.payment.policy.AuthorizationSessionStatus;
 import java.time.Clock;
@@ -48,7 +50,7 @@ class AuthorizationApprovalServiceTest {
                 new EmptyChallengeRepository(),
                 new EmptyCredentialRepository(),
                 Clock.fixed(NOW, ZoneOffset.UTC),
-                new ApprovalProperties(300, 60));
+                new ApprovalProperties(300, 60, true));
         service = new AuthorizationApprovalService(
                 sessionStore,
                 challengeService,
@@ -243,8 +245,115 @@ class AuthorizationApprovalServiceTest {
                 sessionStore.session().status());
     }
 
+    @Test
+    void approvingMultiMerchantSessionIssuesOneCredentialPerMerchant() {
+        // 인증은 1회인데 credential 은 판매처 수만큼 나와야 한다.
+        AuthorizationSession multiMerchant = multiMerchantSession();
+        sessionStore.replace(multiMerchant);
+        RecordingCredentialIssuer issuer = new RecordingCredentialIssuer(0);
+        AuthorizationApprovalService issuingService = serviceWith(issuer);
+
+        AuthorizationApprovalService.ApprovalResult result = issuingService.approve(
+                "user-001",
+                "session-001",
+                pinCommand());
+
+        assertEquals(AuthorizationSessionStatus.APPROVED.name(), result.status());
+        assertEquals(2, result.credentials().size());
+        assertEquals(
+                List.of("merchant-001", "merchant-002"),
+                result.credentials().stream()
+                        .map(AuthorizationApprovalService.ApprovalResult.IssuedCredential::merchantId)
+                        .sorted()
+                        .toList());
+        assertEquals(2, issuer.issuedItemIds.size());
+    }
+
+    @Test
+    void oneFailingMerchantRollsBackTheWholeApproval() {
+        // "한 번 승인 = 전부 승인"이 성립하려면 부분 승인 상태가 존재해서는 안 된다.
+        sessionStore.replace(multiMerchantSession());
+        AuthorizationApprovalService issuingService = serviceWith(new RecordingCredentialIssuer(1));
+
+        assertThrows(
+                PayException.class,
+                () -> issuingService.approve("user-001", "session-001", pinCommand()));
+    }
+
+    private AuthorizationApprovalService.ApproveCommand pinCommand() {
+        return new AuthorizationApprovalService.ApproveCommand(
+                "method-001",
+                new AuthorizationApprovalService.AuthenticationCommand("PIN", null, null, "123456"));
+    }
+
+    private AuthorizationApprovalService serviceWith(RecordingCredentialIssuer issuer) {
+        return new AuthorizationApprovalService(
+                sessionStore,
+                new BiometricChallengeService(
+                        new EmptyChallengeRepository(),
+                        new EmptyCredentialRepository(),
+                        Clock.fixed(NOW, ZoneOffset.UTC),
+                        new ApprovalProperties(300, 60, true)),
+                pinService,
+                issuer,
+                Clock.fixed(NOW, ZoneOffset.UTC));
+    }
+
+    private AuthorizationSession multiMerchantSession() {
+        AuthorizationSession base = session();
+        AuthorizationSessionItem first = base.items().getFirst();
+        AuthorizationSessionItem second = AuthorizationSessionFixtures.item(
+                "session-001-item-2",
+                "session-001",
+                "merchant-account-002",
+                "merchant-002",
+                "두 번째 상점",
+                "checkout-002",
+                "1".repeat(64),
+                "{}",
+                39000,
+                "KRW",
+                NOW,
+                NOW);
+        return AuthorizationSessionFixtures.multiMerchant(
+                "session-001",
+                "purchase-001",
+                "user-001",
+                "method-001",
+                AuthorizationSessionStatus.PENDING,
+                NOW.plusSeconds(300),
+                NOW,
+                List.of(first, second));
+    }
+
+    /** {@code failAtIndex} 번째 호출에서 터져 롤백을 확인한다. 0 이면 실패하지 않는다. */
+    private static final class RecordingCredentialIssuer implements PaymentCredentialIssuer {
+
+        private final int failAtCall;
+        private final List<String> issuedItemIds = new java.util.ArrayList<>();
+
+        private RecordingCredentialIssuer(int failAtCall) {
+            this.failAtCall = failAtCall;
+        }
+
+        @Override
+        public IssuedPaymentCredential issue(
+                AuthorizationSession session,
+                AuthorizationSessionItem item,
+                String authMethod) {
+            issuedItemIds.add(item.id());
+            if (failAtCall > 0 && issuedItemIds.size() == failAtCall + 1) {
+                throw new PayException(PayErrorCode.INTERNAL_ERROR);
+            }
+            return new IssuedPaymentCredential(
+                    "credential-" + item.id(),
+                    session.expiresAt(),
+                    "mandate-" + item.id());
+        }
+    }
+
     private AuthorizationSession session() {
-        return new AuthorizationSession(
+        return AuthorizationSessionFixtures.singleMerchant(
                 "session-001",
                 "purchase-001",
                 "user-001",
@@ -275,13 +384,7 @@ class AuthorizationApprovalServiceTest {
                 current.id(),
                 current.purchaseRequestId(),
                 current.userId(),
-                current.merchantAccountId(),
-                current.merchantId(),
-                current.merchantName(),
-                current.externalCheckoutId(),
-                current.checkoutDigest(),
-                current.displaySnapshotJson(),
-                current.amountMinor(),
+                current.totalAmountMinor(),
                 current.currency(),
                 current.selectedPaymentMethodId(),
                 current.status(),
@@ -293,7 +396,8 @@ class AuthorizationApprovalServiceTest {
                 current.authMethod(),
                 current.createdAt(),
                 current.updatedAt(),
-                current.version());
+                current.version(),
+                current.items());
     }
 
     private static final class InMemoryAuthorizationSessionStore
@@ -306,20 +410,18 @@ class AuthorizationApprovalServiceTest {
         }
 
         @Override
-        public Optional<AuthorizationSession> findByMerchantAndIdempotencyKey(
-                String merchantAccountId,
+        public Optional<AuthorizationSession> findByUserAndIdempotencyKey(
+                String userId,
                 String idempotencyKey) {
             return Optional.of(session)
-                    .filter(value -> value.merchantAccountId().equals(merchantAccountId))
+                    .filter(value -> value.userId().equals(userId))
                     .filter(value -> value.idempotencyKey().equals(idempotencyKey));
         }
 
         @Override
-        public Optional<AuthorizationSession> findActiveByMerchantAndPurchaseRequest(
-                String merchantAccountId,
+        public Optional<AuthorizationSession> findActiveByPurchaseRequest(
                 String purchaseRequestId) {
             return Optional.of(session)
-                    .filter(value -> value.merchantAccountId().equals(merchantAccountId))
                     .filter(value -> value.purchaseRequestId().equals(purchaseRequestId))
                     .filter(value -> value.status().isActive());
         }
@@ -419,13 +521,7 @@ class AuthorizationApprovalServiceTest {
                     session.id(),
                     session.purchaseRequestId(),
                     session.userId(),
-                    session.merchantAccountId(),
-                    session.merchantId(),
-                    session.merchantName(),
-                    session.externalCheckoutId(),
-                    session.checkoutDigest(),
-                    session.displaySnapshotJson(),
-                    session.amountMinor(),
+                    session.totalAmountMinor(),
                     session.currency(),
                     session.selectedPaymentMethodId(),
                     status,
@@ -437,7 +533,8 @@ class AuthorizationApprovalServiceTest {
                     authMethod,
                     session.createdAt(),
                     NOW,
-                    session.version() + 1);
+                    session.version() + 1,
+                    session.items());
         }
 
         private AuthorizationSession session() {

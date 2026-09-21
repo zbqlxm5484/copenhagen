@@ -66,7 +66,7 @@ public class PaymentLifecycleService {
             throw stateConflict(actualStatus);
         }
         String authorizationSessionId = findAuthorizationSessionId(paymentId);
-        authorizationSessionService.completeAfterPaymentSuccess(authorizationSessionId);
+        authorizationSessionService.completeAfterPaymentSuccess(findSessionItemId(paymentId));
         notificationEventPublisher.publishPaymentResult(
                 paymentId,
                 authorizationSessionId,
@@ -90,7 +90,8 @@ public class PaymentLifecycleService {
             throw stateConflict(actualStatus);
         }
         String authorizationSessionId = findAuthorizationSessionId(paymentId);
-        authorizationSessionService.invalidateAfterDefinitivePaymentFailure(authorizationSessionId);
+        authorizationSessionService.invalidateAfterDefinitivePaymentFailure(
+                findSessionItemId(paymentId));
         notificationEventPublisher.publishPaymentResult(
                 paymentId,
                 authorizationSessionId,
@@ -124,6 +125,12 @@ public class PaymentLifecycleService {
 
     private PaymentStatus findRequiredStatus(String paymentId) {
         return paymentRepository.findStatus(paymentId)
+                .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
+    }
+
+    /** 알림은 세션 단위, 상태 전이는 item 단위다. */
+    private String findSessionItemId(String paymentId) {
+        return paymentRepository.findSessionItemId(paymentId)
                 .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
     }
 

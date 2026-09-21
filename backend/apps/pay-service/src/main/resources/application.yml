@@ -29,6 +29,9 @@ pay:
   approval:
     expiration-seconds: ${PAY_APPROVAL_EXPIRATION_SECONDS:300}
     challenge-expiration-seconds: ${PAY_APPROVAL_CHALLENGE_EXPIRATION_SECONDS:60}
+    # 세션 만료 = max(min(판매처별 checkout 만료), expiration-seconds).
+    # false 로 두면 하한 없이 가장 이른 checkout 만료를 그대로 쓴다.
+    expiration-floor-enabled: ${PAY_APPROVAL_EXPIRATION_FLOOR_ENABLED:true}
   mandate:
     issuer: ${PAY_MANDATE_ISSUER:pay-service}
     key-id: ${PAY_MANDATE_KEY_ID:pay-signing-key-1}

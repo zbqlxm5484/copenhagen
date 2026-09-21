@@ -1,5 +1,6 @@
 package com.copenhagen.pay.payment.credential;
 
+import com.copenhagen.pay.payment.authorization.AuthorizationSessionFixtures;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -236,7 +237,7 @@ class CredentialSecurityPostgresIntegrationTest {
         created.registerBean(Clock.class, () -> clock);
         created.registerBean(PasswordEncoder.class, NoOpPasswordEncoder::getInstance);
         created.registerBean(IdempotencyGuard.class);
-        created.registerBean(ApprovalProperties.class, () -> new ApprovalProperties(300, 60));
+        created.registerBean(ApprovalProperties.class, () -> new ApprovalProperties(300, 60, true));
         created.register(
                 JdbcPaymentPinCredentialRepository.class,
                 com.copenhagen.pay.payment.credential.pin.PaymentPinFailureService.class,
@@ -277,25 +278,37 @@ class CredentialSecurityPostgresIntegrationTest {
         jdbc.update(
                 """
                 INSERT INTO authorization_sessions
-                    (id, purchase_request_id, user_id, merchant_account_id,
-                     external_checkout_id, checkout_digest, display_snapshot,
-                     amount_minor, currency, selected_payment_method_id, status,
+                    (id, purchase_request_id, user_id,
+                     total_amount_minor, currency, selected_payment_method_id, status,
                      idempotency_key, request_hash, required_action, expires_at,
                      created_at, updated_at, version)
-                VALUES (?, ?, ?, ?, 'checkout-test', ?, '{}'::jsonb, 99000, 'KRW', ?,
+                VALUES (?, ?, ?, 99000, 'KRW', ?,
                         'PENDING', 'approval-test', ?, 'BIOMETRIC', ?, ?, ?, 0)
                 """,
                 SESSION_ID,
                 PURCHASE_REQUEST_ID,
                 USER_ID,
-                MERCHANT_ACCOUNT_ID,
-                "0".repeat(64),
                 PAYMENT_METHOD_ID,
                 "a".repeat(64),
                 java.sql.Timestamp.from(INITIAL_TIME.plusSeconds(300)),
                 java.sql.Timestamp.from(INITIAL_TIME),
                 java.sql.Timestamp.from(INITIAL_TIME));
-        session = new AuthorizationSession(
+        jdbc.update(
+                """
+                INSERT INTO authorization_session_items
+                    (id, authorization_session_id, merchant_account_id, external_checkout_id,
+                     checkout_digest, display_snapshot, amount_minor, currency, status,
+                     created_at, updated_at, version)
+                VALUES (?, ?, ?, 'checkout-test', ?, '{}'::jsonb, 99000, 'KRW', 'PENDING',
+                        ?, ?, 0)
+                """,
+                java.util.UUID.randomUUID().toString(),
+                SESSION_ID,
+                MERCHANT_ACCOUNT_ID,
+                "0".repeat(64),
+                java.sql.Timestamp.from(INITIAL_TIME),
+                java.sql.Timestamp.from(INITIAL_TIME));
+        session = AuthorizationSessionFixtures.singleMerchant(
                 SESSION_ID,
                 PURCHASE_REQUEST_ID,
                 USER_ID,

@@ -9,6 +9,7 @@ public interface MandateCredentialRepository {
     record Issuance(
             String checkoutMandateId,
             String authorizationSessionId,
+            String sessionItemId,
             String checkoutMandateJti,
             String issuer,
             String audience,

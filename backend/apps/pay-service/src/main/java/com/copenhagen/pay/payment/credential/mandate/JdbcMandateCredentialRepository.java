@@ -10,25 +10,25 @@ public class JdbcMandateCredentialRepository implements MandateCredentialReposit
 
     private static final String INSERT_CHECKOUT_MANDATE_SQL = """
             INSERT INTO checkout_mandates
-                (id, authorization_session_id, jti, issuer, audience, checkout_digest,
+                (id, authorization_session_id, session_item_id, jti, issuer, audience, checkout_digest,
                  signed_artifact_encrypted, artifact_hash, status, issued_at, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ISSUED', ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ISSUED', ?, ?)
             """;
 
     private static final String INSERT_PAYMENT_MANDATE_SQL = """
             INSERT INTO payment_mandates
-                (id, authorization_session_id, jti, transaction_id, merchant_id,
+                (id, authorization_session_id, session_item_id, jti, transaction_id, merchant_id,
                  external_checkout_id, amount_minor, currency, payment_method_ref,
                  signed_artifact_encrypted, artifact_hash, status, issued_at, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ISSUED', ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ISSUED', ?, ?)
             """;
 
     private static final String INSERT_CREDENTIAL_SQL = """
             INSERT INTO payment_credential_tokens
-                (id, authorization_session_id, checkout_mandate_id, payment_mandate_id,
+                (id, authorization_session_id, session_item_id, checkout_mandate_id, payment_mandate_id,
                  token_hash, token_ciphertext, merchant_id, external_checkout_id,
                  checkout_digest, amount_minor, currency, status, issued_at, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ISSUED', ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ISSUED', ?, ?)
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -43,6 +43,7 @@ public class JdbcMandateCredentialRepository implements MandateCredentialReposit
                 INSERT_CHECKOUT_MANDATE_SQL,
                 issuance.checkoutMandateId(),
                 issuance.authorizationSessionId(),
+                issuance.sessionItemId(),
                 issuance.checkoutMandateJti(),
                 issuance.issuer(),
                 issuance.audience(),
@@ -55,6 +56,7 @@ public class JdbcMandateCredentialRepository implements MandateCredentialReposit
                 INSERT_PAYMENT_MANDATE_SQL,
                 issuance.paymentMandateId(),
                 issuance.authorizationSessionId(),
+                issuance.sessionItemId(),
                 issuance.paymentMandateJti(),
                 issuance.transactionId(),
                 issuance.merchantId(),
@@ -70,6 +72,7 @@ public class JdbcMandateCredentialRepository implements MandateCredentialReposit
                 INSERT_CREDENTIAL_SQL,
                 issuance.credentialId(),
                 issuance.authorizationSessionId(),
+                issuance.sessionItemId(),
                 issuance.checkoutMandateId(),
                 issuance.paymentMandateId(),
                 issuance.credentialTokenHash(),

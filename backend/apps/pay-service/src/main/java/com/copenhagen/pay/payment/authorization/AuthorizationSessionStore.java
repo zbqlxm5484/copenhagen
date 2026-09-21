@@ -7,14 +7,15 @@ import java.util.Optional;
 
 public interface AuthorizationSessionStore {
 
-    Optional<AuthorizationSession> findByMerchantAndIdempotencyKey(
-            String merchantAccountId,
+    /** 멱등키는 구매 요청 단위다. 판매처는 더 이상 축이 아니다. */
+    Optional<AuthorizationSession> findByUserAndIdempotencyKey(
+            String userId,
             String idempotencyKey);
 
-    Optional<AuthorizationSession> findActiveByMerchantAndPurchaseRequest(
-            String merchantAccountId,
-            String purchaseRequestId);
+    /** 구매 요청당 활성 승인은 1건이다. DB 유니크가 함께 보장한다. */
+    Optional<AuthorizationSession> findActiveByPurchaseRequest(String purchaseRequestId);
 
+    /** 세션과 판매처별 item 을 함께 적재한다. */
     boolean insert(AuthorizationSession session);
 
     List<AuthorizationSession> findByUserId(
@@ -65,6 +66,7 @@ public interface AuthorizationSessionStore {
         return 0;
     }
 
+    /** 결제수단은 세션 단위다. 한 번 고르면 전 판매처에 적용된다. */
     default boolean selectPaymentMethod(
             String authorizationSessionId,
             String userId,

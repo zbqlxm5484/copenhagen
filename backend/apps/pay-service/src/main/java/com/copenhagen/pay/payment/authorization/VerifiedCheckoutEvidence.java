@@ -5,6 +5,7 @@ import java.time.Instant;
 public record VerifiedCheckoutEvidence(
         String id,
         String authorizationSessionId,
+        String sessionItemId,
         String merchantId,
         String externalCheckoutId,
         String checkoutDigest,
@@ -21,18 +22,20 @@ public record VerifiedCheckoutEvidence(
     public static VerifiedCheckoutEvidence from(
             String id,
             String authorizationSessionId,
-            CreateAuthorizationSessionCommand command,
+            String sessionItemId,
+            CreateAuthorizationSessionCommand.Item item,
             String checkoutDigest,
             MerchantCheckoutVerifier.VerificationResult verification,
             Instant verifiedAt) {
         return new VerifiedCheckoutEvidence(
                 id,
                 authorizationSessionId,
-                command.merchantId(),
-                command.checkoutId(),
+                sessionItemId,
+                item.merchantId(),
+                item.checkoutId(),
                 checkoutDigest,
                 verification.canonicalCheckoutJson(),
-                command.checkoutJwt(),
+                item.checkoutJwt(),
                 verification.merchantKeyId(),
                 verification.signatureAlgorithm(),
                 verification.signatureVerified(),

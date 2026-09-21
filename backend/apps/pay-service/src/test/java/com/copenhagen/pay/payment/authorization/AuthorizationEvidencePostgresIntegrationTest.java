@@ -175,7 +175,7 @@ class AuthorizationEvidencePostgresIntegrationTest {
         created.registerBean(Clock.class, () -> Clock.fixed(NOW, ZoneOffset.UTC));
         created.registerBean(ObjectMapper.class, () -> new ObjectMapper());
         created.registerBean(IdempotencyGuard.class);
-        created.registerBean(ApprovalProperties.class, () -> new ApprovalProperties(300, 60));
+        created.registerBean(ApprovalProperties.class, () -> new ApprovalProperties(300, 60, true));
         created.registerBean(MerchantServiceProperties.class, () -> new MerchantServiceProperties(
                 "http://merchant.test",
                 "/.well-known/ucp",
@@ -207,19 +207,22 @@ class AuthorizationEvidencePostgresIntegrationTest {
         return new CreateAuthorizationSessionCommand(
                 purchaseRequestId,
                 "00000000-0000-0000-0000-000000000003",
-                MERCHANT_ID,
-                "checkout-test",
-                externalHash(checkoutJwt),
-                checkoutJwt,
-                new AuthorizationDisplaySnapshot(
-                        "Test Merchant",
-                        List.of(new AuthorizationDisplaySnapshot.SummaryItem(
-                                "테스트 상품",
-                                null,
-                                1,
-                                99000))),
                 99000,
-                "KRW");
+                "KRW",
+                List.of(new CreateAuthorizationSessionCommand.Item(
+                        MERCHANT_ID,
+                        "checkout-test",
+                        externalHash(checkoutJwt),
+                        checkoutJwt,
+                        new AuthorizationDisplaySnapshot(
+                                "Test Merchant",
+                                List.of(new AuthorizationDisplaySnapshot.SummaryItem(
+                                        "테스트 상품",
+                                        null,
+                                        1,
+                                        99000))),
+                        99000,
+                        "KRW")));
     }
 
     private String signedCheckout(String purchaseRequestId) {

@@ -9,11 +9,11 @@ public class JdbcVerifiedCheckoutEvidenceRepository implements VerifiedCheckoutE
 
     private static final String INSERT_SQL = """
             INSERT INTO pay_verified_checkout_evidence
-                (id, authorization_session_id, merchant_id, external_checkout_id,
+                (id, authorization_session_id, session_item_id, merchant_id, external_checkout_id,
                  checkout_digest, canonical_checkout_json, merchant_authorization,
                  merchant_key_id, signature_algorithm, signature_verified,
                  amount_minor, currency, verified_at, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT DO NOTHING
             """;
 
@@ -29,6 +29,7 @@ public class JdbcVerifiedCheckoutEvidenceRepository implements VerifiedCheckoutE
                 INSERT_SQL,
                 evidence.id(),
                 evidence.authorizationSessionId(),
+                evidence.sessionItemId(),
                 evidence.merchantId(),
                 evidence.externalCheckoutId(),
                 evidence.checkoutDigest(),

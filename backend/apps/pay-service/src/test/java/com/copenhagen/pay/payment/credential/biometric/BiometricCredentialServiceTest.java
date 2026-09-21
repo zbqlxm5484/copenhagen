@@ -170,15 +170,14 @@ class BiometricCredentialServiceTest {
         }
 
         @Override
-        public Optional<AuthorizationSession> findByMerchantAndIdempotencyKey(
-                String merchantAccountId,
+        public Optional<AuthorizationSession> findByUserAndIdempotencyKey(
+                String userId,
                 String idempotencyKey) {
             return Optional.empty();
         }
 
         @Override
-        public Optional<AuthorizationSession> findActiveByMerchantAndPurchaseRequest(
-                String merchantAccountId,
+        public Optional<AuthorizationSession> findActiveByPurchaseRequest(
                 String purchaseRequestId) {
             return Optional.empty();
         }

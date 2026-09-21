@@ -8,16 +8,24 @@ import org.junit.jupiter.api.Test;
 class PayStateTransitionPolicyTest {
 
     @Test
-    void approvedSessionCompletesOnlyAfterSuccessfulPayment() {
-        assertTrue(PayStateTransitionPolicy.canTransition(
+    void approvedSessionStaysApprovedAndItemTracksPaymentResult() {
+        // 세션은 APPROVED 에서 종료한다. 결제 성공/실패는 판매처별 item 이 받는다.
+        assertFalse(PayStateTransitionPolicy.canTransition(
                 AuthorizationSessionStatus.APPROVED,
                 AuthorizationSessionStatus.COMPLETED));
         assertTrue(PayStateTransitionPolicy.canTransition(
                 AuthorizationSessionStatus.APPROVED,
                 AuthorizationSessionStatus.INVALIDATED));
+
+        assertTrue(PayStateTransitionPolicy.canTransition(
+                AuthorizationSessionItemStatus.PENDING,
+                AuthorizationSessionItemStatus.COMPLETED));
+        assertTrue(PayStateTransitionPolicy.canTransition(
+                AuthorizationSessionItemStatus.PENDING,
+                AuthorizationSessionItemStatus.INVALIDATED));
         assertFalse(PayStateTransitionPolicy.canTransition(
-                AuthorizationSessionStatus.COMPLETED,
-                AuthorizationSessionStatus.APPROVED));
+                AuthorizationSessionItemStatus.COMPLETED,
+                AuthorizationSessionItemStatus.PENDING));
     }
 
     @Test

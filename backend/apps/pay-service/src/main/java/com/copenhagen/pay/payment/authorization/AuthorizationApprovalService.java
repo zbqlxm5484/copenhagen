@@ -10,6 +10,8 @@ import com.copenhagen.pay.payment.credential.pin.PaymentPinService;
 import com.copenhagen.pay.payment.policy.AuthorizationSessionStatus;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,7 +55,7 @@ public class AuthorizationApprovalService {
                 sessionStore,
                 challengeService,
                 paymentPinService,
-                (session, authMethod) -> new IssuedPaymentCredential(
+                (session, item, authMethod) -> new IssuedPaymentCredential(
                         null,
                         session.expiresAt(),
                         null),
@@ -217,6 +219,11 @@ public class AuthorizationApprovalService {
         }
     }
 
+    /**
+     * 인증 1회 통과 후 세션의 판매처 수만큼 credential 을 발급한다. 한 트랜잭션이므로
+     * item 하나라도 실패하면 승인 전체가 롤백된다. "한 번 승인 = 전부 승인"이 성립하려면
+     * 부분 승인 상태가 존재해서는 안 된다.
+     */
     private ApprovalResult approveSession(
             AuthorizationSession session,
             String authMethod) {
@@ -227,12 +234,26 @@ public class AuthorizationApprovalService {
         AuthorizationSession approvedSession = sessionStore
                 .findByIdAndUserId(session.id(), session.userId())
                 .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
-        IssuedPaymentCredential credential = credentialIssuer.issue(approvedSession, authMethod);
+        List<ApprovalResult.IssuedCredential> credentials =
+                new ArrayList<>(approvedSession.items().size());
+        for (AuthorizationSessionItem item : approvedSession.items()) {
+            IssuedPaymentCredential credential = credentialIssuer.issue(
+                    approvedSession,
+                    item,
+                    authMethod);
+            credentials.add(new ApprovalResult.IssuedCredential(
+                    item.merchantId(),
+                    item.externalCheckoutId(),
+                    credential.credentialId(),
+                    credential.expiresAt()));
+        }
         log.info(
-                "pay.approval.transition.success approvalId={} before=PENDING after=APPROVED authMethod={}",
+                "pay.approval.transition.success approvalId={} before=PENDING after=APPROVED "
+                        + "authMethod={} credentialCount={}",
                 session.id(),
-                authMethod);
-        return ApprovalResult.approved(session.id(), authMethod, credential);
+                authMethod,
+                credentials.size());
+        return ApprovalResult.approved(session.id(), authMethod, credentials);
     }
 
     private PayException stateConflict(AuthorizationSession session) {
@@ -275,10 +296,20 @@ public class AuthorizationApprovalService {
             String status,
             String requiredAction,
             String authMethod,
-            String credentialId,
-            Instant credentialExpiresAt,
-            String checkoutMandate,
+            List<IssuedCredential> credentials,
             String nextAction) {
+
+        public ApprovalResult {
+            credentials = credentials == null ? List.of() : List.copyOf(credentials);
+        }
+
+        /** 판매처별 발급 결과. credential 은 판매처가 Pay 에 결제를 요청할 때 쓴다. */
+        public record IssuedCredential(
+                String merchantId,
+                String checkoutId,
+                String credentialId,
+                Instant expiresAt) {
+        }
 
         private static ApprovalResult pinFallback(String approvalId) {
             return new ApprovalResult(
@@ -286,24 +317,20 @@ public class AuthorizationApprovalService {
                     AuthorizationSessionStatus.PENDING.name(),
                     PIN,
                     null,
-                    null,
-                    null,
-                    null,
+                    List.of(),
                     "ENTER_PIN");
         }
 
         private static ApprovalResult approved(
                 String approvalId,
                 String authMethod,
-                IssuedPaymentCredential credential) {
+                List<IssuedCredential> credentials) {
             return new ApprovalResult(
                     approvalId,
                     AuthorizationSessionStatus.APPROVED.name(),
                     null,
                     authMethod,
-                    credential.credentialId(),
-                    credential.expiresAt(),
-                    credential.checkoutMandate(),
+                    credentials,
                     "COMPLETE_CHECKOUT");
         }
 
@@ -313,9 +340,7 @@ public class AuthorizationApprovalService {
                     AuthorizationSessionStatus.REJECTED.name(),
                     null,
                     null,
-                    null,
-                    null,
-                    null,
+                    List.of(),
                     "RETURN_TO_CART");
         }
     }

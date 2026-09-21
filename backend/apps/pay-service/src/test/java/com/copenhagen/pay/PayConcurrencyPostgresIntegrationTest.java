@@ -63,6 +63,7 @@ class PayConcurrencyPostgresIntegrationTest {
     private static final String USER_ID = "00000000-0000-0000-0000-000000000003";
     private static final String PAYMENT_METHOD_ID = "00000000-0000-0000-0000-000000000002";
     private static final String SESSION_ID = "00000000-0000-0000-0000-000000000004";
+    private static final String SESSION_ITEM_ID = "00000000-0000-0000-0000-000000000104";
     private static final String PURCHASE_REQUEST_ID = "00000000-0000-0000-0000-000000000005";
     private static final String CHECKOUT_MANDATE_ID = "00000000-0000-0000-0000-000000000006";
     private static final String PAYMENT_MANDATE_ID = "00000000-0000-0000-0000-000000000007";
@@ -324,19 +325,16 @@ class PayConcurrencyPostgresIntegrationTest {
         jdbc.update(
                 """
                 INSERT INTO authorization_sessions
-                    (id, purchase_request_id, user_id, merchant_account_id,
-                     external_checkout_id, checkout_digest, display_snapshot,
-                     amount_minor, currency, selected_payment_method_id, status,
+                    (id, purchase_request_id, user_id, total_amount_minor, currency,
+                     selected_payment_method_id, status,
                      idempotency_key, request_hash, required_action, expires_at,
                      approved_at, auth_method, created_at, updated_at, version)
-                VALUES (?, ?, ?, ?, 'checkout-test', ?, '{}'::jsonb, 99000, 'KRW', ?, ?,
+                VALUES (?, ?, ?, 99000, 'KRW', ?, ?,
                         'approval-key', ?, 'PIN', ?, ?, ?, ?, ?, 0)
                 """,
                 SESSION_ID,
                 PURCHASE_REQUEST_ID,
                 USER_ID,
-                MERCHANT_ACCOUNT_ID,
-                DIGEST,
                 selectedPaymentMethod ? PAYMENT_METHOD_ID : null,
                 status.name(),
                 REQUEST_HASH,
@@ -347,6 +345,21 @@ class PayConcurrencyPostgresIntegrationTest {
                 status == AuthorizationSessionStatus.APPROVED ? "PIN" : null,
                 java.sql.Timestamp.from(NOW),
                 java.sql.Timestamp.from(NOW));
+        jdbc.update(
+                """
+                INSERT INTO authorization_session_items
+                    (id, authorization_session_id, merchant_account_id, external_checkout_id,
+                     checkout_digest, display_snapshot, amount_minor, currency, status,
+                     created_at, updated_at, version)
+                VALUES (?, ?, ?, 'checkout-test', ?, '{}'::jsonb, 99000, 'KRW', 'PENDING',
+                        ?, ?, 0)
+                """,
+                SESSION_ITEM_ID,
+                SESSION_ID,
+                MERCHANT_ACCOUNT_ID,
+                DIGEST,
+                java.sql.Timestamp.from(NOW),
+                java.sql.Timestamp.from(NOW));
     }
 
     private void insertPaymentFixtures() {
@@ -354,14 +367,15 @@ class PayConcurrencyPostgresIntegrationTest {
         jdbc.update(
                 """
                 INSERT INTO checkout_mandates
-                    (id, authorization_session_id, jti, issuer, audience,
+                    (id, authorization_session_id, session_item_id, jti, issuer, audience,
                      checkout_digest, signed_artifact_encrypted, artifact_hash,
                      status, issued_at, expires_at)
-                VALUES (?, ?, 'checkout-jti', 'pay-service', ?, ?, 'encrypted', ?,
+                VALUES (?, ?, ?, 'checkout-jti', 'pay-service', ?, ?, 'encrypted', ?,
                         'ISSUED', ?, ?)
                 """,
                 CHECKOUT_MANDATE_ID,
                 SESSION_ID,
+                SESSION_ITEM_ID,
                 "merchant:" + MERCHANT_ID,
                 DIGEST,
                 "c".repeat(64),
@@ -370,14 +384,15 @@ class PayConcurrencyPostgresIntegrationTest {
         jdbc.update(
                 """
                 INSERT INTO payment_mandates
-                    (id, authorization_session_id, jti, transaction_id, merchant_id,
+                    (id, authorization_session_id, session_item_id, jti, transaction_id, merchant_id,
                      external_checkout_id, amount_minor, currency, payment_method_ref,
                      signed_artifact_encrypted, artifact_hash, status, issued_at, expires_at)
-                VALUES (?, ?, 'payment-jti', 'transaction-001', ?, 'checkout-test', 99000,
+                VALUES (?, ?, ?, 'payment-jti', 'transaction-001', ?, 'checkout-test', 99000,
                         'KRW', 'provider-token-ref', 'encrypted', ?, 'ISSUED', ?, ?)
                 """,
                 PAYMENT_MANDATE_ID,
                 SESSION_ID,
+                SESSION_ITEM_ID,
                 MERCHANT_ID,
                 "d".repeat(64),
                 java.sql.Timestamp.from(NOW),
@@ -385,15 +400,16 @@ class PayConcurrencyPostgresIntegrationTest {
         jdbc.update(
                 """
                 INSERT INTO payment_credential_tokens
-                    (id, authorization_session_id, checkout_mandate_id, payment_mandate_id,
+                    (id, authorization_session_id, session_item_id, checkout_mandate_id, payment_mandate_id,
                      token_hash, token_ciphertext, merchant_id, external_checkout_id,
                      checkout_digest, amount_minor, currency, status, issued_at, expires_at,
                      consumed_at)
-                VALUES (?, ?, ?, ?, ?, 'encrypted', ?, 'checkout-test', ?, 99000, 'KRW',
+                VALUES (?, ?, ?, ?, ?, ?, 'encrypted', ?, 'checkout-test', ?, 99000, 'KRW',
                         'CONSUMED', ?, ?, ?)
                 """,
                 CREDENTIAL_ID,
                 SESSION_ID,
+                SESSION_ITEM_ID,
                 CHECKOUT_MANDATE_ID,
                 PAYMENT_MANDATE_ID,
                 "e".repeat(64),

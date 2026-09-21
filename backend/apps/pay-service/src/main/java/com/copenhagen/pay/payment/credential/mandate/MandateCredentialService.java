@@ -3,6 +3,7 @@ package com.copenhagen.pay.payment.credential.mandate;
 import com.copenhagen.pay.common.error.PayErrorCode;
 import com.copenhagen.pay.common.error.PayException;
 import com.copenhagen.pay.payment.authorization.AuthorizationSession;
+import com.copenhagen.pay.payment.authorization.AuthorizationSessionItem;
 import com.copenhagen.pay.payment.authorization.CheckoutHashCodec;
 import com.copenhagen.pay.payment.paymentmethod.PaymentMethod;
 import com.copenhagen.pay.payment.paymentmethod.PaymentMethodRepository;
@@ -45,7 +46,10 @@ public class MandateCredentialService implements PaymentCredentialIssuer {
 
     @Override
     @Transactional
-    public IssuedPaymentCredential issue(AuthorizationSession session, String authMethod) {
+    public IssuedPaymentCredential issue(
+            AuthorizationSession session,
+            AuthorizationSessionItem item,
+            String authMethod) {
         Instant issuedAt = clock.instant();
         if (session.status() != AuthorizationSessionStatus.APPROVED) {
             throw new PayException(
@@ -79,11 +83,12 @@ public class MandateCredentialService implements PaymentCredentialIssuer {
                         session.userId())
                 .orElseThrow(() -> new PayException(PayErrorCode.PAYMENT_METHOD_INACTIVE));
         String paymentMethodRef = paymentMethod.providerTokenRef();
-        String checkoutHash = CheckoutHashCodec.toExternalHash(session.checkoutDigest());
-        String audience = "merchant:" + session.merchantId();
+        String checkoutHash = CheckoutHashCodec.toExternalHash(item.checkoutDigest());
+        String audience = "merchant:" + item.merchantId();
 
         String checkoutMandate = signingService.createCheckoutMandate(
                 session,
+                item,
                 checkoutMandateId,
                 issuedAt);
         ArtifactEncryptionService.EncryptedArtifact checkoutArtifact = encryptionService
@@ -91,6 +96,7 @@ public class MandateCredentialService implements PaymentCredentialIssuer {
 
         String paymentMandate = signingService.createPaymentMandate(
                 session,
+                item,
                 paymentMandateId,
                 transactionId,
                 paymentMethodRef,
@@ -104,6 +110,7 @@ public class MandateCredentialService implements PaymentCredentialIssuer {
                 paymentMandateId,
                 paymentMandate,
                 session,
+                item,
                 checkoutHash,
                 authMethod,
                 paymentMethodRef);
@@ -113,10 +120,11 @@ public class MandateCredentialService implements PaymentCredentialIssuer {
         repository.insert(new MandateCredentialRepository.Issuance(
                 checkoutMandateId,
                 session.id(),
+                item.id(),
                 checkoutMandateId,
                 properties.issuer(),
                 audience,
-                session.checkoutDigest(),
+                item.checkoutDigest(),
                 checkoutArtifact.ciphertext(),
                 checkoutArtifact.hash(),
                 issuedAt,
@@ -124,10 +132,10 @@ public class MandateCredentialService implements PaymentCredentialIssuer {
                 paymentMandateId,
                 paymentMandateId,
                 transactionId,
-                session.merchantId(),
-                session.externalCheckoutId(),
-                session.amountMinor(),
-                session.currency(),
+                item.merchantId(),
+                item.externalCheckoutId(),
+                item.amountMinor(),
+                item.currency(),
                 paymentMethodRef,
                 paymentArtifact.ciphertext(),
                 paymentArtifact.hash(),
@@ -147,6 +155,7 @@ public class MandateCredentialService implements PaymentCredentialIssuer {
             String paymentMandateId,
             String paymentMandate,
             AuthorizationSession session,
+            AuthorizationSessionItem item,
             String checkoutHash,
             String authMethod,
             String paymentMethodRef) {
@@ -156,12 +165,12 @@ public class MandateCredentialService implements PaymentCredentialIssuer {
                     checkoutMandateId,
                     paymentMandateId,
                     paymentMandate,
-                    session.merchantId(),
-                    session.externalCheckoutId(),
+                    item.merchantId(),
+                    item.externalCheckoutId(),
                     checkoutHash,
                     session.purchaseRequestId(),
-                    session.amountMinor(),
-                    session.currency(),
+                    item.amountMinor(),
+                    item.currency(),
                     paymentMethodRef,
                     authMethod,
                     session.expiresAt()));

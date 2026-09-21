@@ -180,13 +180,16 @@ class PaymentApprovalStatusServiceTest {
                 new PaymentApprovalStatusRepository.PaymentApprovalStatusView(
                         APPROVAL_ID,
                         AuthorizationSessionStatus.APPROVED,
-                        null,
-                        null,
                         87000,
                         "KRW",
-                        "33333333-3333-3333-3333-333333333333",
-                        credentialExpiresAt,
-                        "VISA **** 1234")));
+                        java.util.List.of(new PaymentApprovalStatusRepository.ItemView(
+                                "merchant-001",
+                                "checkout-001",
+                                "33333333-3333-3333-3333-333333333333",
+                                credentialExpiresAt,
+                                null,
+                                null,
+                                "VISA **** 1234")))));
 
         PaymentApprovalStatusResponse response = service.find(APPROVAL_ID);
 
@@ -218,12 +221,15 @@ class PaymentApprovalStatusServiceTest {
         return new PaymentApprovalStatusRepository.PaymentApprovalStatusView(
                 APPROVAL_ID,
                 approvalStatus,
-                paymentId,
-                paymentStatus,
                 87000,
                 "KRW",
-                null,
-                null,
-                "Copenhagen Pay");
+                java.util.List.of(new PaymentApprovalStatusRepository.ItemView(
+                        "merchant-001",
+                        "checkout-001",
+                        null,
+                        null,
+                        paymentId,
+                        paymentStatus,
+                        "Copenhagen Pay")));
     }
 }

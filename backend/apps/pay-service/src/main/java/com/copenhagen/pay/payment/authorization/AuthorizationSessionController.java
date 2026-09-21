@@ -72,9 +72,7 @@ public class AuthorizationSessionController {
         String userId = userId(httpRequest);
         AuthorizationSessionStatus requestedStatus = parseStatus(status);
         List<ApprovalListItemResponse> items = service.findForUser(userId, requestedStatus).stream()
-                .map(session -> ApprovalListItemResponse.from(
-                        session,
-                        service.displaySnapshot(session)))
+                .map(ApprovalListItemResponse::from)
                 .toList();
         return ResponseEntity.ok(new ApprovalListResponse(items));
     }
@@ -88,9 +86,12 @@ public class AuthorizationSessionController {
         AuthorizationApprovalService.PreparedDetail prepared = approvalService.prepareDetail(
                 session,
                 deviceId);
+        List<MerchantResponse> merchants = prepared.session().items().stream()
+                .map(item -> MerchantResponse.from(item, service.displaySnapshot(item)))
+                .toList();
         return ResponseEntity.ok(ApprovalDetailResponse.from(
                 prepared.session(),
-                service.displaySnapshot(prepared.session()),
+                merchants,
                 prepared.challenge().map(AuthorizationSessionController::toResponse).orElse(null)));
     }
 
@@ -158,9 +159,69 @@ public class AuthorizationSessionController {
         }
     }
 
+    /**
+     * 구매 요청 하나에 대한 승인 생성. 판매처별 주문서는 {@code items[]} 로 전달한다.
+     *
+     * <p>Core 배포 시점을 분리할 수 있도록 구 단건 계약(평면 필드)도 함께 받는다.
+     * {@code items} 가 비어 있고 평면 필드가 오면 판매처 1곳짜리 세션으로 만든다.
+     */
     public record CreateAuthorizationSessionRequest(
             @NotBlank @Size(max = 36) String purchaseRequestId,
             @NotBlank @Size(max = 36) String userId,
+            @PositiveOrZero Long totalAmountMinor,
+            @NotBlank @Pattern(regexp = "KRW") String currency,
+            @Valid List<ItemRequest> items,
+            @Size(max = 100) String merchantId,
+            @Size(max = 150) String checkoutId,
+            @Size(max = 100) String checkoutHash,
+            @Size(max = 10000) String checkoutJwt,
+            @Valid DisplaySnapshotRequest display,
+            Long amountMinor) {
+
+        private CreateAuthorizationSessionCommand toCommand() {
+            List<CreateAuthorizationSessionCommand.Item> commandItems = items == null
+                    || items.isEmpty()
+                    ? List.of(legacyItem())
+                    : items.stream().map(ItemRequest::toDomain).toList();
+            long total = totalAmountMinor != null
+                    ? totalAmountMinor
+                    : commandItems.stream()
+                            .mapToLong(CreateAuthorizationSessionCommand.Item::amountMinor)
+                            .sum();
+            return new CreateAuthorizationSessionCommand(
+                    purchaseRequestId,
+                    userId,
+                    total,
+                    currency,
+                    commandItems);
+        }
+
+        /** 구 단건 계약. 평면 필드가 하나라도 비면 검증 단계에서 거절된다. */
+        private CreateAuthorizationSessionCommand.Item legacyItem() {
+            return new CreateAuthorizationSessionCommand.Item(
+                    merchantId,
+                    checkoutId,
+                    checkoutHash,
+                    checkoutJwt,
+                    display == null ? null : display.toDomain(),
+                    amountMinor == null ? 0L : amountMinor,
+                    currency);
+        }
+
+        @Override
+        public String toString() {
+            return "CreateAuthorizationSessionRequest["
+                    + "purchaseRequestId='" + purchaseRequestId + '\''
+                    + ", userId='" + userId + '\''
+                    + ", itemCount=" + (items == null ? 0 : items.size())
+                    + ", totalAmountMinor=" + totalAmountMinor
+                    + ", currency='" + currency + '\''
+                    + ", items=<redacted>"
+                    + ']';
+        }
+    }
+
+    public record ItemRequest(
             @NotBlank @Size(max = 100) String merchantId,
             @NotBlank @Size(max = 150) String checkoutId,
             @NotBlank @Size(max = 100) String checkoutHash,
@@ -169,10 +230,8 @@ public class AuthorizationSessionController {
             @PositiveOrZero long amountMinor,
             @NotBlank @Pattern(regexp = "KRW") String currency) {
 
-        private CreateAuthorizationSessionCommand toCommand() {
-            return new CreateAuthorizationSessionCommand(
-                    purchaseRequestId,
-                    userId,
+        private CreateAuthorizationSessionCommand.Item toDomain() {
+            return new CreateAuthorizationSessionCommand.Item(
                     merchantId,
                     checkoutId,
                     checkoutHash,
@@ -184,10 +243,8 @@ public class AuthorizationSessionController {
 
         @Override
         public String toString() {
-            return "CreateAuthorizationSessionRequest["
-                    + "purchaseRequestId='" + purchaseRequestId + '\''
-                    + ", userId='" + userId + '\''
-                    + ", merchantId='" + merchantId + '\''
+            return "ItemRequest["
+                    + "merchantId='" + merchantId + '\''
                     + ", checkoutId='" + checkoutId + '\''
                     + ", checkoutHash=<redacted>"
                     + ", checkoutJwt=<redacted>"
@@ -235,7 +292,12 @@ public class AuthorizationSessionController {
             String status,
             String requiredAction,
             Instant expiresAt,
-            String nextAction) {
+            String nextAction,
+            List<CreatedItemResponse> items) {
+
+        public ApprovalCreatedResponse {
+            items = items == null ? List.of() : List.copyOf(items);
+        }
 
         private static ApprovalCreatedResponse from(AuthorizationSession session) {
             String nextAction = session.status()
@@ -247,8 +309,20 @@ public class AuthorizationSessionController {
                     session.status().name(),
                     session.requiredAction(),
                     session.expiresAt(),
-                    nextAction);
+                    nextAction,
+                    session.items().stream()
+                            .map(item -> new CreatedItemResponse(
+                                    item.merchantId(),
+                                    item.externalCheckoutId()))
+                            .toList());
         }
+    }
+
+    /**
+     * 생성 응답의 에코. Core 가 어느 {@code merchant_checkouts} 행에 승인 ID 를 달지 이 값으로
+     * 맞춘다(S15P21A207-486). 순서는 보장하지 않으므로 Core 는 checkoutId 로 매칭한다.
+     */
+    public record CreatedItemResponse(String merchantId, String checkoutId) {
     }
 
     public record ApprovalListResponse(List<ApprovalListItemResponse> items) {
@@ -258,26 +332,26 @@ public class AuthorizationSessionController {
         }
     }
 
+    /**
+     * 인박스 카드. 판매처가 여러 곳이면 대표 판매처명과 개수로 표시한다
+     * (예: "A마트 외 2곳"). {@code checkoutId} 는 판매처마다 달라 카드에 담지 않는다.
+     */
     public record ApprovalListItemResponse(
             String approvalId,
             String merchantName,
-            String checkoutId,
-            List<SummaryItemResponse> summary,
-            long amountMinor,
+            int merchantCount,
+            long totalAmountMinor,
             String currency,
             String status,
             String requiredAction,
             Instant expiresAt) {
 
-        private static ApprovalListItemResponse from(
-                AuthorizationSession session,
-                AuthorizationDisplaySnapshot displaySnapshot) {
+        private static ApprovalListItemResponse from(AuthorizationSession session) {
             return new ApprovalListItemResponse(
                     session.id(),
-                    displaySnapshot.merchantName(),
-                    session.externalCheckoutId(),
-                    SummaryItemResponse.from(displaySnapshot),
-                    session.amountMinor(),
+                    session.primaryMerchantName(),
+                    session.merchantCount(),
+                    session.totalAmountMinor(),
                     session.currency(),
                     session.status().name(),
                     session.requiredAction(),
@@ -285,12 +359,13 @@ public class AuthorizationSessionController {
         }
     }
 
+    /**
+     * 승인 상세. 판매처별 섹션과 합계를 함께 내려준다. 생체 challenge 는 판매처 수와
+     * 관계없이 세션당 1개다.
+     */
     public record ApprovalDetailResponse(
             String approvalId,
-            String merchantName,
-            String checkoutId,
-            String checkoutHash,
-            List<SummaryItemResponse> summary,
+            List<MerchantResponse> merchants,
             long totalAmountMinor,
             String currency,
             String selectedPaymentMethodId,
@@ -301,21 +376,43 @@ public class AuthorizationSessionController {
 
         private static ApprovalDetailResponse from(
                 AuthorizationSession session,
-                AuthorizationDisplaySnapshot displaySnapshot,
+                List<MerchantResponse> merchants,
                 BiometricChallengeResponse biometricChallenge) {
             return new ApprovalDetailResponse(
                     session.id(),
-                    displaySnapshot.merchantName(),
-                    session.externalCheckoutId(),
-                    CheckoutHashCodec.toExternalHash(session.checkoutDigest()),
-                    SummaryItemResponse.from(displaySnapshot),
-                    session.amountMinor(),
+                    merchants,
+                    session.totalAmountMinor(),
                     session.currency(),
                     session.selectedPaymentMethodId(),
                     session.status().name(),
                     session.requiredAction(),
                     session.expiresAt(),
                     biometricChallenge);
+        }
+    }
+
+    /**
+     * 판매처 한 곳. {@code subtotalAmountMinor} 는 배송비를 포함하므로
+     * {@code summary} 의 상품 금액 합보다 클 수 있다.
+     */
+    public record MerchantResponse(
+            String merchantId,
+            String merchantName,
+            String checkoutId,
+            String checkoutHash,
+            List<SummaryItemResponse> summary,
+            long subtotalAmountMinor) {
+
+        private static MerchantResponse from(
+                AuthorizationSessionItem item,
+                AuthorizationDisplaySnapshot displaySnapshot) {
+            return new MerchantResponse(
+                    item.merchantId(),
+                    displaySnapshot.merchantName(),
+                    item.externalCheckoutId(),
+                    CheckoutHashCodec.toExternalHash(item.checkoutDigest()),
+                    SummaryItemResponse.from(displaySnapshot),
+                    item.amountMinor());
         }
     }
 
@@ -430,14 +527,16 @@ public class AuthorizationSessionController {
     public record RejectRequest(@NotBlank @Size(max = 50) String reason) {
     }
 
+    /**
+     * credential 은 판매처가 Pay 에 결제를 요청할 때 쓰는 값이라 앱 응답에 싣지 않는다.
+     * 판매처별 결제 결과는 승인 상세와 구매 상태 조회에서 확인한다.
+     */
     public record ApprovalActionResponse(
             String approvalId,
             String status,
             String requiredAction,
             String authMethod,
-            String credentialId,
-            Instant credentialExpiresAt,
-            String checkoutMandate,
+            int credentialCount,
             String nextAction) {
 
         private static ApprovalActionResponse from(
@@ -447,9 +546,7 @@ public class AuthorizationSessionController {
                     result.status(),
                     result.requiredAction(),
                     result.authMethod(),
-                    result.credentialId(),
-                    result.credentialExpiresAt(),
-                    result.checkoutMandate(),
+                    result.credentials().size(),
                     result.nextAction());
         }
     }
