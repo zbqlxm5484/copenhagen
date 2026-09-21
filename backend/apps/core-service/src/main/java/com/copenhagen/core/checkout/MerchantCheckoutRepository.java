@@ -12,20 +12,36 @@ public interface MerchantCheckoutRepository {
      * @return 생성된 {@code merchant_checkouts.id} 목록. {@code records}와 같은 순서다(이슈 410 — 승인
      *     세션 생성을 이 id로 잇는다).
      */
-    List<Long> insertAll(List<MerchantCheckoutRecord> records, Instant now);
+    List<Long> insertAll(List<MerchantCheckoutRecord> records, String approvalRequest, Instant now);
 
-    List<CreatingApprovalCheckout> findCreatingApprovals(Instant now);
+    /**
+     * 승인 생성을 아직 못 끝낸 구매 요청. 승인이 구매 요청당 1건이므로(이슈 S15P21A207-486) 재시도
+     * 단위도 checkout 행이 아니라 구매 요청이다.
+     */
+    List<CreatingApprovalPurchase> findCreatingApprovals(Instant now);
 
-    boolean claimApprovalCreation(long id, Instant now);
+    boolean claimApprovalCreation(long purchaseRequestId, Instant now);
 
-    String saveApprovalRequestIfAbsent(long id, String request);
+    String saveApprovalRequestIfAbsent(long purchaseRequestId, String request);
 
     List<AwaitingApprovalCheckout> findCompleting(Instant now);
 
     java.util.Optional<AwaitingApprovalCheckout> findByMerchantCheckout(long merchantId, String checkoutId);
 
-    record CreatingApprovalCheckout(long id, String purchaseRequestId, String userId, long merchantRefId,
-            String checkoutDigest, String checkoutPayload, String approvalRequest, Instant expiresAt) {
+    /**
+     * 승인 생성 재시도 대상 한 건. {@code items}는 담은 순서를 유지한다 — 최초 호출과 같은 순서여야
+     * 같은 본문이 만들어지고, Pay 멱등키가 같은 요청으로 인정된다.
+     */
+    record CreatingApprovalPurchase(long id, String publicId, String userId, String approvalRequest,
+            Instant expiresAt, List<CreatingApprovalItem> items) {
+
+        public CreatingApprovalPurchase {
+            items = List.copyOf(items);
+        }
+    }
+
+    record CreatingApprovalItem(long checkoutId, long merchantRefId, String checkoutDigest,
+            String checkoutPayload) {
     }
 
     /** 승인 세션 생성 성공. {@code CREATING -> AWAITING_APPROVAL}. */

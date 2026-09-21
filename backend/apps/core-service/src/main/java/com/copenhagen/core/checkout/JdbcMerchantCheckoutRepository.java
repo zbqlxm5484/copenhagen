@@ -5,7 +5,9 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -57,38 +59,59 @@ public class JdbcMerchantCheckoutRepository implements MerchantCheckoutRepositor
     }
 
     @Override
-    public List<CreatingApprovalCheckout> findCreatingApprovals(Instant now) {
-        return jdbcTemplate.query("""
-                SELECT mc.id, pr.public_id AS purchase_id, u.public_id AS user_id, mc.merchant_id,
-                    mc.checkout_digest, cs.merchant_checkout_payload::text AS payload,
-                    mc.approval_request::text AS approval_request, mc.checkout_expires_at
+    public List<CreatingApprovalPurchase> findCreatingApprovals(Instant now) {
+        Map<Long, CreatingApprovalPurchase> grouped = new LinkedHashMap<>();
+        Map<Long, List<CreatingApprovalItem>> items = new LinkedHashMap<>();
+        jdbcTemplate.query("""
+                SELECT pr.id AS purchase_request_id, pr.public_id AS purchase_id, u.public_id AS user_id,
+                    pr.approval_request::text AS approval_request, mc.id AS checkout_id, mc.merchant_id,
+                    mc.checkout_digest, cs.merchant_checkout_payload::text AS payload, mc.checkout_expires_at
                 FROM merchant_checkouts mc
                 JOIN purchase_requests pr ON pr.id = mc.purchase_request_id
                 JOIN users u ON u.id = pr.user_id
                 JOIN checkout_snapshots cs ON cs.merchant_checkout_id = mc.id
-                WHERE mc.status = 'CREATING' AND (mc.retry_after IS NULL OR mc.retry_after <= ?)
-                ORDER BY mc.retry_after NULLS FIRST, mc.id LIMIT 100
-                """, (row, index) -> new CreatingApprovalCheckout(
-                        row.getLong("id"), row.getString("purchase_id"), row.getString("user_id"),
-                        row.getLong("merchant_id"), row.getString("checkout_digest"), row.getString("payload"),
-                        row.getString("approval_request"), row.getTimestamp("checkout_expires_at") == null
-                                ? null : row.getTimestamp("checkout_expires_at").toInstant()), Timestamp.from(now));
+                WHERE mc.status = 'CREATING'
+                    AND (pr.approval_retry_at IS NULL OR pr.approval_retry_at <= ?)
+                    AND pr.id IN (
+                        SELECT purchase_request_id FROM merchant_checkouts
+                        GROUP BY purchase_request_id
+                        HAVING bool_and(status = 'CREATING')
+                    )
+                ORDER BY pr.approval_retry_at NULLS FIRST, pr.id, mc.id
+                LIMIT 300
+                """, row -> {
+            long purchaseRequestId = row.getLong("purchase_request_id");
+            Timestamp expiresAt = row.getTimestamp("checkout_expires_at");
+            CreatingApprovalPurchase purchase = new CreatingApprovalPurchase(purchaseRequestId,
+                    row.getString("purchase_id"), row.getString("user_id"), row.getString("approval_request"),
+                    expiresAt == null ? null : expiresAt.toInstant(), List.of());
+            CreatingApprovalItem item = new CreatingApprovalItem(row.getLong("checkout_id"),
+                    row.getLong("merchant_id"), row.getString("checkout_digest"), row.getString("payload"));
+            items.computeIfAbsent(purchaseRequestId, key -> new ArrayList<>()).add(item);
+            grouped.putIfAbsent(purchaseRequestId, purchase);
+        }, Timestamp.from(now));
+        return grouped.values().stream()
+                .map(purchase -> new CreatingApprovalPurchase(purchase.id(), purchase.publicId(),
+                        purchase.userId(), purchase.approvalRequest(), purchase.expiresAt(),
+                        items.get(purchase.id())))
+                .toList();
     }
 
     @Override
-    public boolean claimApprovalCreation(long id, Instant now) {
+    public boolean claimApprovalCreation(long purchaseRequestId, Instant now) {
         return jdbcTemplate.update("""
-                UPDATE merchant_checkouts SET retry_after = ?, updated_at = ?
-                WHERE id = ? AND status = 'CREATING' AND (retry_after IS NULL OR retry_after <= ?)
-                """, Timestamp.from(now.plusSeconds(30)), Timestamp.from(now), id, Timestamp.from(now)) == 1;
+                UPDATE purchase_requests SET approval_retry_at = ?, updated_at = ?
+                WHERE id = ? AND (approval_retry_at IS NULL OR approval_retry_at <= ?)
+                """, Timestamp.from(now.plusSeconds(30)), Timestamp.from(now), purchaseRequestId,
+                Timestamp.from(now)) == 1;
     }
 
     @Override
-    public String saveApprovalRequestIfAbsent(long id, String request) {
+    public String saveApprovalRequestIfAbsent(long purchaseRequestId, String request) {
         return jdbcTemplate.queryForObject("""
-                UPDATE merchant_checkouts SET approval_request = COALESCE(approval_request, ?::jsonb)
+                UPDATE purchase_requests SET approval_request = COALESCE(approval_request, ?::jsonb)
                 WHERE id = ? RETURNING approval_request::text
-                """, String.class, request, id);
+                """, String.class, request, purchaseRequestId);
     }
 
     private static final String SELECT_APPROVAL = """
@@ -117,12 +140,15 @@ public class JdbcMerchantCheckoutRepository implements MerchantCheckoutRepositor
 
     @Override
     @Transactional
-    public List<Long> insertAll(List<MerchantCheckoutRecord> records, Instant now) {
+    public List<Long> insertAll(List<MerchantCheckoutRecord> records, String approvalRequest, Instant now) {
         List<Long> checkoutIds = new ArrayList<>(records.size());
+        if (!records.isEmpty()) {
+            // 승인 생성 전에 요청 본문을 남긴다. 워커가 같은 키·같은 본문으로 재시도한다.
+            jdbcTemplate.update("UPDATE purchase_requests SET approval_request = ?::jsonb WHERE id = ?",
+                    approvalRequest, records.get(0).checkout().purchaseRequestId());
+        }
         for (MerchantCheckoutRecord record : records) {
             long checkoutId = insertCheckout(record.checkout(), now);
-            jdbcTemplate.update("UPDATE merchant_checkouts SET approval_request = ?::jsonb WHERE id = ?",
-                    record.approvalRequest(), checkoutId);
             long snapshotId = insertSnapshot(record.snapshot(), checkoutId, now);
             for (CheckoutSnapshotItem item : record.items()) {
                 insertItem(snapshotId, item);

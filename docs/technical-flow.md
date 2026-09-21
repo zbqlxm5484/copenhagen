@@ -11,10 +11,11 @@
 | v5 | Pay 승인 세션·Payment·대사 작업의 종료 조건, 결제 중복 방지, KRW 단일 통화, Checkout Evidence와 사용자 승인 스냅샷의 역할을 명시. |
 | v5.1 | 자체 ID/PW 로그인 순서, 실패·잠금·만료 처리, 최종 로그인 성공과 JWT 발급 경계를 12장에 추가. |
 | v5.2 | Refresh Token 갱신(Rotation)·재사용 탐지·로그아웃 흐름을 13장에 추가. 12장의 로그인 경로를 `/api/core/v1`로 정정하고 JWT 미구현 전제 문구를 구현 완료 기준으로 갱신. |
+| v5.3 | 결제 승인 단위를 Checkout에서 구매 요청으로 변경(이슈 S15P21A207-486). 판매처가 여러 곳이어도 승인 세션·사용자 인증·승인 알림은 1건이고, Payment Credential과 Complete Checkout·Payment는 그대로 Checkout 단위로 유지. 5·6·7장 갱신. |
 
 > **프로젝트 설계 기준:** 프로젝트 설계서 v2.1
-> **Technical Flow 문서 버전:** v5.2
-> API, DTO, DB 및 서비스 간 연동 설계는 별도 명시가 없는 한 v5.2 Technical Flow를 기준으로 한다.
+> **Technical Flow 문서 버전:** v5.3
+> API, DTO, DB 및 서비스 간 연동 설계는 별도 명시가 없는 한 v5.3 Technical Flow를 기준으로 한다.
 
 ---
 
@@ -287,17 +288,27 @@ checkoutHash
 
 또는 구현 범위에 따라 AP2-like Mandate를 사용할 수 있다.
 
-Core는 Pay에 승인 요청을 생성한다.
+Core는 Pay에 승인 요청을 생성한다. **승인 단위는 구매 요청이다**(이슈 S15P21A207-486). 판매처가 몇 곳이든
+한 구매 요청에 승인 세션 하나를 만들고, 판매처별 Checkout은 `items`에 담는다.
 
 ```text
-checkoutId
-checkoutHash
-merchantName
-amount
+purchaseRequestId
+totalAmountMinor
 currency
+items[]
+ ├─ merchantId
+ ├─ checkoutId
+ ├─ checkoutHash
+ ├─ merchantName
+ └─ amount / currency
 ```
 
-여기서 `amount`와 `currency`는 Merchant Checkout에서 확정된 값을 이용한다.
+여기서 항목별 `amount`와 `currency`는 Merchant Checkout에서 확정된 값을 이용하고, `totalAmountMinor`는 그 합이다.
+통화가 섞인 요청은 Pay가 거절한다.
+
+Core는 Checkout을 전부 확정한 뒤에 이 요청을 한 번 보낸다. Checkout 생성은 이미 전부 성공하거나 전부
+실패하므로(§4), 승인 생성에 부분 성공이 없다. 실패하면 Checkout 전부가 `CREATING`으로 남고 같은 멱등키
+(`purchaseRequestId` 기반)로 재시도한다.
 
 ---
 
@@ -316,22 +327,31 @@ PIN 및 생체인증은 Pay 영역에서 처리한다.
 
 Core와 Merchant는 PIN 원문 또는 생체정보를 처리하지 않는다.
 
-승인 성공 시 Pay는 해당 Checkout 범위에 제한된 Payment Credential을 발급한다.
+사용자 인증은 구매 요청당 한 번이다. 승인 성공 시 Pay는 **항목마다** 해당 Checkout 범위에 제한된 Payment
+Credential을 발급한다. 인증은 1회지만 Credential과 결제는 판매처별로 나뉜다.
 
 Core에는 다음 참조정보만 전달한다.
 
 ```text
 approvalId
 status = APPROVED
-credentialId
-expiresAt
+items[]
+ ├─ merchantId
+ ├─ checkoutId
+ ├─ credentialId
+ └─ expiresAt
 ```
+
+Core는 Checkout마다 자기 `credentialId`를 골라 쓴다. 응답에 자기 Checkout이 없으면 다른 판매처의
+Credential로 결제하지 않고 건너뛴다.
 
 ---
 
 # 7. Complete Checkout / Payment / Order 생성
 
-승인이 완료되면 Core는 Merchant에 Complete Checkout을 요청한다.
+승인이 완료되면 Core는 Merchant에 Complete Checkout을 요청한다. **인증 1회 ≠ 결제 1건이다** — Complete
+Checkout과 그에 이은 Payment는 여전히 Checkout마다 한 번씩 일어난다. 그래서 일부 판매처만 완료되는
+`PARTIALLY_COMPLETED`는 승인을 묶은 뒤에도 정상 상태로 남는다.
 
 UCP Payment Handler 구조에서는 Pay가 발급한 `credentialId`를 Payment Instrument의 Credential로 전달한다.
 

@@ -151,6 +151,12 @@ public enum CoreErrorCode {
             "PAYMENT_APPROVAL_UNAVAILABLE",
             "결제 승인 서비스에 일시적으로 연결할 수 없습니다.",
             "RETRY_LATER"),
+    /** 승인 세션 스키마 이관 드레인 구간(이슈 S15P21A207-486). 장애가 아니라 계획된 중단이다. */
+    PURCHASE_SUSPENDED(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "PURCHASE_SUSPENDED",
+            "결제 점검 중입니다. 잠시 후 다시 시도해 주세요.",
+            "RETRY_LATER"),
     MERCHANT_PROFILE_UNAVAILABLE(
             HttpStatus.SERVICE_UNAVAILABLE,
             "MERCHANT_PROFILE_UNAVAILABLE",

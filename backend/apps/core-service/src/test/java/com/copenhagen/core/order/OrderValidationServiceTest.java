@@ -46,6 +46,7 @@ import com.copenhagen.core.common.error.CoreException;
 import com.copenhagen.core.payment.PayCheckoutHash;
 import com.copenhagen.core.payment.PaymentApprovalClient;
 import com.copenhagen.core.payment.PaymentApprovalMessages.ApprovalCreatedResponse;
+import com.copenhagen.core.payment.PaymentApprovalMessages.ApprovalItem;
 import com.copenhagen.core.payment.PaymentApprovalMessages.CreateApprovalRequest;
 import com.copenhagen.core.product.MerchantsProperties;
 
@@ -117,13 +118,14 @@ class OrderValidationServiceTest {
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 userRepository,
                 paymentApprovalClient,
-                properties, new OrderValidationInputLoader(cartRepository, addressRepository));
+                properties, new OrderValidationInputLoader(cartRepository, addressRepository),
+                new PurchaseSuspensionProperties());
 
-        when(merchantCheckoutRepository.insertAll(any(), any()))
+        when(merchantCheckoutRepository.insertAll(any(), any(), any()))
                 .thenReturn(List.of(MERCHANT_CHECKOUT_ROW_ID));
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user()));
         when(paymentApprovalClient.create(any(), any())).thenReturn(new ApprovalCreatedResponse(
-                APPROVAL_ID, "PAYMENT_METHOD_REQUIRED", null, NOW.plusSeconds(300), "APPROVE_IN_APP"));
+                APPROVAL_ID, "PAYMENT_METHOD_REQUIRED", null, NOW.plusSeconds(300), "APPROVE_IN_APP", List.of()));
         when(cartRepository.findActiveByUserId(USER_ID)).thenReturn(Optional.of(cart(1)));
         when(cartRepository.findItemsByCartId(CART_ID)).thenReturn(List.of(cartItem("p-1", "sku-1", 2, 5000L)));
         when(addressRepository.findActiveByPublicIdAndUserId(ADDRESS_ID, USER_ID))
@@ -290,23 +292,52 @@ class OrderValidationServiceTest {
         verify(paymentApprovalClient).create(request.capture(), idempotencyKey.capture());
         assertThat(request.getValue().purchaseRequestId()).isEqualTo(VALIDATION_ID.toString());
         assertThat(request.getValue().userId()).isEqualTo(USER_PUBLIC_ID.toString());
-        assertThat(request.getValue().merchantId()).isEqualTo(MERCHANT_ID);
-        assertThat(request.getValue().checkoutId()).isEqualTo("checkout-1");
-        assertThat(request.getValue().checkoutJwt()).isEqualTo(JWS);
+        assertThat(request.getValue().totalAmountMinor()).isEqualTo(13000L);
+        assertThat(request.getValue().currency()).isEqualTo("KRW");
+        assertThat(request.getValue().items()).hasSize(1);
+        ApprovalItem item = request.getValue().items().get(0);
+        assertThat(item.merchantId()).isEqualTo(MERCHANT_ID);
+        assertThat(item.checkoutId()).isEqualTo("checkout-1");
+        assertThat(item.checkoutJwt()).isEqualTo(JWS);
         // Pay는 hex가 아니라 "sha256:"+Base64URL 외부 표현만 받는다(CheckoutHashCodec.toInternalDigest) —
         // 내부 hex(merchant_checkouts.checkout_digest)를 그대로 보내면 400이 난다(도커 컴포즈 E2E로 발견).
-        assertThat(request.getValue().checkoutHash())
+        assertThat(item.checkoutHash())
                 .isEqualTo(PayCheckoutHash.toExternal(CheckoutDigests.of(JWS)))
                 .startsWith("sha256:")
                 .hasSize(50);
-        assertThat(request.getValue().amountMinor()).isEqualTo(13000L);
-        assertThat(request.getValue().currency()).isEqualTo("KRW");
+        assertThat(item.amountMinor()).isEqualTo(13000L);
+        assertThat(item.currency()).isEqualTo("KRW");
         assertThat(idempotencyKey.getValue())
-                .isEqualTo(OrderValidationService.approvalIdempotencyKey(VALIDATION_ID, MERCHANT_ID));
+                .isEqualTo(OrderValidationService.approvalIdempotencyKey(VALIDATION_ID));
         assertThat(UUID.fromString(idempotencyKey.getValue())).isNotNull();
 
         verify(merchantCheckoutRepository).markAwaitingApproval(
                 MERCHANT_CHECKOUT_ROW_ID, APPROVAL_ID, NOW.plusSeconds(300), NOW);
+    }
+
+    @Test
+    @DisplayName("드레인 구간에는 merchant를 부르기 전에 503 PURCHASE_SUSPENDED로 반려한다(이슈 486)")
+    void validate_approvalSuspended_rejectsBeforeCreatingMerchantCheckout() {
+        PurchaseSuspensionProperties suspended = new PurchaseSuspensionProperties();
+        suspended.setApprovalSuspended(true);
+        MerchantsProperties properties = new MerchantsProperties(List.of(
+                new MerchantsProperties.MerchantConfig(
+                        MERCHANT_ID, MERCHANT_REF_ID, "A몰", URI.create("http://merchant-a:8080"),
+                        Duration.ofSeconds(1), Duration.ofSeconds(3))));
+        OrderValidationService service = new OrderValidationService(
+                cartRepository, addressRepository, purchaseRequestRepository, merchantCheckoutRepository,
+                new CartMerchants(properties), mock(PiiEncryptor.class), Map.of(MERCHANT_ID, client),
+                new ObjectMapper(), Clock.fixed(NOW, ZoneOffset.UTC), userRepository, paymentApprovalClient,
+                properties, new OrderValidationInputLoader(cartRepository, addressRepository), suspended);
+
+        assertThatThrownBy(() -> service.validate(USER_ID, CART_PUBLIC_ID, 1, ADDRESS_ID))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.errorCode()).isEqualTo(CoreErrorCode.PURCHASE_SUSPENDED));
+
+        // 만든 뒤 막으면 승인 없는 checkout이 남아 만료될 때까지 자리를 차지한다.
+        verify(client, never()).create(any(), any());
+        verify(merchantCheckoutRepository, never()).insertAll(any(), any(), any());
+        verify(paymentApprovalClient, never()).create(any(), any());
     }
 
     @Test
@@ -339,7 +370,7 @@ class OrderValidationServiceTest {
                     assertThat(exception.issues().get(0).merchantId()).isEqualTo(MERCHANT_ID);
                 });
 
-        verify(merchantCheckoutRepository, never()).insertAll(any(), any());
+        verify(merchantCheckoutRepository, never()).insertAll(any(), any(), any());
         verify(purchaseRequestRepository).markFailed(PURCHASE_REQUEST_ID, NOW);
     }
 
@@ -468,7 +499,7 @@ class OrderValidationServiceTest {
 
     private MerchantCheckoutRecord captureRecord() {
         ArgumentCaptor<List<MerchantCheckoutRecord>> captor = ArgumentCaptor.captor();
-        verify(merchantCheckoutRepository).insertAll(captor.capture(), eq(NOW));
+        verify(merchantCheckoutRepository).insertAll(captor.capture(), any(), eq(NOW));
         return captor.getValue().get(0);
     }
 
