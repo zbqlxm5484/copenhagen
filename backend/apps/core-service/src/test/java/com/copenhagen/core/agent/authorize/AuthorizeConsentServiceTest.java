@@ -216,7 +216,7 @@ class AuthorizeConsentServiceTest {
                 .thenReturn(new LoginResult(UUID.randomUUID(), 42L, "user1", "테스트"));
         assertInstanceOf(AuthorizeDecisionResult.Approved.class,
                 service.decide(requestId, "user1", "password", "APPROVE"));
-        verify(connectionService).replaceOnAuthorization(42L, 1L,
+        verify(connectionService).upsertOnAuthorization(42L, 1L,
                 Set.of("catalog:read", "cart:read", "cart:write", "purchase:handoff"));
     }
 
