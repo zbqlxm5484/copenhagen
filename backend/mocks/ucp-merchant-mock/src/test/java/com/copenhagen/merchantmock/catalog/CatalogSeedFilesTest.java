@@ -33,8 +33,13 @@ class CatalogSeedFilesTest {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final List<String> MALLS = List.of("merchant-a", "merchant-b", "merchant-c");
-    /** 원본 korean_products_clean.sqlite 의 clean_catalog 건수. 생성기가 풀 전량을 쓴다. */
-    private static final int POOL_SIZE = 1408;
+    /**
+     * 풀 전량. 원본 korean_products_clean.sqlite 의 clean_catalog 1,408건 + 식재료 수집본 184건(471).
+     *
+     * <p>원본에 기본 식재료가 없어 시연 시나리오가 성립하지 않아 따로 모았다. 생성기가 둘을 같은
+     * 경로로 태우므로 여기서는 합계 하나만 본다({@code tools/collect_kurly_grocery.py}).
+     */
+    private static final int POOL_SIZE = 1592;
     /** 생성기의 CARRY_RATIO 0.78 × 1,408 ≈ 1,098. 해시 편차를 넉넉히 감안한 하한이다. */
     private static final int MIN_PRODUCTS_PER_MALL = 1000;
 
@@ -275,6 +280,48 @@ class CatalogSeedFilesTest {
 
         // then 470 이전에는 0건이었다
         assertFalse(titles.isEmpty(), "올리브유 검색이 0건이면 카테고리 매칭이 죽은 것이다");
-        assertTrue(titles.stream().allMatch(title -> title.contains("오일")), titles.toString());
+        assertTrue(titles.stream().allMatch(title -> title.contains("오일") || title.contains("올리브유")),
+                titles.toString());
+    }
+
+    /**
+     * 토마토 파스타 시연에 필요한 재료들(471). 이 목록이 비면 "재료 찾아서 장바구니에 담아줘" 가
+     * 성립하지 않는다. 원본 풀에는 마늘·파마산·베이컨이 0건이라 따로 모아 넣었다.
+     */
+    private static final List<String> PASTA_INGREDIENTS =
+            List.of("파스타면", "토마토", "양파", "마늘", "올리브유", "파마산", "베이컨");
+
+    @Test
+    @DisplayName("토마토 파스타 재료가 전부 검색된다")
+    void seedFile_pastaScenario_findsEveryIngredient() {
+        // given
+        CatalogService service = searchOver("merchant-a");
+
+        // when & then
+        for (String ingredient : PASTA_INGREDIENTS) {
+            List<String> titles = titlesOf(service, ingredient);
+            assertFalse(titles.isEmpty(), ingredient + " 검색이 0건이다. 시연이 성립하지 않는다");
+            assertTrue(titles.get(0).contains(ingredient) || titles.size() >= 2,
+                    ingredient + " 첫 결과: " + titles.get(0));
+        }
+    }
+
+    @Test
+    @DisplayName("수집한 식재료의 이미지 도메인이 위젯 허용 목록 안이다")
+    void seedFile_collectedGroceries_useAllowedImageHosts() {
+        // given: mcp-server CatalogUiConfiguration 이 다섯 도메인만 허용한다. 벗어나면 카드에 그림이 안 뜬다
+        List<String> allowed = List.of(
+                "product-image.kurly.com", "3p-image.kurly.com", "img-cf.kurly.com",
+                "img.danuri.io", "cdn.daisomall.co.kr");
+
+        // when & then
+        for (CatalogSeed.Entry entry : load("merchant-a")) {
+            String image = entry.imageUrl();
+            if (image == null) {
+                continue;
+            }
+            assertTrue(allowed.stream().anyMatch(host -> image.contains("//" + host + "/")),
+                    entry.externalId() + " 이미지 도메인이 허용 목록 밖이다: " + image);
+        }
     }
 }

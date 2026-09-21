@@ -2,7 +2,7 @@
   "mall": "merchant-c",
   "mallName": "별빛몰",
   "source": "NomaDamas/k-skill · korean_products_clean.sqlite · 세 몰이 전량을 취급하고 결정적 해시로 몰별 가격·재고를 가름",
-  "count": 1408,
+  "count": 1592,
   "products": [
     {
       "id": "ad049258-3248-5767-9638-7022b0cf6dc2",
@@ -18949,6 +18949,27 @@
       ]
     },
     {
+      "id": "b8bf011c-88b9-5297-8b7e-9f25c6a4ec3b",
+      "externalId": "kurly:1000030621",
+      "title": "[하인즈] 토마토 케찹 650g",
+      "category": "양념/오일 > 소스 > 케첩",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/1540a084-92ff-4203-a956-ff07d065c069.jpg",
+      "basePrice": 4340,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000030621-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "a827bda4-d005-564c-8bd5-d24720ce8e21",
       "externalId": "kurly:1000030930",
       "title": "[엘라스틴] 모이스처 수분케어 10X 샴푸&컨디셔너&트리트먼트 680ml 3종 (택1)",
@@ -19239,6 +19260,48 @@
       ]
     },
     {
+      "id": "dacfe70b-8000-5696-b534-5c6f6b7fcec1",
+      "externalId": "kurly:1000086665",
+      "title": "[하림] 냉장 닭가슴살 4종 (4개입)",
+      "category": "닭/오리고기 > 닭가슴살",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/61f6e636-8a28-4af8-a09b-3295bf227630.jpg",
+      "basePrice": 9900,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000086665-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "1e921081-1d1d-5c75-a8a9-c1cecb6b1aa9",
+      "externalId": "kurly:1000087255",
+      "title": "[크래프트] 슈레드 파마산 치즈 170g",
+      "category": "유제품 > 치즈 > 파마산",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/2ca0e19a-4fb2-4579-92e9-3546d8558f4e.jpg",
+      "basePrice": 10900,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000087255-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "59b06041-ebe9-5c65-8032-37f67bcfa677",
       "externalId": "kurly:1000087272",
       "title": "[미자언니네] 꽃게 액젓 2종 (택1)",
@@ -19363,6 +19426,90 @@
       ]
     },
     {
+      "id": "3c026842-061d-5b6b-8906-3f08f8a5a7a7",
+      "externalId": "kurly:1000117654",
+      "title": "[마정기름집] 프리미엄 국산 햇참기름 & 햇들기름 3종 (택1)",
+      "category": "양념/오일 > 식용유/오일 > 참기름",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/efb8c557-ec87-4dc6-b0a2-90fe75ed8589.jpg",
+      "basePrice": 22100,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000117654-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "f6207870-7be9-59b4-af55-f1c6d963470b",
+      "externalId": "kurly:1000117657",
+      "title": "[마정기름집] 100% 통깨 햇참기름&햇들기름 4종 (택1)",
+      "category": "양념/오일 > 식용유/오일 > 참기름",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/2609edbe-148e-4e94-be82-867cbf934044.png",
+      "basePrice": 10900,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000117657-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9f733ed3-1b27-5218-af89-018b05c8b374",
+      "externalId": "kurly:1000118138",
+      "title": "백진주 쌀 4kg ",
+      "category": "쌀/잡곡 > 쌀",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/abdafa84-f1a6-4416-8241-a827ec6278ac.jpg",
+      "basePrice": 23200,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000118138-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "07ba9ccf-0444-5f24-8203-65b6e31e89ab",
+      "externalId": "kurly:1000120319",
+      "title": "[KF365] 한돈 급냉 삼겹살 600g/1kg (냉동) ",
+      "category": "돼지고기 > 삼겹살",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/8bb1a803-92c6-4f13-b39c-5a942c339fe3.jpg",
+      "basePrice": 18000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000120319-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "53384177-6ef6-57c1-a44f-95aa6d84121d",
       "externalId": "kurly:1000120449",
       "title": "[파스타내츄럴] 유기농 삼색파스타 4종 (밀가루 미포함)",
@@ -19403,6 +19550,27 @@
           "optionValue": "[파스타내츄럴] 삼색파스타 (동물모양)",
           "priceDelta": 470,
           "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "546371b8-023b-53eb-a17b-a1666a9aef84",
+      "externalId": "kurly:1000122762",
+      "title": "세척홍로\"햇\"사과 1.4kg (6~7입) ",
+      "category": "과일/견과 > 사과",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/30b30de4-14f7-438a-844d-604b5a2acde9.jpg",
+      "basePrice": 21500,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000122762-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
           "status": "ACTIVE"
         }
       ]
@@ -19476,6 +19644,48 @@
           "optionName": "option",
           "optionValue": "[산타마리아노벨라] 멜로그라노 오드코롱 100ml",
           "priceDelta": 72900,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "269a674b-62bb-583b-8af9-85636dfdf1d4",
+      "externalId": "kurly:1000126476",
+      "title": "[백설] 통밀밀가루 1kg",
+      "category": "양념/오일 > 가루 > 밀가루",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/8586f32c-91f4-4570-876f-94355b11327b.jpg",
+      "basePrice": 2060,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000126476-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "38f49767-1fd9-5417-8863-b90ba12b4b09",
+      "externalId": "kurly:1000127449",
+      "title": "[KF365] 무항생제 달걀 XL(특란) 30구(15구*2ea)",
+      "category": "달걀 > 계란",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/798b32f8-9456-46f1-8d38-cc0c9637c742.jpg",
+      "basePrice": 10900,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000127449-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -20046,6 +20256,27 @@
       ]
     },
     {
+      "id": "cf9b1fe9-6b36-5adc-addb-069909bf4e8b",
+      "externalId": "kurly:1000165817",
+      "title": "미니오이 5입",
+      "category": "채소 > 오이",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/74b5445b-7cd4-4420-8d91-14b3c78ef0da.jpg",
+      "basePrice": 3150,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000165817-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "eb811f4c-853f-5a45-9258-be2671ec30ce",
       "externalId": "kurly:1000166515",
       "title": "[플루] 씨솔트 퍼퓸드 바디 스크럽 500g 3종 (택1)",
@@ -20324,6 +20555,69 @@
       ]
     },
     {
+      "id": "b2fc96ae-b83d-571d-aaa4-9b2085e7d680",
+      "externalId": "kurly:1000172519",
+      "title": "[우리농] 유기농 우리밀 밀가루 600g",
+      "category": "양념/오일 > 가루 > 밀가루",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/be799b20-234c-4b37-aed5-b214165396e3.jpg",
+      "basePrice": 3370,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000172519-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "48b9bff6-7fa3-51b5-bbbe-2e29d50124aa",
+      "externalId": "kurly:1000178609",
+      "title": "[제각각] 애호박 3입",
+      "category": "채소 > 애호박",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/4acfe004-0076-4cfc-89b4-12f41925bfb0.jpg",
+      "basePrice": 9100,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000178609-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "f6284981-d242-57e7-81b5-ebf2db1a4d68",
+      "externalId": "kurly:1000179354",
+      "title": "[올리타리아] 엑스트라버진 올리브유 1L",
+      "category": "양념/오일 > 식용유/오일 > 올리브오일",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/9a59a669-b84f-4e47-9cf4-5963c4b1fc95.jpg",
+      "basePrice": 21700,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000179354-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "e983ab7e-e426-5d2e-99a4-8605e2f3a65b",
       "externalId": "kurly:1000198198",
       "title": "[오리온] 다이제 쏙쏙포장 5종 (택1)",
@@ -20444,6 +20738,48 @@
           "sku": "kurly:1000205839-MK0000148842",
           "optionName": "option",
           "optionValue": "[러쉬] 대디 오 250 g -샴푸",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "4a3118f0-281d-56ef-9374-fa386356b496",
+      "externalId": "kurly:1000208201",
+      "title": "[백설] 갈색설탕 3종",
+      "category": "양념/오일 > 설탕",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/16d8b478-c279-4cd3-8b6f-cadf119a41f2.jpg",
+      "basePrice": 2640,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000208201-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a8d12e1d-91db-5d46-89e0-2ea4c05f27b5",
+      "externalId": "kurly:1000209480",
+      "title": "[백설] 명품 천일염 오천년의 신비 소금 3종 (택1)",
+      "category": "양념/오일 > 소금",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/127012e6-fb07-42dc-92e8-de3593aef75e.jpg",
+      "basePrice": 3860,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000209480-default",
+          "optionName": "option",
+          "optionValue": "기본",
           "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
@@ -21104,6 +21440,27 @@
       ]
     },
     {
+      "id": "6ca10254-0b4c-5c3d-9f32-bf4660d7f586",
+      "externalId": "kurly:1000229013",
+      "title": "[카스텔로] 고급 토마토홀",
+      "category": "면/즉석식품/통조림 > 통조림 > 토마토",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/ffbb59ea-2cff-42ee-b4d2-7f84c7377c8f.jpg",
+      "basePrice": 2090,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000229013-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "ff65f360-2091-5253-b466-b8013a1d2e58",
       "externalId": "kurly:1000229994",
       "title": "[해찬들] 찹쌀 태양초 고추장 2종 (500g/1kg)",
@@ -21225,6 +21582,48 @@
           "optionName": "option",
           "optionValue": "[김규흔한과] 명인 꿀약과 100g",
           "priceDelta": 200,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "997244a4-a6af-5fb3-b700-bc010cbc78d3",
+      "externalId": "kurly:1000258069",
+      "title": "[제각각] 적상추 200g",
+      "category": "채소 > 쌈채소",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/149363d4-08de-4fdc-84b6-b8b2d8b4ac56.jpg",
+      "basePrice": 4660,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000258069-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "3fcbb4c3-6ea7-5830-9b3f-56678e87de5d",
+      "externalId": "kurly:1000258072",
+      "title": "[제각각] 청상추 200g",
+      "category": "채소 > 쌈채소",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/bc591f78-2250-4676-a6de-051f68e6cb8f.jpg",
+      "basePrice": 4750,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000258072-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -21914,6 +22313,27 @@
       ]
     },
     {
+      "id": "59c4a9ac-b04b-5aca-a593-03982ae78fe0",
+      "externalId": "kurly:1000316128",
+      "title": "[연세우유 x 마켓컬리] 전용목장우유 1.8L",
+      "category": "유제품 > 우유 > 흰우유",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/5774eddb-54dc-4438-a997-64b0d7b9fa62.jpg",
+      "basePrice": 5180,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000316128-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "9c4395f5-bcfe-577b-92f4-2f2053089646",
       "externalId": "kurly:1000317711",
       "title": "[닥터지] 더모이스처 배리어D 인텐스크림 100ml",
@@ -21938,6 +22358,48 @@
           "optionValue": "[닥터지] 더모이스처 배리어D 인텐스크림 100ML",
           "priceDelta": 3800,
           "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "70307070-1af1-5323-9508-1dcf52f51af5",
+      "externalId": "kurly:1000319350",
+      "title": "[서울우유] 더 진한 순수 플레인 요거트 1.8L",
+      "category": "유제품 > 요거트",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/5caaddf7-08cb-44ee-bf01-843cb9aba27a.jpg",
+      "basePrice": 7120,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000319350-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "27b95da2-9e55-5adf-a01a-838687b25d4c",
+      "externalId": "kurly:1000320790",
+      "title": "[라페산] 파마산 치즈 80g",
+      "category": "유제품 > 치즈 > 파마산",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/0556f43f-bfce-4bcc-8fdc-d7381a5d5bba.jpg",
+      "basePrice": 4810,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000320790-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
           "status": "ACTIVE"
         }
       ]
@@ -22650,6 +23112,27 @@
       ]
     },
     {
+      "id": "3bbdb2e2-3d85-5047-aa6f-1042adbfcbc5",
+      "externalId": "kurly:1000358249",
+      "title": "[한끼통살] 소스 닭가슴살 13종 (1입/4입) (택1)",
+      "category": "닭/오리고기 > 닭가슴살",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/cc55ebb3-2880-4231-aff4-cd940ce5fa85.jpg",
+      "basePrice": 2920,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000358249-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "8cbae1a6-c407-5f4b-9ae8-4923729af45c",
       "externalId": "kurly:1000359758",
       "title": "[샤이닝홈] 키라 풍기인견100% 여름이불 차렵이불 S/Q 12종 (택1)",
@@ -23072,6 +23555,27 @@
       ]
     },
     {
+      "id": "dcfeee4e-7f75-5e5b-8e34-6fe99c8186eb",
+      "externalId": "kurly:1000374990",
+      "title": "[드로게리아] 통흑후추밀 (그라인더) ",
+      "category": "양념/오일 > 후추",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/4ddc50cf-383c-4f57-b8eb-31dabff62794.jpg",
+      "basePrice": 5730,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000374990-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "95ee9827-3771-5450-b4f2-45c7ed3fbb31",
       "externalId": "kurly:1000376912",
       "title": "[보웰] 클래시 고밀도 순면 내츄럴워싱 쇼파패드 6종 (택1)",
@@ -23171,6 +23675,27 @@
           "sku": "kurly:1000380538-M00000130879",
           "optionName": "option",
           "optionValue": "[머지] 더 퍼스트 벨벳 틴트 4호 셜리 템플",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "2a26f6b7-9d41-540c-9f97-6f98d9993443",
+      "externalId": "kurly:1000384279",
+      "title": "[Dole] 스위티오 바나나 2입",
+      "category": "과일/견과 > 바나나",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/d7eb8262-b6e6-40c9-814b-da4a4fddcd48.jpg",
+      "basePrice": 2510,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000384279-default",
+          "optionName": "option",
+          "optionValue": "기본",
           "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
@@ -23345,6 +23870,27 @@
           "optionValue": "[빌레로이앤보흐] 디자인나이프 웨딩 (샐러드접시)",
           "priceDelta": 24900,
           "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "cb3bb046-2aae-5ab7-8827-28938849338c",
+      "externalId": "kurly:1000412499",
+      "title": "[상하치즈] 모짜렐라 슈레드 치즈 2종(택1)",
+      "category": "유제품 > 치즈",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/64e9694a-d11f-4d45-90e1-70f7423f5aea.jpg",
+      "basePrice": 9990,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000412499-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
           "status": "ACTIVE"
         }
       ]
@@ -23893,6 +24439,48 @@
           "optionValue": "[맥스클리닉] 로즈 브라이트닝 오일폼 110g",
           "priceDelta": 0,
           "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "68f58b81-3209-58f1-bb56-8aa049b0cf01",
+      "externalId": "kurly:1000436440",
+      "title": "[코타니] 유기농 바질",
+      "category": "채소 > 허브",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/7bba7884-d974-41b8-825e-dd9a2334b4fe.jpg",
+      "basePrice": 6890,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000436440-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "fc6e6080-3523-51c0-8be0-c90cc23182b4",
+      "externalId": "kurly:1000436747",
+      "title": "[하인즈] 라이트 마요네즈 285mL",
+      "category": "양념/오일 > 소스 > 마요네즈",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/41ee5da4-b84b-4558-a3e7-8f90d2e8118f.jpg",
+      "basePrice": 4260,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000436747-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
           "status": "ACTIVE"
         }
       ]
@@ -24684,6 +25272,27 @@
           "sku": "kurly:1000463907-M00000165757",
           "optionName": "option",
           "optionValue": "[야다] 데일리 베지 양배추 마스크 10매",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "6e42fcc1-7b9b-579d-887d-275242ae8dbc",
+      "externalId": "kurly:1000463947",
+      "title": "[종가] 맛김치 1.2kg",
+      "category": "반찬 > 김치",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/51ca9e8f-832c-44ad-aedd-6751fa2b43d7.jpg",
+      "basePrice": 15200,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000463947-default",
+          "optionName": "option",
+          "optionValue": "기본",
           "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
@@ -25853,6 +26462,27 @@
       ]
     },
     {
+      "id": "4513469f-4b0d-5c0f-8fcd-43f430ff3bad",
+      "externalId": "kurly:1000537255",
+      "title": "스테비아 대추방울토마토 450g",
+      "category": "채소 > 토마토",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/d526ddd7-926f-462f-a1b6-57ce727d3e47.jpg",
+      "basePrice": 6580,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000537255-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "8997cf0d-56c2-5292-a40f-6b376e3587cb",
       "externalId": "kurly:1000545234",
       "title": "[토니모리] 치크톤 젤리 블러셔 10종 (택1) (NEW 옵션 추가)",
@@ -25993,6 +26623,27 @@
           "optionName": "option",
           "optionValue": "[에버스텐] 원형 올스텐 반찬통 케이크 (케이크 600ml)",
           "priceDelta": 5500,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "de447c89-2b50-59ef-8cf0-d5fd87ffad75",
+      "externalId": "kurly:1000561920",
+      "title": "[펠리체티] 유기농 파스타면 4종 (택1)",
+      "category": "면/즉석식품/통조림 > 파스타 > 파스타면",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/f885c9c6-11d6-4deb-9b33-2de3e8efb90e.jpg",
+      "basePrice": 4930,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000561920-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -26662,6 +27313,48 @@
           "optionName": "option",
           "optionValue": "[고트만] 통즈 316ti 스텐 반찬통 선물세트 (5종세트)",
           "priceDelta": 143000,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "ebc6b90d-7f11-5125-97ce-556856a74926",
+      "externalId": "kurly:1000633682",
+      "title": "[크래프트] 파마산 치즈 227g",
+      "category": "유제품 > 치즈 > 파마산",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/56361256-1105-4fab-aee8-437cc63bcbd5.jpg",
+      "basePrice": 10300,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000633682-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9f16a493-3a06-59a6-808f-1f3cbf5a4308",
+      "externalId": "kurly:1000638604",
+      "title": "[그릭데이] 플레인 요거트 1.8L",
+      "category": "유제품 > 요거트",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/d58895b8-48d7-4988-9eaf-74716ed7c72e.jpg",
+      "basePrice": 7560,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000638604-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -27348,6 +28041,27 @@
       ]
     },
     {
+      "id": "d7bda794-4a76-59bd-a224-1cc9a50e7e76",
+      "externalId": "kurly:1000660097",
+      "title": "[파오리] 이탈리아 포션 버터 125g 2종 (택1)",
+      "category": "유제품 > 버터",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/7671f39a-c395-4c30-aa31-88a0b3e915d5.jpg",
+      "basePrice": 7590,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000660097-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "939c662c-64eb-5132-afde-4cf59f05445a",
       "externalId": "kurly:1000667374",
       "title": "[딥스] 해양심층수 에코그린 혼합구성 (분리배송) (500mL x 20개 + 2L x 6개)",
@@ -27438,6 +28152,27 @@
           "optionValue": "[란가구] 동물4단 회전책장 곰 (오일마감안함,화이트)",
           "priceDelta": 0,
           "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "af975fcf-0f31-5eaf-9188-e5d9288b22f3",
+      "externalId": "kurly:1000740724",
+      "title": "[디벨라] 홀토마토 400g",
+      "category": "면/즉석식품/통조림 > 통조림 > 토마토",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/69cc82b1-e3ff-496c-b157-5c992c2b104c.jpg",
+      "basePrice": 2390,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000740724-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
           "status": "ACTIVE"
         }
       ]
@@ -27751,6 +28486,48 @@
       ]
     },
     {
+      "id": "89381027-b3d9-5684-9304-dfdec3b7f3ba",
+      "externalId": "kurly:1000750847",
+      "title": "[KF365] 항공직송 노르웨이 생연어 6종, 택1 (냉장)",
+      "category": "수산 > 연어",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/b7723fd5-1e2a-437b-be5f-61d3e8ca2c9f.jpg",
+      "basePrice": 14000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000750847-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "928334f1-c7f9-5e37-96ae-c520289c0337",
+      "externalId": "kurly:1000751013",
+      "title": "[킹] 프리미엄 현미유 2종 (택1)",
+      "category": "양념/오일 > 식용유/오일 > 식용유",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/bebe3e45-b3f2-415a-bac0-71c4a0e2dbb7.jpg",
+      "basePrice": 8190,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000751013-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "02fe7023-7a32-5e31-9738-c55947e88cdb",
       "externalId": "kurly:1000760620",
       "title": "[메디트리] 스페인산 유기농 레몬즙 스틱 100 2종 (택1)",
@@ -27918,6 +28695,27 @@
       ]
     },
     {
+      "id": "8bd1e55c-6ba8-5c02-b7d3-1499285faabe",
+      "externalId": "kurly:1000762974",
+      "title": "[포트'럭] 국산 새우 2종, 택1 (생물)",
+      "category": "수산 > 새우",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/cc57cc5c-273a-4297-822b-736f7f309e26.jpg",
+      "basePrice": 14900,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000762974-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "25bd67f9-9188-57df-95c3-9837b16fc603",
       "externalId": "kurly:1000770576",
       "title": "[낭만부부] 모짜렐라 치즈가래떡 500g",
@@ -27961,6 +28759,27 @@
           "sku": "kurly:1000783810-M00000172565",
           "optionName": "option",
           "optionValue": "[포트'럭] 남해안 홍가리비 700g (생물)",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "de91eb12-0bc6-54af-ba7b-d05c9c1d9b7f",
+      "externalId": "kurly:1000783999",
+      "title": "깐마늘 1kg",
+      "category": "채소 > 마늘",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/3e3113bc-2f36-47a2-b5dd-1b0567eb2812.jpg",
+      "basePrice": 9900,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000783999-default",
+          "optionName": "option",
+          "optionValue": "기본",
           "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
@@ -28333,6 +29152,48 @@
           "optionName": "option",
           "optionValue": "[빌레로이앤보흐] 매뉴팩처락 모음전 (16.사각평접시_화이트)",
           "priceDelta": 33900,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9bb46220-34d9-5cb2-8171-65aa6c118d10",
+      "externalId": "kurly:1000832367",
+      "title": "[폰타나] 이탈리아 정통 파스타면 6종 (택1)",
+      "category": "면/즉석식품/통조림 > 파스타 > 파스타면",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/09913897-90c3-4473-9a37-1c2fa24cca57.jpg",
+      "basePrice": 2700,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000832367-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "8b1e9229-5d61-50df-a9d2-45d15851efba",
+      "externalId": "kurly:1000832586",
+      "title": "[벨지오이오소] 10개월 숙성 파마산 웻지 142g",
+      "category": "유제품 > 치즈 > 파마산",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/1653afdd-2902-4359-8b56-942ab9b9b16b.jpg",
+      "basePrice": 9770,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000832586-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -29706,6 +30567,27 @@
       ]
     },
     {
+      "id": "c4fdfdbe-eab1-54e4-a4d7-ee8f2d943a61",
+      "externalId": "kurly:1000964255",
+      "title": "프리미엄 생새우살 3종, 택1 (냉동)",
+      "category": "수산 > 새우",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/d31993c4-96e8-4f14-b832-c7566278898a.jpg",
+      "basePrice": 6700,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000964255-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "6480e790-dd11-5017-b07e-bd9758a3adf4",
       "externalId": "kurly:1000967149",
       "title": "[YOZM] 그래놀라 토핑큐브 3종 (택1)",
@@ -29736,6 +30618,27 @@
           "sku": "kurly:1000967149-M00000345348",
           "optionName": "option",
           "optionValue": "[YOZM] 그래놀라 토핑큐브 크리스피(20g*3입)",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "09627c37-92e8-5cce-a68d-33ce769c5b48",
+      "externalId": "kurly:1000969928",
+      "title": "[Kurly's] 순살 연어 300g (냉동)",
+      "category": "수산 > 연어",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/1990e5f6-3b88-4fd7-a8bf-87f098b5ca7a.jpg",
+      "basePrice": 20600,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1000969928-default",
+          "optionName": "option",
+          "optionValue": "기본",
           "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
@@ -31994,6 +32897,27 @@
       ]
     },
     {
+      "id": "4f883285-3923-53e4-b515-757a0e215bee",
+      "externalId": "kurly:1001143756",
+      "title": "[골라담기] 오뚜기 라면 7종 균일가 (택3)",
+      "category": "면/즉석식품/통조림 > 라면",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/1e4f2ab5-1da4-44ef-a064-3eaf430493f3.jpg",
+      "basePrice": 3270,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001143756-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "193757db-2aa6-5dd6-9964-e15664cfa1ec",
       "externalId": "kurly:1001145901",
       "title": "[더말로지카] 스페셜 클렌징 젤 50/250/500ml 3종 (택 1)",
@@ -32146,6 +33070,27 @@
           "sku": "kurly:1001158349-M00000424927",
           "optionName": "option",
           "optionValue": "[동아제약] 벳플 고양이 영양제 (헤어볼스틱(헤어&장 영양제))",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "13e9ba3c-e727-5957-be95-eb5180cdb2ad",
+      "externalId": "kurly:1001159112",
+      "title": "[KF365] 무항생제 1등급 한우 등심 200g (냉장)",
+      "category": "한우/육우 > 등심",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/a6e978e6-f4a2-4e17-b455-c54e1567774a.jpg",
+      "basePrice": 23500,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001159112-default",
+          "optionName": "option",
+          "optionValue": "기본",
           "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
@@ -32573,6 +33518,27 @@
       ]
     },
     {
+      "id": "1461c5f7-44c5-536c-913f-2e037babae60",
+      "externalId": "kurly:1001190356",
+      "title": "[설탕대신] 마스코바도 설탕 480g",
+      "category": "양념/오일 > 설탕",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/1697c2a1-037f-4919-a987-f0776aed9e07.jpg",
+      "basePrice": 4830,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001190356-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "68b6ddf4-62c2-531d-bc9b-601342b45b28",
       "externalId": "kurly:1001190459",
       "title": "[프로텍트어베드]코튼 프리미엄 호텔 매트리스 방수커버 밴드형 6종 (택1)",
@@ -32685,6 +33651,27 @@
           "sku": "kurly:1001190728-M00000438867",
           "optionName": "option",
           "optionValue": "[질레트] 비너스 스월 여성용 면도기 (핸들1입 + 면도날2입)",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a36c98e2-c35a-59a1-bead-f181296ba449",
+      "externalId": "kurly:1001190792",
+      "title": "[청정원] 프레시 마요네즈 300g",
+      "category": "양념/오일 > 소스 > 마요네즈",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/c8931435-6094-45de-93a6-32b173376376.jpg",
+      "basePrice": 3160,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001190792-default",
+          "optionName": "option",
+          "optionValue": "기본",
           "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
@@ -33116,6 +34103,27 @@
       ]
     },
     {
+      "id": "60c16e33-35d0-5f0f-bfcd-1a6a4429bc73",
+      "externalId": "kurly:1001216676",
+      "title": "[해표] 식용유 900mL",
+      "category": "양념/오일 > 식용유/오일 > 식용유",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/1cc74a39-0315-431a-a7b9-6366b9ed72a2.jpg",
+      "basePrice": 5260,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001216676-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "b1215bd1-ab78-5baf-85b7-a37acf83c56d",
       "externalId": "kurly:1001218348",
       "title": "[K9] 강아지 동결건조간식 3종 (택1)",
@@ -33270,6 +34278,27 @@
       ]
     },
     {
+      "id": "94162a44-2331-5d98-ae68-4f5a16a2e562",
+      "externalId": "kurly:1001227997",
+      "title": "[바름팜] 창녕 양파 1.5kg",
+      "category": "채소 > 양파",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/dc5123b1-2375-4ed6-8c1b-6a71e4f41d01.jpg",
+      "basePrice": 4290,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001227997-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "7df4a7a7-8844-5713-9821-f672278bfb3b",
       "externalId": "kurly:1001228141",
       "title": "[리브라] 주방 이유식 전자저울 2종 (택1)",
@@ -33294,6 +34323,27 @@
           "optionValue": "[리브라] 주방 이유식 전자저울 (LS400)",
           "priceDelta": 3650,
           "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "5b807a2b-2da3-5be6-8cc0-6c80fb80cdc3",
+      "externalId": "kurly:1001234463",
+      "title": "스테비아 대추방울토마토 1kg",
+      "category": "채소 > 토마토",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/b48c57af-d045-41cf-8d00-3641ff5dd514.jpg",
+      "basePrice": 10820,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001234463-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
           "status": "ACTIVE"
         }
       ]
@@ -33800,6 +34850,48 @@
       ]
     },
     {
+      "id": "b3bbe58c-76bd-5db5-9bfb-5739e27d1a56",
+      "externalId": "kurly:1001295211",
+      "title": "[해표] 식용유 1.8L",
+      "category": "양념/오일 > 식용유/오일 > 식용유",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1658399249684l0.jpg",
+      "basePrice": 6640,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001295211-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "2248c513-d593-5d41-8642-e0b7f586a8c3",
+      "externalId": "kurly:1001297814",
+      "title": "[KF365] 무항생제 한입 닭가슴살 1kg(냉동)",
+      "category": "닭/오리고기 > 닭가슴살",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/a6182608-c9f0-4258-88ff-df251c30cf5a.jpg",
+      "basePrice": 9050,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001297814-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "265b2c43-e365-5b51-8cff-2a15968be895",
       "externalId": "kurly:1001301115",
       "title": "[스토피아] 올스텐 우드핸들 냄비 후라이팬 튀김 기름 방지 덮개(24/32cm) 택1",
@@ -33882,6 +34974,27 @@
       ]
     },
     {
+      "id": "bb2970ba-0779-5015-ab24-ffe22733e3ba",
+      "externalId": "kurly:1001303421",
+      "title": "14brix이상 못생겨도 맛있는 사과 1.5kg",
+      "category": "과일/견과 > 사과",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/23c7db76-e199-40ca-858c-719b15ae5513.jpg",
+      "basePrice": 21500,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001303421-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "99552f87-3112-55dc-b465-60cdb715315c",
       "externalId": "kurly:1001304281",
       "title": "[에이와이오스튜디오] 레오파드 미니 토트백 3종 (택 1)",
@@ -33937,6 +35050,27 @@
           "optionName": "option",
           "optionValue": "[에이와이오스튜디오] 레오파드 미니 토트백 (아이보리(+밑판추가))",
           "priceDelta": 800,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "09405905-73c5-5e5e-ae42-cac40d28a40f",
+      "externalId": "kurly:1001312590",
+      "title": "[프레지덩] 포션 버터 무염 (10g X 20입)",
+      "category": "유제품 > 버터",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/61de0f13-9fa3-499d-947b-bb5356d94994.jpg",
+      "basePrice": 8910,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001312590-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -34220,6 +35354,27 @@
           "optionName": "option",
           "optionValue": "[써모스] 듀라코어&플라즈마 논스틱 프라이팬 (02-KFJ-030WK(30cm))",
           "priceDelta": 22900,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "731922f7-9923-52dc-a830-9066902b9f39",
+      "externalId": "kurly:1001317137",
+      "title": "[Kurly's] 국산콩 두부 3종 (택1)",
+      "category": "반찬 > 두부",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/9042a54d-e3a2-4ed1-a4fc-26ddae4f9da3.jpg",
+      "basePrice": 2140,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001317137-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -34644,6 +35799,27 @@
       ]
     },
     {
+      "id": "560cf961-dfc0-5387-b1d7-1bb53f9e618e",
+      "externalId": "kurly:1001335671",
+      "title": "[골라담기] 이목 무항생제 등심/안심/채끝 3종, 택1",
+      "category": "한우/육우 > 등심",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/b02e81d3-d37c-4933-84ba-8f174c9f1960.jpg",
+      "basePrice": 13600,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001335671-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "0ce857a9-29c5-5b1f-9325-085adfaba81d",
       "externalId": "kurly:1001336774",
       "title": "[럽센트] 바디워시 500ml 3종 (택1)",
@@ -34757,6 +35933,27 @@
           "optionName": "option",
           "optionValue": "[신지모루][여름시즌 특가] 6인치 빅팬 / 휴대용 거치 선풍기 (오퓨리엠 와이드 팬,그레이(1개)_S551100001)",
           "priceDelta": 20950,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "8b202314-683b-5587-a06d-2d500b6f8a53",
+      "externalId": "kurly:1001343698",
+      "title": "유명산지 국산 냉동 딸기 1kg",
+      "category": "과일/견과 > 딸기",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/d5db2602-691d-41d7-aec5-53930cd24358.jpg",
+      "basePrice": 9230,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001343698-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -35189,6 +36386,27 @@
       ]
     },
     {
+      "id": "08d46961-0f55-5d27-a13d-d45b21ed31a2",
+      "externalId": "kurly:1001384157",
+      "title": "[모두의식단] 냉장 닭가슴살 2종 100g (1/4/10개입)",
+      "category": "닭/오리고기 > 닭가슴살",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/a9b6cda0-ddc6-497e-a8e5-4afa31af768c.jpg",
+      "basePrice": 1900,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001384157-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "ddb30fae-a9d7-518d-8db7-b85409385003",
       "externalId": "kurly:1001386404",
       "title": "[일리] 클래식 로스트 디카페인 스틱커피 3종 (택1)",
@@ -35514,6 +36732,27 @@
           "optionName": "option",
           "optionValue": "[무타공마켓] 미드센츄리 모던 컵정리대 (3단,버터+커피+투명)",
           "priceDelta": 10800,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "d2a89f97-68fa-5ef4-a6a8-f1836723bd98",
+      "externalId": "kurly:1001398793",
+      "title": "[소소미담] 딸기 그대로 수제 딸기청 1kg",
+      "category": "과일/견과 > 딸기",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/dc79f5df-c4ed-4b09-b8da-1fee99bb7642.jpg",
+      "basePrice": 15200,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001398793-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -36127,6 +37366,27 @@
           "optionValue": "[탁가온] 1.2.3 실리콘 유아식기 베스트 상품 (식판/볼/수저) 모음 12종 (택1) (123 스푼포크(S)+케이스 (아이보리))",
           "priceDelta": 12050,
           "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "dc1cd696-65e8-51be-bec3-e19a89dc6579",
+      "externalId": "kurly:1001427247",
+      "title": "[데체코] 롱 파스타 11종 (택1)",
+      "category": "면/즉석식품/통조림 > 파스타 > 파스타면",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/05c4eba2-d3ea-4c19-9978-c692031aad6d.jpg",
+      "basePrice": 5220,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001427247-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
           "status": "ACTIVE"
         }
       ]
@@ -37883,6 +39143,48 @@
       ]
     },
     {
+      "id": "76e0ce5b-679e-52f5-89cd-9e45f732e5f2",
+      "externalId": "kurly:1001510677",
+      "title": "[백설] 중력 밀가루 1kg",
+      "category": "양념/오일 > 가루 > 밀가루",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/5f1cb068-ab3f-4cd0-af16-1c84e1ae054e.jpg",
+      "basePrice": 1730,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001510677-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b1c62a2c-8585-556f-b160-d2f63be09f0c",
+      "externalId": "kurly:1001510679",
+      "title": "[백설] 우리밀 밀가루 750g",
+      "category": "양념/오일 > 가루 > 밀가루",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/66f3b3e6-0d31-4145-a960-2973d367da2b.jpg",
+      "basePrice": 2570,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001510679-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "c5759cbc-9a2d-52f4-b5a5-938abbea80af",
       "externalId": "kurly:1001512083",
       "title": "[신의주 찹쌀순대] 인기 순대볶음 3종 (택1)",
@@ -38256,6 +39558,27 @@
       ]
     },
     {
+      "id": "b17a4832-2f14-5080-9c9e-1eb87490ad9f",
+      "externalId": "kurly:1001539821",
+      "title": "[백설] 하얀설탕 1kg",
+      "category": "양념/오일 > 설탕",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/0809826e-811b-4980-ac4f-c86aae9c77ff.jpg",
+      "basePrice": 2120,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001539821-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "e001ae7e-6156-55b8-9b44-5696d7bcc5ce",
       "externalId": "kurly:1001540193",
       "title": "[니코트] 우드 플레이팅 보드 2종 (택 1)",
@@ -38330,6 +39653,27 @@
       ]
     },
     {
+      "id": "2454e252-eb7c-5366-a4ae-1122674b7578",
+      "externalId": "kurly:1001542395",
+      "title": "[제각각] 양파 1.5kg",
+      "category": "채소 > 양파",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/0ad34106-6757-4bd1-b194-138b0790357d.jpg",
+      "basePrice": 4220,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001542395-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "dc41ce33-6492-5a59-8feb-07883aa6f155",
       "externalId": "kurly:1001543377",
       "title": "[꼬모쎔쁘레] 합격기원 초콜릿 2종",
@@ -38354,6 +39698,27 @@
           "optionValue": "[꼬모쎔쁘레] 합격기원 초콜릿 20입",
           "priceDelta": 6000,
           "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "0fad8f3f-0a52-5e1c-b187-8d07af954dde",
+      "externalId": "kurly:1001544134",
+      "title": "[팜송] 강원 고랭지 감자 1.5kg",
+      "category": "채소 > 감자",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/d506a8e3-32e5-498a-81ed-8c243240659c.jpg",
+      "basePrice": 5110,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001544134-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
           "status": "ACTIVE"
         }
       ]
@@ -38533,6 +39898,27 @@
           "optionName": "option",
           "optionValue": "[트루쿡] 이천 도자기1인 상차림 밥그릇 국그릇 (택1) (국그릇)",
           "priceDelta": 1100,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "bd99a845-f9c8-597c-bf5e-3368513474a7",
+      "externalId": "kurly:1001558672",
+      "title": "[픽앤치즈] 캘리포니아 슬라이스 치즈 7종",
+      "category": "유제품 > 치즈",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/23e3b0fe-9d0f-4bf1-a986-d4f99b73c0dd.jpg",
+      "basePrice": 6560,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001558672-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -38803,6 +40189,27 @@
           "optionName": "option",
           "optionValue": "[듀이트리] 픽앤퀵 비타민 광채 뜯어쓰는 더블 패드 100매",
           "priceDelta": 7130,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a3a44606-3b82-5542-b67f-6d31030d78bc",
+      "externalId": "kurly:1001574311",
+      "title": "[그릭데이] 플레인 요거트 900mL",
+      "category": "유제품 > 요거트",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/5cac3ced-d1bf-45b7-a7cf-2a1af2039dd1.jpg",
+      "basePrice": 5430,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001574311-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -40536,6 +41943,27 @@
       ]
     },
     {
+      "id": "12f9309d-c412-5039-91aa-895dd2f7a381",
+      "externalId": "kurly:1001703856",
+      "title": "[Kurly's] 1등급 동물복지 목초 유정란 L(대란) 15구",
+      "category": "달걀 > 계란",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/fef26a42-66e5-4c6e-9889-3f3d4ebb497d.jpg",
+      "basePrice": 9270,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001703856-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "675f1c14-6d32-57ec-bd51-3cf5561ad0e2",
       "externalId": "kurly:1001705312",
       "title": "[유이크] (RIIZE pick)바이옴 베리어 멜팅 모이스처 립밤 3.2g 4종 (택1)",
@@ -41900,6 +43328,27 @@
       ]
     },
     {
+      "id": "3a7c9535-349f-5439-bedf-f40353ac31d1",
+      "externalId": "kurly:1001855342",
+      "title": "서산 육쪽 마늘 2종",
+      "category": "채소 > 마늘",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/cfaa3ac1-60cd-496b-b48c-6c356059afd4.jpg",
+      "basePrice": 3180,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001855342-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "29f886fa-379d-5f88-8ad8-857147ab25b1",
       "externalId": "kurly:1001872242",
       "title": "[KF365] 실속 바나나 2종 (택1)",
@@ -42756,6 +44205,27 @@
       ]
     },
     {
+      "id": "2ad603b0-fe1c-5fee-af98-3b14c4c74728",
+      "externalId": "kurly:1001985604",
+      "title": "[제각각] 흙대파 1kg",
+      "category": "채소 > 대파",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/2955b121-5bf5-4271-872e-167196b3bc77.jpg",
+      "basePrice": 3970,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001985604-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "63e5ca19-962e-58a8-9e08-8ea042925f96",
       "externalId": "kurly:1001985672",
       "title": "[엑소프록실] 시카 엑소좀 리얼 20 앰플 30mL 단품/듀오 2종 (택1)",
@@ -42779,6 +44249,27 @@
           "optionName": "option",
           "optionValue": "[엑소프록실] 시카 엑소좀 리얼 20 앰플 30mL 듀오 세트",
           "priceDelta": 15900,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "37024a2f-526b-51db-a6e4-55a864e04652",
+      "externalId": "kurly:1001986025",
+      "title": "[Kurly's] 유기농 두부 300g",
+      "category": "반찬 > 두부",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/8f8680d7-d7f9-432a-a067-fc40b446c2d6.jpg",
+      "basePrice": 1860,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1001986025-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -43275,6 +44766,27 @@
       ]
     },
     {
+      "id": "5247c996-182d-53b5-9d14-79898e6f6020",
+      "externalId": "kurly:1002030400",
+      "title": "[제각각] 애호박 1입",
+      "category": "채소 > 애호박",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/17f320ca-693f-4fff-a18c-164ebea81b9c.jpg",
+      "basePrice": 3520,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1002030400-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "2f228002-026a-55a8-9e2d-8a54c54c820b",
       "externalId": "kurly:1002036309",
       "title": "[케라시스] 리얼네이처 아르간오일 리페어 샴푸/컨디셔너/트리트먼트 1L 3종 (택1)",
@@ -43675,6 +45187,27 @@
       ]
     },
     {
+      "id": "00cf2a29-9738-588b-bf4f-2d616dee73ab",
+      "externalId": "kurly:1002051583",
+      "title": "[청정원] 천일염가는소금190g(용기)",
+      "category": "양념/오일 > 소금",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/78a521e4-8f16-4ee7-a712-08d07185c675.jpg",
+      "basePrice": 3280,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1002051583-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "f54c1ed3-d8f7-5e67-bf69-0582418d5936",
       "externalId": "kurly:1002057378",
       "title": "[상하목장] 그릭요거트 프로즌 플레인 파르페 아이스크림 (220mL X 4개)",
@@ -43982,6 +45515,27 @@
       ]
     },
     {
+      "id": "fb9b6e9b-c33f-5566-9b5c-19caddb61074",
+      "externalId": "kurly:1002104263",
+      "title": "[백설] 햄스빌 굿베이컨 75g",
+      "category": "육류 > 가공육 > 베이컨",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/26133d18-a252-4c44-aa73-dc9ce43a93a4.jpg",
+      "basePrice": 2120,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1002104263-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "eb7ff590-a712-5e85-9106-16afd4bbadcf",
       "externalId": "kurly:1002105180",
       "title": "[녹차원] 차 포션 (30g X 15개) (택1)",
@@ -44020,6 +45574,27 @@
           "sku": "kurly:1002105180-M00000812871",
           "optionName": "option",
           "optionValue": "[녹차원] 자몽차 포션 (30g X 15개)",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "cfcf8928-8978-501f-96da-264ea7534eb5",
+      "externalId": "kurly:1002106164",
+      "title": "[디벨라] 롱 파스타면 4종",
+      "category": "면/즉석식품/통조림 > 파스타 > 파스타면",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/3f6ba707-6b2a-4c2a-bf78-cf2dfb0866be.jpg",
+      "basePrice": 2690,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1002106164-default",
+          "optionName": "option",
+          "optionValue": "기본",
           "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
@@ -44912,6 +46487,48 @@
       ]
     },
     {
+      "id": "f47803e4-78c5-595b-9883-31ba1e870cc3",
+      "externalId": "kurly:1002187200",
+      "title": "[앵커] 무염 버터 227g",
+      "category": "유제품 > 버터",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/39473654-d186-438a-8705-e98ae1802dce.jpg",
+      "basePrice": 6660,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1002187200-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "6a449877-2a8f-5a3a-9f71-51d8b55d26d7",
+      "externalId": "kurly:1002190374",
+      "title": "[Kim's butcher] 보리먹은 캐나다 삼겹살 구이용 600g",
+      "category": "돼지고기 > 삼겹살",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/5afd8dce-7444-417c-bb6c-4ce9af736c6f.jpg",
+      "basePrice": 12600,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1002190374-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "cc05ba33-37ba-5ae2-90cd-3e8a7f4a04af",
       "externalId": "kurly:1002200687",
       "title": "[태극당] 농축원 발효종 통밀 깜빠뉴 3종 (택1)",
@@ -44972,6 +46589,48 @@
           "optionName": "option",
           "optionValue": "[골든필드] 현미유 1L",
           "priceDelta": 6130,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "53b2185a-255d-5b0a-9e41-6fa959541ead",
+      "externalId": "kurly:1002206625",
+      "title": "[해찬들] 100% 국산 된장 900G",
+      "category": "양념/오일 > 된장",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/07fbfa64-5eb6-4600-8c5a-42b102e05e2f.jpg",
+      "basePrice": 9140,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1002206625-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "6f624bf5-585b-5982-ba82-7bd3aa6f2348",
+      "externalId": "kurly:1002206637",
+      "title": "[백설] 고소함 가득 참기름 320ML",
+      "category": "양념/오일 > 식용유/오일 > 참기름",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/4d9763e0-bd06-4d06-b7b7-76b6b73fc73c.jpg",
+      "basePrice": 5490,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1002206637-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -46958,6 +48617,27 @@
       ]
     },
     {
+      "id": "d2b6d85a-e497-5498-bd93-f5302be91f9d",
+      "externalId": "kurly:1002405432",
+      "title": "[팜송] 강원 고랭지 대파 700g",
+      "category": "채소 > 대파",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/bed8950d-751b-40d6-9c37-2a64f4f3078f.jpg",
+      "basePrice": 2990,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1002405432-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "1dd22394-257f-5f56-8a56-f6f2ff2fc98f",
       "externalId": "kurly:1002406497",
       "title": "[페리에] 탄산수 플레인 (330mL X 4개)",
@@ -47628,6 +49308,69 @@
       ]
     },
     {
+      "id": "0755fe8f-581e-5831-b8e3-33082bbdcdb2",
+      "externalId": "kurly:1002467254",
+      "title": "[샘표] 양조간장 701 500ml",
+      "category": "양념/오일 > 간장",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/242b6bb0-d4f6-4b8b-a074-ce4d6d8e2c26.jpg",
+      "basePrice": 6770,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1002467254-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "4c99f40a-1346-523e-89aa-c9508db3010c",
+      "externalId": "kurly:1002468081",
+      "title": "황금빛 골든볼 사과 2종",
+      "category": "과일/견과 > 사과",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/d26618c4-2521-4c59-867f-3e67b2297bd5.jpg",
+      "basePrice": 21300,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1002468081-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "d64b3226-5a3b-56e5-95eb-0acc6f275b64",
+      "externalId": "kurly:1002469686",
+      "title": "[KF365] 흙당근 800g",
+      "category": "채소 > 당근",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/5062fea3-b21f-403a-b8ad-f89a6222ad12.jpg",
+      "basePrice": 3240,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1002469686-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "e83f783c-a2be-500c-90a8-dc715701e54f",
       "externalId": "kurly:1002470045",
       "title": "[페이스팩토리] uv 무선 전동발각질제거기 & 호호바오일 세트 (+쇼핑백 증정)",
@@ -47651,6 +49394,27 @@
           "optionName": "option",
           "optionValue": "[페이스팩토리] uv 무선 전동발각질제거기 & 호호바오일 세트 (+쇼핑백 증정) (발각질제거기+호호바오일)",
           "priceDelta": 10200,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "68996da5-6022-53b9-8aac-e31c69b6efa6",
+      "externalId": "kurly:1002479405",
+      "title": "[은하수산] 훈제연어 슬라이스 150g (냉장)",
+      "category": "수산 > 연어",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/7fe116d8-ae07-4e33-80b0-84a7c50e2132.jpg",
+      "basePrice": 8240,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:1002479405-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -48097,6 +49861,27 @@
       ]
     },
     {
+      "id": "e1444611-9ada-5fc3-b41d-074515507732",
+      "externalId": "kurly:5000070",
+      "title": "[바름팜] 친환경 당근 2종",
+      "category": "채소 > 당근",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1653037915850l0.jpeg",
+      "basePrice": 4020,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5000070-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "73978507-35d4-5bb3-9bc9-87a0fceb2070",
       "externalId": "kurly:5000072",
       "title": "[바름팜] 친환경 양파 2종",
@@ -48126,6 +49911,27 @@
       ]
     },
     {
+      "id": "cc674bc3-c6f1-5562-a206-63ad30871ffd",
+      "externalId": "kurly:5000097",
+      "title": "친환경 애호박 1개",
+      "category": "채소 > 애호박",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1653038277981l0.jpeg",
+      "basePrice": 4220,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5000097-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "41b3520d-34e3-5cc7-bf51-727f7140fcdc",
       "externalId": "kurly:5000099",
       "title": "[아이농] 친환경 대추방울토마토 500g",
@@ -48142,6 +49948,111 @@
           "optionValue": "친환경 대추방울토마토 500g",
           "priceDelta": 470,
           "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "6ce447de-3389-5d27-9f4a-2e3bddf6ab82",
+      "externalId": "kurly:5000325",
+      "title": "[데체코] 엑스트라버진 올리브 오일 2종 (택1)",
+      "category": "양념/오일 > 식용유/오일 > 올리브오일",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/c2f9f65d-118f-4388-be54-fdad3effe512.jpg",
+      "basePrice": 17200,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5000325-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "bde74dc9-546f-5fd1-9b03-ea7c05a7e05c",
+      "externalId": "kurly:5000333",
+      "title": "친환경 백다다기오이 2입",
+      "category": "채소 > 오이",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1648208836561l0.jpeg",
+      "basePrice": 4720,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5000333-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "6b069449-9ba4-5dce-83be-6796d125b2d2",
+      "externalId": "kurly:5000343",
+      "title": " [올리타리아] 엑스트라버진 올리브 오일 500mL",
+      "category": "양념/오일 > 식용유/오일 > 올리브오일",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1587519777879l0.jpg",
+      "basePrice": 14300,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5000343-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "945bd306-7403-52e6-92b1-7330969e97ca",
+      "externalId": "kurly:5000718",
+      "title": "친환경 시금치 200g",
+      "category": "채소 > 시금치",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1653038188464l0.jpeg",
+      "basePrice": 7430,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5000718-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b77b30c9-f953-5fb8-b316-e333a2f8c46b",
+      "externalId": "kurly:5001065",
+      "title": "바질 10g",
+      "category": "채소 > 허브",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1591853516135l0.jpg",
+      "basePrice": 2440,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5001065-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
           "status": "ACTIVE"
         }
       ]
@@ -48254,6 +50165,27 @@
           "sku": "kurly:5001235-MK0000005221",
           "optionName": "option",
           "optionValue": "[벽제갈비] 한우 곰탕",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "2bf86f37-3234-53e7-a846-afa8ada4ec8f",
+      "externalId": "kurly:5001285",
+      "title": "[말돈] 플레이크 소금 2종 ",
+      "category": "양념/오일 > 소금",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/164877816548l0.jpg",
+      "basePrice": 8380,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5001285-default",
+          "optionName": "option",
+          "optionValue": "기본",
           "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
@@ -48472,6 +50404,90 @@
       ]
     },
     {
+      "id": "f85cd96e-5ffc-54d0-8bc8-e0f4786aaad7",
+      "externalId": "kurly:5004617",
+      "title": "[칸나멜라] 후추 그라인더 4종",
+      "category": "양념/오일 > 후추",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1640332660401l0.jpg",
+      "basePrice": 4260,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5004617-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "c4cf7202-71b0-57e9-abe6-e9959a2504f4",
+      "externalId": "kurly:5004894",
+      "title": "[테라오카] 계란에 뿌려먹는 간장",
+      "category": "양념/오일 > 간장",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1479893759103l0.jpg",
+      "basePrice": 6190,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5004894-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a09e9c65-e1c2-5574-808b-7dc1a07ea26a",
+      "externalId": "kurly:5006000",
+      "title": "[라피아만떼] 산마르자노 DOP  토마토 홀 400g  (DOP 인증) ",
+      "category": "면/즉석식품/통조림 > 통조림 > 토마토",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/d470a5eb-3349-49cb-b0df-e9d32683afbd.jpg",
+      "basePrice": 5130,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5006000-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "ffe4b219-ad4c-535b-b95e-cb50177b4de1",
+      "externalId": "kurly:5007364",
+      "title": "친환경 베이비 시금치 100g",
+      "category": "채소 > 시금치",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1502076110494l0.jpg",
+      "basePrice": 5140,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5007364-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "4647eacd-8f53-5e8c-987a-f3b331ca141b",
       "externalId": "kurly:5007414",
       "title": "[요미요미] 유기농 주스 (125mL X 4개입) 3종 (택1)",
@@ -48553,6 +50569,27 @@
           "optionName": "option",
           "optionValue": "[닌교초 이마한] 스키야키 소스",
           "priceDelta": 1200,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "6990ef90-eacc-5cca-91a1-45ac98315c6f",
+      "externalId": "kurly:5010944",
+      "title": "[일상味소] 국내산 소고기 등심 스테이크/구이 2종 (냉장)",
+      "category": "한우/육우 > 등심",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/9457f90f-380b-43c7-a8eb-b266b9369f3d.jpeg?v=0531",
+      "basePrice": 15500,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5010944-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -48673,6 +50710,48 @@
       ]
     },
     {
+      "id": "2e8a71e0-02d1-5ee0-ab50-6e3876d7e18e",
+      "externalId": "kurly:5026448",
+      "title": "[KF365] 감자 1kg",
+      "category": "채소 > 감자",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/25ac1ec1-005e-44a3-a00f-4224d25bcc96.jpg",
+      "basePrice": 3610,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5026448-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "2f562b69-0566-5ac6-8474-1a4ffb3597b6",
+      "externalId": "kurly:5026451",
+      "title": "양파 1.5kg",
+      "category": "채소 > 양파",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1530173860335l0.jpg",
+      "basePrice": 3960,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5026451-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "ba9946c6-d36c-5ce4-9f3c-56a252001781",
       "externalId": "kurly:5026576",
       "title": "[스미후루] 순 유기농 바나나 2종 (택1)",
@@ -48755,6 +50834,111 @@
       ]
     },
     {
+      "id": "df982ef0-f998-554b-8277-3ed23a3e7414",
+      "externalId": "kurly:5027318",
+      "title": "[KF365] 깐마늘 200g",
+      "category": "채소 > 마늘",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/94bb340b-c044-471d-86b6-a44cb929e77f.jpg",
+      "basePrice": 3890,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5027318-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9875a2a5-09c0-5d9e-b396-1c181cbac0a6",
+      "externalId": "kurly:5027320",
+      "title": "깐대파 500g",
+      "category": "채소 > 대파",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1653037895339l0.jpeg",
+      "basePrice": 3750,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5027320-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "e678df92-8c7d-5384-bcda-11bf97e275be",
+      "externalId": "kurly:5027694",
+      "title": "[칸나멜라] 소금 그라인더 2종",
+      "category": "양념/오일 > 소금",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1652019065545l0.jpg",
+      "basePrice": 6590,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5027694-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a62b0b5a-b3c1-5ba1-a9f7-e99f7f0834f7",
+      "externalId": "kurly:5029438",
+      "title": "[KF365] 방울토마토 500g",
+      "category": "채소 > 토마토",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/d16ce0a7-42b8-4bb4-87c6-93846e224ccf.jpeg",
+      "basePrice": 8560,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5029438-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "2a5614d1-dabb-5230-8429-18750d9cc1e3",
+      "externalId": "kurly:5029524",
+      "title": "[Sea to Table] 프리미엄 손질 생새우살 2종(26/30), 택1 (냉동)",
+      "category": "수산 > 새우",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/0bdb4032-9df4-4037-8a25-a96a2ceec3d8.jpg",
+      "basePrice": 6560,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5029524-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "f37a6814-e5f5-52df-99a8-83b3aa2d5c8a",
       "externalId": "kurly:5029847",
       "title": "[청오] 국산 유기농쌀 부침가루&튀김가루 2종",
@@ -48778,6 +50962,90 @@
           "optionName": "option",
           "optionValue": "[청오] 국산 유기농쌀 부침가루",
           "priceDelta": 70,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "6166127c-a053-50c6-92d5-fbd25e8d0ecd",
+      "externalId": "kurly:5029850",
+      "title": "[Kurly's] 동물복지 유정란 20구",
+      "category": "달걀 > 계란",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/6969f9b7-49ad-46ec-9b36-9e0cfcf4499f.jpg?v=0531",
+      "basePrice": 11100,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5029850-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "006eee4a-302b-5317-afc4-2ab7e43bc92c",
+      "externalId": "kurly:5030559",
+      "title": "[KF365] 애호박 1개",
+      "category": "채소 > 애호박",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/6a175689-ff66-4838-b04d-cbed2ec3e3be.jpg?v=0531",
+      "basePrice": 2790,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5030559-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "86fdf302-9a42-5aee-908a-e53de512dbd1",
+      "externalId": "kurly:5030722",
+      "title": "[스미후루] 풍미왕 바나나 1.2kg내외",
+      "category": "과일/견과 > 바나나",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1648210132451l0.jpg",
+      "basePrice": 4970,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5030722-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b3bf103a-056b-5063-b144-866b44a6f02b",
+      "externalId": "kurly:5030775",
+      "title": "[알라] 슬라이스 치즈 3종",
+      "category": "유제품 > 치즈",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/163901953861l0.jpg",
+      "basePrice": 6820,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5030775-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -48821,6 +51089,111 @@
       ]
     },
     {
+      "id": "e0eabad1-2841-594f-b294-ef738ffd7729",
+      "externalId": "kurly:5031391",
+      "title": "[KF365] 팽이버섯 2입",
+      "category": "채소 > 버섯",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/6cb8f597-7849-488d-beb4-c7fa9e717f06.jpg",
+      "basePrice": 2040,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5031391-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "cf421c1e-8bfb-5643-a90f-a22376aa6b32",
+      "externalId": "kurly:5031442",
+      "title": "[Dole] 스위티오 바나나 2종 (택1)",
+      "category": "과일/견과 > 바나나",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1648209696613l0.jpeg",
+      "basePrice": 3860,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5031442-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "7b40a6d1-2707-550e-b1c5-dd00d682295c",
+      "externalId": "kurly:5031443",
+      "title": "[Dole] 유기농 바나나 500g",
+      "category": "과일/견과 > 바나나",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1653037704404l0.jpeg",
+      "basePrice": 3870,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5031443-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "beccdf3e-aeb3-5da9-95e8-0db16cac3de9",
+      "externalId": "kurly:5031454",
+      "title": "[데체코] 토마토 파스타소스 400g 3종 ",
+      "category": "면/즉석식품/통조림 > 파스타 > 파스타소스",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/4bc5fbad-5694-4c89-bac6-a227fec402a6.jpeg",
+      "basePrice": 5400,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5031454-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "71fea3a0-faa5-514b-b481-a7100dc64ff1",
+      "externalId": "kurly:5031998",
+      "title": "[RIZI]  리지 현미유 500mL",
+      "category": "양념/오일 > 식용유/오일 > 식용유",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/34a280ed-13d0-4131-b580-ab844c12ee9c.jpg",
+      "basePrice": 7040,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5031998-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "b1fcb937-68a5-5bc8-aadc-49a270228f9d",
       "externalId": "kurly:5035928",
       "title": "[엄마의정성] 구수해 누룽지 2종 (국내산)",
@@ -48843,6 +51216,27 @@
           "sku": "kurly:5035928-MK0000035927",
           "optionName": "option",
           "optionValue": "[엄마의정성] 구수해 현미누룽지",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "1d568766-318e-55df-abd1-16066a20dc12",
+      "externalId": "kurly:5036147",
+      "title": "[오뚜기] 골드 마요네스 2종 (택1)",
+      "category": "양념/오일 > 소스 > 마요네즈",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/6ab4910c-7492-4988-90d5-97a12d2376f2.jpg",
+      "basePrice": 4890,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5036147-default",
+          "optionName": "option",
+          "optionValue": "기본",
           "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
@@ -49049,6 +51443,48 @@
       ]
     },
     {
+      "id": "9b547393-c07f-554f-9c1d-c96b902d9eb0",
+      "externalId": "kurly:5040875",
+      "title": "미니오이 10입",
+      "category": "채소 > 오이",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1566885904768l0.jpg",
+      "basePrice": 5740,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5040875-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "6be94d01-738e-5fab-a4fa-9c6a67a0614b",
+      "externalId": "kurly:5041020",
+      "title": "한끼 채소 손질 대파 100g",
+      "category": "채소 > 대파",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1567581895960l0.jpg",
+      "basePrice": 2050,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5041020-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "1e64b64f-4b8a-5655-b144-0fe088f3ae8f",
       "externalId": "kurly:5041061",
       "title": "[미자언니네] 전 7종 (택1)",
@@ -49142,6 +51578,27 @@
           "optionValue": "[나탈리스] 오렌지비트 주스 250mL",
           "priceDelta": 0,
           "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9a42bd97-2b29-51d5-8788-c797a5ebf4bd",
+      "externalId": "kurly:5041912",
+      "title": "[앵커] 무염 버터 454g",
+      "category": "유제품 > 버터",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/7a06d10f-d309-4250-ab32-e6bedc80cf28.jpg",
+      "basePrice": 10200,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5041912-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
           "status": "ACTIVE"
         }
       ]
@@ -49356,6 +51813,342 @@
       ]
     },
     {
+      "id": "0027fd7f-775e-50cf-a4d4-b7dead965eac",
+      "externalId": "kurly:5044481",
+      "title": "[하인즈] 토마토 케찹 342g",
+      "category": "양념/오일 > 소스 > 케첩",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1653036539441l0.jpg",
+      "basePrice": 2470,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5044481-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "0e815999-b5d5-5a48-a064-07d1045367ca",
+      "externalId": "kurly:5044482",
+      "title": "[하인즈] 굿 마요네즈 295ml",
+      "category": "양념/오일 > 소스 > 마요네즈",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/eb5b6f6e-a6a5-4239-bb76-cc98dbfe0d48.jpg",
+      "basePrice": 6040,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5044482-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a338a771-abc5-5cb9-9459-742d0650e74b",
+      "externalId": "kurly:5044523",
+      "title": "[존쿡 델리미트] 전G 베이컨 200g",
+      "category": "육류 > 가공육 > 베이컨",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1637927603738l0.jpg",
+      "basePrice": 3810,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5044523-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "ebd60a53-6444-5992-958e-df4ce3f750de",
+      "externalId": "kurly:5044571",
+      "title": "[서울우유] 나 100% 우유 1000mL",
+      "category": "유제품 > 우유 > 흰우유",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/efd06fe8-35ab-4256-af74-fe93cb633962.jpg",
+      "basePrice": 2820,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5044571-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "be701e51-45ac-5316-9592-7ccfc92d093b",
+      "externalId": "kurly:5048811",
+      "title": "[파미고] 엑스트라 버진 올리브 오일 500mL",
+      "category": "양념/오일 > 식용유/오일 > 올리브오일",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1582000256134l0.jpg",
+      "basePrice": 15100,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5048811-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "37a916a9-fc61-51b2-9bf9-a83f229cb995",
+      "externalId": "kurly:5049246",
+      "title": "[팜송] 한끼 당근",
+      "category": "채소 > 당근",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1583285919646l0.jpg",
+      "basePrice": 2110,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5049246-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9f526e82-7039-5108-8669-04a4fd77db47",
+      "externalId": "kurly:5049249",
+      "title": "[팜송] 한끼 감자 300g",
+      "category": "채소 > 감자",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1583288578136l0.jpg",
+      "basePrice": 2270,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5049249-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "dd6c56b8-11a5-5187-9be9-a037ea8e3b0b",
+      "externalId": "kurly:5049250",
+      "title": "한끼 시금치 120g",
+      "category": "채소 > 시금치",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1583220482251l0.jpg",
+      "basePrice": 4990,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5049250-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "42627899-48a7-5c20-a278-5638464a8117",
+      "externalId": "kurly:5049252",
+      "title": "[팜송] 한끼 깐마늘 100g",
+      "category": "채소 > 마늘",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1583220729606l0.jpg",
+      "basePrice": 2150,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5049252-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "256628ab-811b-51df-b2fe-7a3f1d767ec3",
+      "externalId": "kurly:5049453",
+      "title": "[파토니움브레] 바질페스토",
+      "category": "채소 > 허브",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1583137804838l0.jpg",
+      "basePrice": 5230,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5049453-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "def670c2-2f03-5c3f-a3ff-381cd3d39c72",
+      "externalId": "kurly:5049565",
+      "title": "[포미] 토마토 소스 500g",
+      "category": "면/즉석식품/통조림 > 파스타 > 파스타소스",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/74ab93b8-8b12-427a-999c-601501db90f5.jpg",
+      "basePrice": 3080,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5049565-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "e575d9d3-2f00-521c-9032-74de15241c81",
+      "externalId": "kurly:5049567",
+      "title": "[포미] 스트레인드 토마토 소스 200g x 3입",
+      "category": "면/즉석식품/통조림 > 파스타 > 파스타소스",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/9b0a7f2d-ed61-47ac-931b-80ed0fe23a8e.jpg",
+      "basePrice": 4910,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5049567-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "2984c48b-8180-5f9e-a417-96d43ee35349",
+      "externalId": "kurly:5049727",
+      "title": "[서울우유] 나 100% 우유 1.8L",
+      "category": "유제품 > 우유 > 흰우유",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/b4fb39e8-9f06-44ea-8326-43c986f0591f.jpg",
+      "basePrice": 5780,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5049727-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "56a83e8d-1ea0-51aa-8649-9290ffb9f088",
+      "externalId": "kurly:5049924",
+      "title": "시금치 200g",
+      "category": "채소 > 시금치",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/bb4edec4-812a-45a5-9fed-56a887a054a7.jpg",
+      "basePrice": 6330,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5049924-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "05b618bc-0913-5ac1-a90f-5b5142211ad6",
+      "externalId": "kurly:5049925",
+      "title": "흙당근 1kg",
+      "category": "채소 > 당근",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1583480091169l0.jpg",
+      "basePrice": 4310,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5049925-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "2e42ace5-7f39-5bd4-aeda-6aec930499fb",
+      "externalId": "kurly:5051031",
+      "title": "씻어나온 완전미 고시히카리 쌀 4kg ",
+      "category": "쌀/잡곡 > 쌀",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1637922344768l0.jpeg",
+      "basePrice": 24600,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5051031-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "0d91139c-0961-58bf-ad10-69e6be9fea0f",
       "externalId": "kurly:5052014",
       "title": "[창억] 찰떡 5종 (택1)",
@@ -49409,6 +52202,27 @@
       ]
     },
     {
+      "id": "f485d24c-98db-50df-b15f-4a2b5d6bc43f",
+      "externalId": "kurly:5052136",
+      "title": "[백설] 자일로스 설탕 2종",
+      "category": "양념/오일 > 설탕",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/d02c94ff-3390-4741-9694-bee29756205d.jpg",
+      "basePrice": 4120,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5052136-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "ef9a7077-1a28-5dd9-bd8f-b95f3bbea5d8",
       "externalId": "kurly:5053097",
       "title": "[하이트진로] 석수 무라벨 생수 (2L X 6개)",
@@ -49454,6 +52268,69 @@
           "optionValue": "[브리오신] 주방세제 리필 500ml",
           "priceDelta": 0,
           "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "01cf8f2e-bfca-50d7-9eed-7ad2437d4226",
+      "externalId": "kurly:5053329",
+      "title": "[Kurly's] 국산콩 두부 300g",
+      "category": "반찬 > 두부",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/164730389977l0.jpg",
+      "basePrice": 2140,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5053329-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "e2e6d28c-6960-5b64-99c7-636557b38586",
+      "externalId": "kurly:5053663",
+      "title": "땅끝 해남 쌀 10kg ",
+      "category": "쌀/잡곡 > 쌀",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/6756bfaa-a90e-471c-ac8d-14abc0fb757e.jpg",
+      "basePrice": 38700,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5053663-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9a7b325a-9186-5c36-a2d7-061205176894",
+      "externalId": "kurly:5054074",
+      "title": "[우주] 프리미엄 손질 생새우살 2종(26/30), 택1 (냉동)",
+      "category": "수산 > 새우",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/69f4ec64-cf6b-4036-bea5-3cec702eb052.jpg?v=0531",
+      "basePrice": 6300,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5054074-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
           "status": "ACTIVE"
         }
       ]
@@ -49541,6 +52418,153 @@
           "optionValue": "[브로드카세] 귀여운 레몬사자쿠키 100g",
           "priceDelta": 570,
           "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "e41818d6-c182-5abb-857b-c6be9ba55ac6",
+      "externalId": "kurly:5054884",
+      "title": "GAP 냉동 청도 산딸기 250g",
+      "category": "과일/견과 > 딸기",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/be29c05e-c723-4aa6-a219-0e7c7d2a68b8.jpg",
+      "basePrice": 12100,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5054884-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "c3c3828c-c1b4-5e28-a2a1-2b20d0f4548d",
+      "externalId": "kurly:5055518",
+      "title": "[청양] 통참깨 참기름 & 통들깨 들기름 180ml",
+      "category": "양념/오일 > 식용유/오일 > 참기름",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1595831966208l0.jpg",
+      "basePrice": 7970,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5055518-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "784e289d-a379-5415-9fde-fb7b6479f744",
+      "externalId": "kurly:5055607",
+      "title": "[이목] 국내산 소고기 등심 구이용 200g (냉장)",
+      "category": "한우/육우 > 등심",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1648209059963l0.jpeg",
+      "basePrice": 14700,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5055607-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "bac68f48-9935-5ce1-ba2b-e5033f1fa410",
+      "externalId": "kurly:5055837",
+      "title": "[비비드키친] 저칼로리 케첩",
+      "category": "양념/오일 > 소스 > 케첩",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/14f5d3b3-4140-4b98-a127-c73612c4d572.jpg",
+      "basePrice": 3260,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5055837-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "5d9dae3c-de71-545c-a3b3-9d68d16e2c10",
+      "externalId": "kurly:5056512",
+      "title": "[KF365] 한돈 삼겹살 구이용 600g/1kg (냉장)",
+      "category": "돼지고기 > 삼겹살",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/396d26eb-4cdc-4291-9520-68e2a14e8c8c.jpg",
+      "basePrice": 17100,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5056512-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "8b3133db-e628-5f58-9d82-1ca33dcbc735",
+      "externalId": "kurly:5058732",
+      "title": "[KF365] 참타리 버섯 200g",
+      "category": "채소 > 버섯",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/21fe938d-0536-4dbc-8a36-e17cbec05a0f.jpg",
+      "basePrice": 2180,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5058732-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "186dce58-5d06-595b-8fbd-647bd6192dd7",
+      "externalId": "kurly:5059149",
+      "title": "[오뚜기]  순후추 2종 (50g/100g)",
+      "category": "양념/오일 > 후추",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1601949132322l0.jpg",
+      "basePrice": 5680,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5059149-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
           "status": "ACTIVE"
         }
       ]
@@ -49694,6 +52718,48 @@
       ]
     },
     {
+      "id": "95c6f97a-fca9-5695-8b59-3ca3b33b090a",
+      "externalId": "kurly:5060911",
+      "title": "가시오이 2입",
+      "category": "채소 > 오이",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1604904592985l0.jpg",
+      "basePrice": 4610,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5060911-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "d9fb68a1-dc86-507a-8d6e-d1301cb49c9c",
+      "externalId": "kurly:5061259",
+      "title": "고랭지 홍로 햇사과 1.3kg",
+      "category": "과일/견과 > 사과",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/14eca172-5349-4870-b7cb-fb93f470f432.jpg",
+      "basePrice": 18300,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5061259-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "f5c3d68d-7667-5f6a-bd2f-48d612f6b83c",
       "externalId": "kurly:5061861",
       "title": "[스너글] 초고농축 섬유유연제 4종 (택1)",
@@ -49784,6 +52850,111 @@
       ]
     },
     {
+      "id": "a922aa28-3a13-535c-a4bb-cc180d1371e1",
+      "externalId": "kurly:5063110",
+      "title": "[연세우유 x 마켓컬리] 전용목장우유 900mL",
+      "category": "유제품 > 우유 > 흰우유",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/320bf4ca-5b08-470b-919d-46162e21aab9.jpg",
+      "basePrice": 2670,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5063110-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "e1878ffb-1950-530c-a33c-d44b3a418610",
+      "externalId": "kurly:5063521",
+      "title": "[디벨라] 토마토 퓨레 680g 2종 ",
+      "category": "면/즉석식품/통조림 > 파스타 > 파스타소스",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1608100298786l0.jpg",
+      "basePrice": 5150,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5063521-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b8c4d309-213b-54cf-8e06-5d1ef214bd5d",
+      "externalId": "kurly:5063578",
+      "title": "[KF365] 대추방울토마토 750g",
+      "category": "채소 > 토마토",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/4436fdec-039d-4683-b8f3-7ebf677ad190.jpg",
+      "basePrice": 14300,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5063578-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b8adee07-00f2-508c-8987-f70310102e81",
+      "externalId": "kurly:5063639",
+      "title": "[ISFI] 바질",
+      "category": "채소 > 허브",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1609991708470l0.jpg",
+      "basePrice": 2770,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5063639-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "a1626155-8b83-5e15-b526-93d85a8291cf",
+      "externalId": "kurly:5063827",
+      "title": "[Kurly's] 시원한 배추김치 1.5kg",
+      "category": "반찬 > 김치",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/db352481-8c46-4d8b-be8e-7c202b9e212c.jpeg",
+      "basePrice": 15200,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5063827-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "506b78a8-d040-566c-88cf-1914df8a16c7",
       "externalId": "kurly:5066967",
       "title": "[떡찌니] 우리쌀 유기농 떡국떡 2종 500g (택1)",
@@ -49850,6 +53021,48 @@
       ]
     },
     {
+      "id": "33ddef55-a25f-5164-9241-4e4300552f8e",
+      "externalId": "kurly:5068298",
+      "title": "[청정원] 순후추 50g",
+      "category": "양념/오일 > 후추",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1615179801562l0.jpg",
+      "basePrice": 3510,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5068298-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "991cef9b-603f-5db1-a549-395559f9c3c3",
+      "externalId": "kurly:5068725",
+      "title": "전골용 모둠 버섯 200g",
+      "category": "채소 > 버섯",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1616400818963l0.jpg",
+      "basePrice": 3010,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5068725-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "cf00e614-3fc2-567b-9e3c-f94abd25e05c",
       "externalId": "kurly:5069067",
       "title": "[KF365] 한돈 목살 구이용 600g/1kg (냉장)",
@@ -49872,6 +53085,90 @@
           "sku": "kurly:5069067-MK0000069067",
           "optionName": "option",
           "optionValue": "[KF365] 한돈 목살 구이용 600g (냉장)",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "58ebbc07-fb44-55d5-ad62-faba45087932",
+      "externalId": "kurly:5070409",
+      "title": "달보드레쌀 4kg (26년 햅쌀) ",
+      "category": "쌀/잡곡 > 쌀",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/c28c1422-0381-4edd-b561-63c801c3d34c.jpg",
+      "basePrice": 25900,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5070409-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "c51cc14e-bacf-542f-a1ce-2aa074619a01",
+      "externalId": "kurly:5071163",
+      "title": "친환경 적상추 2종",
+      "category": "채소 > 쌈채소",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1619678063405l0.jpg",
+      "basePrice": 2710,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5071163-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "1fdb3ed7-61b1-5d7b-9a01-bb44a43fa7e5",
+      "externalId": "kurly:5071165",
+      "title": "친환경 청상추 2종",
+      "category": "채소 > 쌈채소",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1619679443615l0.jpg",
+      "basePrice": 3140,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5071165-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b320dadd-a2c6-5ab5-b9b4-49ac87fc58b3",
+      "externalId": "kurly:5071341",
+      "title": "[오뗄블랙라벨] 전지 베이컨",
+      "category": "육류 > 가공육 > 베이컨",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/66b07100-82c7-4425-b792-0e6ac2fb6d75.jpeg",
+      "basePrice": 3960,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5071341-default",
+          "optionName": "option",
+          "optionValue": "기본",
           "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
@@ -50236,6 +53533,90 @@
       ]
     },
     {
+      "id": "b082782f-19e8-5844-9ff2-5598ae2de9fa",
+      "externalId": "kurly:5081023",
+      "title": "냉동 딸기 1kg (국산)",
+      "category": "과일/견과 > 딸기",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1626846888184l0.jpg",
+      "basePrice": 10120,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5081023-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b1971b3a-2e76-5ae6-a017-30ae041c56fb",
+      "externalId": "kurly:5081455",
+      "title": "[삼양] 삼양라면 5입",
+      "category": "면/즉석식품/통조림 > 라면",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/6a448813-8b96-4674-abc1-6a23c3abb895.jpg",
+      "basePrice": 3300,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5081455-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "c836262d-a795-5822-a81b-a94c94e72d96",
+      "externalId": "kurly:5081496",
+      "title": "[다담] 된장찌개 양념 530g",
+      "category": "양념/오일 > 된장",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1648204056631l0.jpg",
+      "basePrice": 5090,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5081496-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "ba2840cf-11e7-5aed-b470-502a26706802",
+      "externalId": "kurly:5081598",
+      "title": "[서울우유 x 마켓컬리] 치즈다운 치즈 (18g X 13입)",
+      "category": "유제품 > 치즈",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/cccd8469-0a6d-4be3-b22b-e1d87b25f9a7.jpg",
+      "basePrice": 4300,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5081598-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "aad0226d-4dfc-5a72-9729-6ff5caa60af9",
       "externalId": "kurly:5082562",
       "title": "[PPUL] 1++(9) 한우 수육용 300g 2종(알사태/양지) (냉장)",
@@ -50373,6 +53754,27 @@
       ]
     },
     {
+      "id": "53cc646a-7af2-58f6-a065-dcb9997b9fd4",
+      "externalId": "kurly:5093929",
+      "title": "[Kurly's] 한돈 삼겹 베이컨",
+      "category": "육류 > 가공육 > 베이컨",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1632810469444l0.jpg?v=0418",
+      "basePrice": 4520,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5093929-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "723f607f-ba0a-5f50-8ef8-1c3991b08f65",
       "externalId": "kurly:5094982",
       "title": "[닥터아토] 콧물 전용티슈 20매 1개입/6개입 2종 (택1)",
@@ -50426,6 +53828,27 @@
           "optionValue": "[닥터아토] 심플리 브리드 콧물 전용티슈 20매 (6개입)",
           "priceDelta": 5220,
           "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "e285c53c-4bee-503d-9390-b94635de4508",
+      "externalId": "kurly:5097217",
+      "title": "[매일] 바이오 그릭 요거트 무가당 플레인 400g",
+      "category": "유제품 > 요거트",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/22702b7a-669f-4e3d-9c2b-4c828993b200.jpg",
+      "basePrice": 3880,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5097217-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
           "status": "ACTIVE"
         }
       ]
@@ -50503,6 +53926,48 @@
           "optionValue": "[베이비본죽] 닭모듬버섯잡채밥",
           "priceDelta": 1160,
           "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b1120004-c330-5677-a713-c8fe5b559c0d",
+      "externalId": "kurly:5100805",
+      "title": "[오뚜기] 열라면 5입",
+      "category": "면/즉석식품/통조림 > 라면",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/6032a355-e9f1-4ce1-97a6-08a4d988c780.jpg",
+      "basePrice": 3660,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5100805-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "3a1891d4-f1fc-5ce8-9867-9577a6572336",
+      "externalId": "kurly:5100807",
+      "title": "[오뚜기] 참깨라면 4입",
+      "category": "면/즉석식품/통조림 > 라면",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1639549179998l0.jpg",
+      "basePrice": 4650,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5100807-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
           "status": "ACTIVE"
         }
       ]
@@ -50702,6 +54167,69 @@
           "sku": "kurly:5116362-MK0000116362",
           "optionName": "option",
           "optionValue": "[컬리멤버스][오설록] 그린티 랑드샤 (10g X 10개)",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "019aee6a-7c84-55f1-a4a9-33bb7b2de1dc",
+      "externalId": "kurly:5118044",
+      "title": "[Kurly's] 국산콩 두부 500g",
+      "category": "반찬 > 두부",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1647247548644l0.jpg",
+      "basePrice": 3180,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5118044-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "9e007a60-71ef-5b54-a8a0-2eb17a8c1d14",
+      "externalId": "kurly:5119903",
+      "title": "[KF365] 무항생제 1+등급란 L(대란) 20구",
+      "category": "달걀 > 계란",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/c0ca50ed-7a44-425d-9e1d-740e8e04a5f4.jpeg",
+      "basePrice": 7740,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5119903-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "c169c48f-af25-5f5d-b48a-7b0a1701a94a",
+      "externalId": "kurly:5121026",
+      "title": "친환경 새송이버섯 3입",
+      "category": "채소 > 버섯",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1650416229961l0.jpg",
+      "basePrice": 3250,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5121026-default",
+          "optionName": "option",
+          "optionValue": "기본",
           "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
@@ -50945,6 +54473,27 @@
       ]
     },
     {
+      "id": "b1b4be64-ff85-51bc-abf8-3b9c4c3378f5",
+      "externalId": "kurly:5138716",
+      "title": "[KF365] 노르웨이 생연어회 200g (냉장)",
+      "category": "수산 > 연어",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/8d7f50d0-5713-4f83-bdcc-4deb87c658e9.jpg",
+      "basePrice": 15300,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5138716-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "9ce12ffa-79fc-5103-853a-181eb7b156b6",
       "externalId": "kurly:5138971",
       "title": "[샘표] 우리엄마 반찬 8종",
@@ -51165,6 +54714,90 @@
       ]
     },
     {
+      "id": "4672a758-40f3-5986-9e81-2ab4bdd0069f",
+      "externalId": "kurly:5152797",
+      "title": "친환경 깐 양파 200g",
+      "category": "채소 > 양파",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1656998773573l0.jpg",
+      "basePrice": 3360,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5152797-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "5747c772-9c6f-5824-b0d5-3c79a2b7e7fa",
+      "externalId": "kurly:5152851",
+      "title": "[오뚜기] 토마토 케찹 2종 (택1)",
+      "category": "양념/오일 > 소스 > 케첩",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/7fda27d3-f033-469b-80e2-0df79881a611.jpg",
+      "basePrice": 3570,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5152851-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "cdd524c1-f26c-5efd-b91c-dce61336acb9",
+      "externalId": "kurly:5153165",
+      "title": "골든킹 감자 900g",
+      "category": "채소 > 감자",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1656391963198l0.jpg",
+      "basePrice": 5240,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5153165-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "ec571f37-8c4c-5731-afd0-81fb42efa595",
+      "externalId": "kurly:5153237",
+      "title": "[하이포크] 무항생제 한돈 삼겹살 구이용 300g (냉장)",
+      "category": "돼지고기 > 삼겹살",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/ff0e2e78-9dcd-45c2-997f-607df3bab462.jpg",
+      "basePrice": 12200,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5153237-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "91184433-2e0a-5527-a3c6-3178589e5d31",
       "externalId": "kurly:5155734",
       "title": "[탄단지] 통 닭가슴살 4종 (1입/4입)",
@@ -51242,6 +54875,153 @@
       ]
     },
     {
+      "id": "28e0cc5b-ff65-554a-9d0d-8ef9a14ac5a0",
+      "externalId": "kurly:5156425",
+      "title": "[조선호텔김치] 프리미엄 배추김치 1kg",
+      "category": "반찬 > 김치",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/902e2cd5-7688-4770-80fc-66c396381861.jpg",
+      "basePrice": 25700,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5156425-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "66ffa159-63b1-5656-af34-4dd5fdd936ed",
+      "externalId": "kurly:5156441",
+      "title": "[농협풍산김치] 맛김치 800g",
+      "category": "반찬 > 김치",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/70580a29-7439-43d9-ad07-6bb2fab48fab.jpg",
+      "basePrice": 9900,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5156441-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "71ed72e7-3d71-5e4f-8563-364c602bc666",
+      "externalId": "kurly:5156563",
+      "title": "[해찬들] 100% 태양초 우리쌀 고추장 500g",
+      "category": "양념/오일 > 고추장",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/ccac8a9f-40fa-4ce8-89fe-bb607e4d3b4f.jpg",
+      "basePrice": 7280,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5156563-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "d44229af-085e-5716-a9fe-7d568e5a9e5f",
+      "externalId": "kurly:5156564",
+      "title": "[해찬들] 100% 태양초 우리쌀 고추장 1kg ",
+      "category": "양념/오일 > 고추장",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/e324cbef-5f04-4084-9a17-cd879c689c29.jpg",
+      "basePrice": 10000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5156564-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "8723faa2-cd58-5fcc-8f5a-ac9672a5d24a",
+      "externalId": "kurly:5156568",
+      "title": "[해찬들] 맛있는 재래식 된장 500g",
+      "category": "양념/오일 > 된장",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/11f29ffe-a348-4e41-b19b-86af64726b4d.jpg",
+      "basePrice": 2720,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5156568-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "e91db05e-ae57-5440-b987-1ac486c24170",
+      "externalId": "kurly:5156580",
+      "title": "[청정원] 순창 100% 국산 고추장 2종 (택1)",
+      "category": "양념/오일 > 고추장",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/74bbf260-f665-4850-b7d0-11a5c56923a6.jpg",
+      "basePrice": 14300,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5156580-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "4d3e3a4f-e49d-5c09-bf74-c7918a3a4c0c",
+      "externalId": "kurly:5156591",
+      "title": "[샘표] 양조간장 701 2종 (택1)",
+      "category": "양념/오일 > 간장",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/5e4fffef-e1f0-4b4a-bb88-7ef47021f230.jpg",
+      "basePrice": 9000,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5156591-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
       "id": "86dd8bfd-e7de-5d46-a3ac-1ba724ccb782",
       "externalId": "kurly:5156678",
       "title": "[진미] 우리쌀 고추장 2종 (글루텐 프리)",
@@ -51294,6 +55074,69 @@
           "optionName": "option",
           "optionValue": "[진미] 우리쌀 된장 650g",
           "priceDelta": 4360,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "4cb23fc7-6d6c-59ab-a093-8b64fd13e058",
+      "externalId": "kurly:5156726",
+      "title": "[신앙촌] 양조 간장 3종",
+      "category": "양념/오일 > 간장",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/02f5aa3f-4b2d-4089-b338-777a48bd0f98.jpg",
+      "basePrice": 9050,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5156726-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 0,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "b3643698-4180-54c3-9e5d-cc43e27ba0ee",
+      "externalId": "kurly:5156728",
+      "title": "[한국맥꾸룸] 맥된장 2종",
+      "category": "양념/오일 > 된장",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1657957258695l0.jpg",
+      "basePrice": 5470,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5156728-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "f4e0dfad-9cfc-5f38-9acd-3d1ffd290e29",
+      "externalId": "kurly:5156729",
+      "title": "[한국맥꾸룸] 맥찹쌀 고추장 2종  (국산 고춧가루)",
+      "category": "양념/오일 > 고추장",
+      "brand": "",
+      "imageUrl": "https://img-cf.kurly.com/shop/data/goods/1657960138277l0.jpg",
+      "basePrice": 6820,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5156729-default",
+          "optionName": "option",
+          "optionValue": "기본",
+          "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
         }
@@ -51465,6 +55308,27 @@
           "sku": "kurly:5159361-MK0000155749",
           "optionName": "option",
           "optionValue": "[겐츠베이커리] 치즈쇼콜라롤케익 피스 (60g X 2개)",
+          "priceDelta": 0,
+          "stock": 100,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    {
+      "id": "86921d5c-6f23-5fb3-aa0d-f5a3b50afd75",
+      "externalId": "kurly:5159707",
+      "title": "[멘푸소] 유기농 필드 토마토 (홀 토마토)2개입/ 번들",
+      "category": "면/즉석식품/통조림 > 통조림 > 토마토",
+      "brand": "",
+      "imageUrl": "https://product-image.kurly.com/product/image/96942f8e-94a1-4991-b0ae-49f0540e0cf5.jpg",
+      "basePrice": 6380,
+      "currency": "KRW",
+      "status": "ACTIVE",
+      "variants": [
+        {
+          "sku": "kurly:5159707-default",
+          "optionName": "option",
+          "optionValue": "기본",
           "priceDelta": 0,
           "stock": 100,
           "status": "ACTIVE"
