@@ -154,6 +154,13 @@ Core V10 마이그레이션은 클라이언트를 생성한다. V14는 PUBLIC `c
 - `chatgpt-plugin`: ChatGPT에서 표시되는 실제 콜백 URI를 `redirect_uris` JSON 배열에
   정확히 등록한다. 초기 `https://chat.openai.com/aip/PLACEHOLDER/oauth/callback`을 그대로
   사용하지 않는다. Actions용 주소를 MCP callback으로 추정하지 않는다.
+- `claude-connector`(V20, 이슈 451): Claude 커스텀 커넥터용 PUBLIC 클라이언트다. 콜백은
+  `https://claude.ai/api/mcp/auth_callback` 하나이고 Anthropic 공식 문서 "Authentication for
+  connectors"의 Callback URLs 절이 지정한 값이다. claude.ai 웹·데스크톱·모바일이 같은 주소를
+  쓴다. Core는 `registration_endpoint`(DCR)와 CIMD를 공개하지 않으므로 Claude 연결 화면에서
+  "Use your own OAuth client"을 고르고 client ID로 `claude-connector`를 입력한다. 시크릿은
+  비운다. Claude Code와 Gemini CLI는 루프백 콜백의 포트가 매번 달라 현재의 완전 일치 검증에
+  걸리므로 이 클라이언트로 붙지 않는다.
 - `copenhagen-mcp`: `client.jwk`에 대응하는 **공개키만** `{"keys":[...]}` JWK Set으로
   `client_jwks`에 등록한다. `kid`와 서명 알고리즘이 일치해야 하며 개인 필드 `d`, `p`, `q`
   등은 등록하지 않는다. 초기 `NULL`이면 client_credentials 발급이 거부된다.
