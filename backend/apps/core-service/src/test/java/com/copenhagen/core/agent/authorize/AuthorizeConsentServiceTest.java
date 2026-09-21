@@ -139,12 +139,12 @@ class AuthorizeConsentServiceTest {
     }
 
     @Test
-    @DisplayName("승인하면 connection을 교체하고 code를 발급해 redirect_uri로 돌려준다")
-    void decide_approve_issuesCodeAndReplacesConnection() {
+    @DisplayName("승인하면 connection을 upsert하고 code를 발급해 redirect_uri로 돌려준다")
+    void decide_approve_issuesCodeAndUpsertsConnection() {
         UUID requestId = startPendingRequest();
         when(loginService.login("user1", "password"))
                 .thenReturn(new LoginResult(UUID.randomUUID(), 42L, "user1", "테스트"));
-        when(connectionService.replaceOnAuthorization(anyLong(), anyLong(), anySet()))
+        when(connectionService.upsertOnAuthorization(anyLong(), anyLong(), anySet()))
                 .thenReturn(new AgentConnection(
                         99L, UUID.randomUUID(), 42L, 1L, "[\"catalog:read\"]",
                         BASE_INSTANT, null, null, BASE_INSTANT, BASE_INSTANT));
@@ -155,7 +155,7 @@ class AuthorizeConsentServiceTest {
                 assertInstanceOf(AuthorizeDecisionResult.Approved.class, result);
         assertEquals(REDIRECT_URI, approved.redirectUri());
         assertNotNull(approved.code());
-        verify(connectionService).replaceOnAuthorization(42L, 1L, Set.of("catalog:read"));
+        verify(connectionService).upsertOnAuthorization(42L, 1L, Set.of("catalog:read"));
     }
 
     @Test
@@ -168,7 +168,7 @@ class AuthorizeConsentServiceTest {
         AuthorizeDecisionResult.Denied denied = assertInstanceOf(AuthorizeDecisionResult.Denied.class, result);
         assertEquals(REDIRECT_URI, denied.redirectUri());
         verify(connectionService, org.mockito.Mockito.never())
-                .replaceOnAuthorization(anyLong(), anyLong(), anySet());
+                .upsertOnAuthorization(anyLong(), anyLong(), anySet());
     }
 
     @Test
