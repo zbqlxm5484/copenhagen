@@ -80,6 +80,70 @@ class AuthorizationApprovalServiceTest {
     }
 
     @Test
+    void pinApprovalIsAcceptedWhenSessionStillRequiresBiometric() {
+        sessionStore.replace(withRequiredAction("BIOMETRIC"));
+
+        AuthorizationApprovalService.ApprovalResult result = service.approve(
+                "user-001",
+                "session-001",
+                new AuthorizationApprovalService.ApproveCommand(
+                        "method-001",
+                        new AuthorizationApprovalService.AuthenticationCommand(
+                                "PIN",
+                                null,
+                                null,
+                                "123456")));
+
+        assertEquals(AuthorizationSessionStatus.APPROVED.name(), result.status());
+        assertEquals("PIN", result.authMethod());
+        assertEquals("PIN", sessionStore.session().authMethod());
+    }
+
+    @Test
+    void wrongPinIsStillRejectedWhenSessionRequiresBiometric() {
+        sessionStore.replace(withRequiredAction("BIOMETRIC"));
+
+        PayException exception = assertThrows(
+                PayException.class,
+                () -> service.approve(
+                        "user-001",
+                        "session-001",
+                        new AuthorizationApprovalService.ApproveCommand(
+                                "method-001",
+                                new AuthorizationApprovalService.AuthenticationCommand(
+                                        "PIN",
+                                        null,
+                                        null,
+                                        "000000"))));
+
+        assertEquals(PayErrorCode.PIN_INVALID, exception.errorCode());
+        assertEquals(
+                AuthorizationSessionStatus.PENDING,
+                sessionStore.session().status());
+    }
+
+    @Test
+    void biometricApprovalIsStillRejectedWhenSessionRequiresPin() {
+        sessionStore.replace(withRequiredAction("PIN"));
+
+        PayException exception = assertThrows(
+                PayException.class,
+                () -> service.approve(
+                        "user-001",
+                        "session-001",
+                        new AuthorizationApprovalService.ApproveCommand(
+                                "method-001",
+                                new AuthorizationApprovalService.AuthenticationCommand(
+                                        "BIOMETRIC",
+                                        "challenge-001",
+                                        "assertion",
+                                        null))));
+
+        assertEquals(PayErrorCode.STATE_CONFLICT, exception.errorCode());
+        assertEquals("PIN", exception.currentState());
+    }
+
+    @Test
     void terminalApprovalCannotBeApprovedAgain() {
         sessionStore.replace(withRequiredAction("PIN"));
         service.approve(
