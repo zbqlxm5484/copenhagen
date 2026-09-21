@@ -26,4 +26,9 @@ public interface BiometricCredentialRepository {
             String deviceId,
             String publicKey,
             Instant registeredAt);
+
+    /** 행을 지우지 않고 REVOKED로 표시한다. 조회는 모두 ACTIVE 기준이라 자동으로 제외된다. */
+    default boolean revoke(String userId, String deviceId, Instant revokedAt) {
+        return false;
+    }
 }

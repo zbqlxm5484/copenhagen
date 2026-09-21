@@ -56,6 +56,15 @@ public interface AuthorizationSessionStore {
         return false;
     }
 
+    /**
+     * 생체 credential 해제처럼 사용자가 더 이상 생체를 쓸 수 없게 된 경우, 진행 중인
+     * 승인 세션을 PIN으로 돌린다. 이것이 없으면 사용자가 PIN을 입력해도 승인 확정이
+     * {@code STATE_CONFLICT}로 거절된다.
+     */
+    default int fallbackPendingToPin(String userId, Instant now) {
+        return 0;
+    }
+
     default boolean selectPaymentMethod(
             String authorizationSessionId,
             String userId,
