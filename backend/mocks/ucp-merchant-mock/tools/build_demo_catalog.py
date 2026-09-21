@@ -304,6 +304,32 @@ def load_rows(sqlite_path):
     return rows
 
 
+def load_extra(path):
+    """수집본(471)을 원본 행과 같은 모양으로 읽는다. `collect_kurly_grocery.py` 가 만든 파일이다.
+
+    원본 풀에 기본 식재료가 없어 시연 시나리오가 성립하지 않아 따로 모은 것이다(DESIGN.md 5.7절).
+    여기부터는 원본에서 온 행과 구분 없이 같은 가격 팩터·재고 해시·몰 전개를 탄다.
+    """
+    document = json.loads(Path(path).read_text(encoding="utf-8"))
+    rows = []
+    for product in document["products"]:
+        if not (product.get("product_id") and product.get("name")
+                and product.get("image") and product.get("price")):
+            continue
+        rows.append({
+            "source": product.get("source", "kurly"),
+            "product_id": product["product_id"],
+            "name": product["name"],
+            "image": product["image"],
+            "price": product["price"],
+            "raw_variants": product.get("raw_variants") or [],
+            "category": product.get("category", ""),
+            "brand": product.get("brand", ""),
+            "colors": product.get("colors") or [],
+        })
+    return rows
+
+
 def to_product(row, mall, max_variants):
     external_id = row["product_id"]
     factor = price_factor(external_id, mall)
@@ -332,9 +358,15 @@ def main():
     parser.add_argument("--sqlite", required=True, help="korean_products_clean.sqlite 경로")
     parser.add_argument("--out-dir", required=True, help="출력 디렉터리")
     parser.add_argument("--max-variants", type=int, default=10, help="상품당 옵션 상한 (기본 10)")
+    parser.add_argument("--extra", help="추가 수집본 JSON. collect_kurly_grocery.py 산출물(471)")
     args = parser.parse_args()
 
     rows = load_rows(args.sqlite)
+    known = {row["product_id"] for row in rows}
+    if args.extra:
+        extra = [row for row in load_extra(args.extra) if row["product_id"] not in known]
+        print(f"추가 수집본 {len(extra)}건")
+        rows.extend(extra)
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
