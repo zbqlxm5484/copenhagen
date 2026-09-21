@@ -1,123 +1,107 @@
 package com.copenhagen.merchantmock.catalog;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import com.copenhagen.merchantmock.support.MerchantProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 
 /**
- * 시연 카탈로그 시드를 기동 시 한 번 적재한다(DESIGN.md 5.7절).
+ * 카탈로그 풀을 몰 셋의 products 행으로 적재한다(DESIGN.md 5.7절 2026-09-21 개정, ADR 0011).
  *
- * <p>{@code merchant.catalog.seed-files} 가 비어 있으면 아무 일도 하지 않는다. 기본값이 비어
- * 있으므로 테스트와 CI 는 V3 fixture 5건만 본다. 시연은 compose 에서 환경변수로 켠다.
+ * <p>풀 파일 하나를 읽고 몰마다 {@link MallVariation} 으로 id·가격·품절을 계산해 upsert 한다. 풀 sha256·몰 목록·
+ * limit 이 지난 적재({@link CatalogPoolState})와 같으면 건너뛴다 — 27만 행을 기동마다 다시 쓰지 않기 위해서다.
  *
- * <p>파일 셋을 한 DB 에 넣는다(393). 파일 머리의 {@code mall} 이 등록된 몰({@code merchant.malls[]})이어야 한다.
- * 모르는 몰의 시드가 들어가면 어느 경로로도 보이지 않는 행이 생기므로 기동을 세운다.
+ * <p>{@code merchant.catalog.pool-file} 이 비어 있으면 아무 일도 하지 않는다. 테스트와 CI 는 V3 fixture 5건만
+ * 본다. 파일이 설정됐는데 없거나 깨졌으면 기동을 세운다 — 시연에 상품이 없는 채로 뜨는 것보다 낫다.
  *
- * <p>경로가 설정돼 있는데 파일이 없어도 기동을 세운다. 시드가 조용히 안 들어가서 상품 5건만
- * 보이는 채로 시연에 들어가는 것이 더 나쁘다.
+ * <p>줄어든 상품은 지우지 않는다. {@code order_items.product_id} FK 가 걸려 있고 풀은 늘어나기만 한다.
  */
 @Component
 public class CatalogSeedLoader {
 
     private static final Logger LOG = LoggerFactory.getLogger(CatalogSeedLoader.class);
 
+    /** 한 번에 upsert 하는 행 수. pgjdbc 의 reWriteBatchedInserts 가 이 묶음을 다중 VALUES 하나로 다시 쓴다. */
+    static final int BATCH_SIZE = 1000;
+
     private final MerchantProperties properties;
-    private final ResourceLoader resourceLoader;
-    private final ObjectMapper objectMapper;
+    private final CatalogPoolReader reader;
+    private final MallVariation variation;
     private final CatalogSeedWriter writer;
+    private final CatalogPoolStateRepository stateRepository;
 
     public CatalogSeedLoader(
             MerchantProperties properties,
-            ResourceLoader resourceLoader,
-            ObjectMapper objectMapper,
-            CatalogSeedWriter writer) {
+            CatalogPoolReader reader,
+            MallVariation variation,
+            CatalogSeedWriter writer,
+            CatalogPoolStateRepository stateRepository) {
         this.properties = properties;
-        this.resourceLoader = resourceLoader;
-        this.objectMapper = objectMapper;
+        this.reader = reader;
+        this.variation = variation;
         this.writer = writer;
+        this.stateRepository = stateRepository;
     }
 
-    /** 설정돼 있으면 시드를 넣고 쓴 건수 합을, 아니면 0 을 돌려준다. */
+    /** 설정돼 있고 바뀐 것이 있으면 적재하고 쓴 행 수를, 아니면 0 을 돌려준다. */
     public int loadIfConfigured() {
         MerchantProperties.Catalog catalog = properties.catalog();
-        if (catalog == null || !catalog.hasSeedFiles()) {
-            LOG.info("시연 카탈로그 시드 없음. merchant.catalog.seed-files 가 비어 있다");
+        if (catalog == null || !catalog.hasPoolFile()) {
+            LOG.info("카탈로그 풀 없음. merchant.catalog.pool-file 이 비어 있다");
             return 0;
         }
-        int total = 0;
-        for (String location : catalog.seedFiles()) {
-            CatalogSeed seed = read(location);
-            int written = writer.upsertAll(seed.products());
-            total += written;
-            LOG.info("시연 카탈로그 시드 적재 완료. 몰 {}({}), 상품 {}건, 출처 {}",
-                    seed.mallName(), seed.mall(), written, location);
+        Instant started = Instant.now();
+        CatalogPool pool = reader.read(catalog.poolFile(), catalog.poolLimit());
+        String malls = mallList();
+        Optional<CatalogPoolState> previous = stateRepository.find();
+        if (previous.isPresent() && previous.get().matches(pool.sha256(), malls, catalog.poolLimit())) {
+            LOG.info("카탈로그 풀 적재 건너뜀. 같은 풀({}…)·몰({})·limit({}) 으로 {} 에 적재됐다",
+                    pool.sha256().substring(0, 12), malls, catalog.poolLimit(), previous.get().loadedAt());
+            return 0;
         }
+
+        int total = 0;
+        for (MerchantProperties.Mall mall : properties.malls()) {
+            total += write(mall.id(), pool.products());
+        }
+        stateRepository.save(new CatalogPoolState(
+                pool.sha256(), malls, catalog.poolLimit(), pool.products().size(), Instant.now()));
+        LOG.info("카탈로그 풀 적재 완료. 풀 {}건(파일 {}건, limit {}), 몰 {}개, 행 {}건, {}ms, 출처 {}",
+                pool.products().size(), pool.totalCount(), catalog.poolLimit(), properties.malls().size(), total,
+                Duration.between(started, Instant.now()).toMillis(), catalog.poolFile());
         return total;
     }
 
-    private CatalogSeed read(String location) {
-        Resource resource = resourceLoader.getResource(location);
-        if (!resource.exists()) {
-            throw new IllegalStateException(
-                    "merchant.catalog.seed-files 가 가리키는 파일이 없다: " + location);
+    private int write(String mall, List<CatalogPool.PoolProduct> products) {
+        int written = 0;
+        List<CatalogSeed.Entry> batch = new ArrayList<>(BATCH_SIZE);
+        for (CatalogPool.PoolProduct product : products) {
+            batch.add(variation.derive(mall, product));
+            if (batch.size() == BATCH_SIZE) {
+                written += writer.upsertAll(batch);
+                batch.clear();
+            }
         }
-        try (InputStream input = resource.getInputStream()) {
-            return parse(objectMapper.readTree(input), location);
-        } catch (IOException | JacksonException exception) {
-            // IOException 은 파일을 못 읽은 것, JacksonException 은 JSON 형식이 깨진 것이다.
-            throw new IllegalStateException("시연 카탈로그 시드를 읽을 수 없다: " + location, exception);
+        if (!batch.isEmpty()) {
+            written += writer.upsertAll(batch);
         }
+        return written;
     }
 
-    private CatalogSeed parse(JsonNode root, String location) {
-        String mall = root.path("mall").asString("");
-        if (mall.isBlank() || properties.mall(mall).isEmpty()) {
-            throw new IllegalStateException(
-                    "시연 카탈로그 시드의 mall 이 merchant.malls 에 없다: '" + mall + "' (" + location + ")");
+    private String mallList() {
+        StringBuilder joined = new StringBuilder();
+        for (MerchantProperties.Mall mall : properties.malls()) {
+            if (!joined.isEmpty()) {
+                joined.append(',');
+            }
+            joined.append(mall.id());
         }
-        JsonNode products = root.path("products");
-        if (!products.isArray() || products.isEmpty()) {
-            throw new IllegalStateException("시연 카탈로그 시드에 products 배열이 없다: " + location);
-        }
-        List<CatalogSeed.Entry> entries = new ArrayList<>(products.size());
-        for (JsonNode product : products) {
-            entries.add(toEntry(mall, product, location));
-        }
-        return new CatalogSeed(mall, root.path("mallName").asString(""), List.copyOf(entries));
-    }
-
-    private CatalogSeed.Entry toEntry(String mall, JsonNode product, String location) {
-        String externalId = product.path("externalId").asString("");
-        if (externalId.isBlank()) {
-            throw new IllegalStateException("시연 카탈로그 시드에 externalId 가 없는 상품이 있다: " + location);
-        }
-        JsonNode variants = product.path("variants");
-        if (!variants.isArray() || variants.isEmpty()) {
-            // 옵션이 없으면 pickVariant 가 SKU 를 못 찾아 체크아웃이 성립하지 않는다(5.7절).
-            throw new IllegalStateException("옵션 없는 상품이 시드에 있다: " + externalId + " (" + location + ")");
-        }
-        return new CatalogSeed.Entry(
-                product.path("id").asString(),
-                mall,
-                externalId,
-                product.path("title").asString(),
-                product.path("category").asString(null),
-                product.path("brand").asString(null),
-                product.path("imageUrl").asString(null),
-                product.path("basePrice").asLong(),
-                product.path("currency").asString("KRW"),
-                product.path("status").asString("ACTIVE"),
-                variants.toString());
+        return joined.toString();
     }
 }

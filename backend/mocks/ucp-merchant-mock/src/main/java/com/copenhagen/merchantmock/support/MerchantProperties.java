@@ -41,7 +41,7 @@ public record MerchantProperties(
             throw new IllegalArgumentException("merchant.malls 가 비어 있다. 몰이 최소 하나 있어야 한다");
         }
         malls = List.copyOf(malls);
-        catalog = catalog == null ? new Catalog(List.of(), List.of()) : catalog;
+        catalog = catalog == null ? new Catalog("", 0, List.of(), null) : catalog;
     }
 
     /** 몰 하나의 UCP REST base endpoint. Core 는 이 값을 그 몰의 Profile 에서 읽어 간다. */
@@ -80,24 +80,24 @@ public record MerchantProperties(
     }
 
     /**
-     * 시연 카탈로그 시드(DESIGN.md 5.7절). {@code seedFiles} 가 비어 있으면 로더가 아무 일도 하지 않고
-     * V3 fixture 5건만 남는다. 기본값이 비어 있어야 테스트와 CI 가 fixture 구성을 그대로 본다.
+     * 카탈로그 풀과 검색 조정값(DESIGN.md 5.7절·6.7절, 2026-09-21).
      *
-     * <p>파일마다 {@code mall} 필드가 어느 몰의 시드인지 말한다. 한 DB 에 몰 셋의 파일을 다 넣는다(393).
-     * 환경변수 하나에 쉼표로 이어 준다 — 목록을 항목별 환경변수로 덮으면 Spring 이 나머지 항목을 지운다.
+     * <p>{@code poolFile} 이 비어 있으면 로더가 아무 일도 하지 않고 V3 fixture 5건만 남는다. 기본값이 비어 있어야
+     * 테스트와 CI 가 fixture 구성을 그대로 본다. 풀은 파일 하나이고 몰 셋의 가격·재고 편차는 로더가 계산한다.
+     *
+     * @param poolFile  classpath: 또는 file: 경로. .json 또는 .json.gz
+     * @param poolLimit 풀의 앞 몇 건만 실을지. 0 이면 전량. 앞 1,592건이 시연 필수라 그보다 작으면 시연이 성립하지 않는다
+     * @param synonyms  검색 동의어 묶음(470). 한 묶음 안의 낱말은 서로를 대신한다
+     * @param search    검색 점수 조정값(6.7절)
      */
-    public record Catalog(List<String> seedFiles, List<List<String>> synonyms) {
+    public record Catalog(String poolFile, int poolLimit, List<List<String>> synonyms, Search search) {
         public Catalog {
-            List<String> cleaned = new ArrayList<>();
-            if (seedFiles != null) {
-                for (String file : seedFiles) {
-                    if (file != null && !file.isBlank()) {
-                        cleaned.add(file.trim());
-                    }
-                }
+            poolFile = poolFile == null ? "" : poolFile.trim();
+            if (poolLimit < 0) {
+                throw new IllegalArgumentException("merchant.catalog.pool-limit 는 0 이상이어야 한다: " + poolLimit);
             }
-            seedFiles = List.copyOf(cleaned);
             synonyms = normalizeSynonyms(synonyms);
+            search = search == null ? Search.defaults() : search;
         }
 
         /** 소문자로 눕히고 두 낱말 미만인 묶음은 버린다. 혼자인 낱말은 확장할 것이 없다. */
@@ -123,8 +123,47 @@ public record MerchantProperties(
             return List.copyOf(cleaned);
         }
 
-        public boolean hasSeedFiles() {
-            return !seedFiles.isEmpty();
+        public boolean hasPoolFile() {
+            return !poolFile.isEmpty();
+        }
+
+        /**
+         * 검색 점수 조정값(DESIGN.md 6.7절, ADR 0012). yml 로 뺀 이유는 리허설에서 결과가 어색할 때 배포 없이
+         * 만질 수 있어야 해서다. 둘 다 1.0 이면 A3(흔한 낱말 가중치만), 거기서 더 빼면 A2 다.
+         *
+         * @param fluffWords  정보가 없는 수식어. "맛있는·신선한·저렴한·추천해줘·이하" 같은 것. 소문자로 비교한다
+         * @param fluffWeight 수식어 묶음의 가중치 배율. 0 초과 1 이하. 기본 0.2
+         * @param tailBoost   검색어 마지막 낱말의 가중치 배율. 1 이상. 기본 1.5
+         */
+        public record Search(List<String> fluffWords, Double fluffWeight, Double tailBoost) {
+            public Search {
+                List<String> words = new ArrayList<>();
+                if (fluffWords != null) {
+                    for (String word : fluffWords) {
+                        if (word != null && !word.isBlank()) {
+                            words.add(word.trim().toLowerCase(Locale.ROOT));
+                        }
+                    }
+                }
+                fluffWords = List.copyOf(words);
+                fluffWeight = fluffWeight == null ? 0.2 : fluffWeight;
+                tailBoost = tailBoost == null ? 1.5 : tailBoost;
+                if (fluffWeight <= 0 || fluffWeight > 1) {
+                    throw new IllegalArgumentException("merchant.catalog.search.fluff-weight 는 0 초과 1 이하: "
+                            + fluffWeight);
+                }
+                if (tailBoost < 1) {
+                    throw new IllegalArgumentException("merchant.catalog.search.tail-boost 는 1 이상: " + tailBoost);
+                }
+            }
+
+            public static Search defaults() {
+                return new Search(List.of(), null, null);
+            }
+
+            public boolean isFluff(String token) {
+                return fluffWords.contains(token);
+            }
         }
     }
 

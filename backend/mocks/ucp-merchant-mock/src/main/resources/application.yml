@@ -8,6 +8,10 @@ spring:
     url: ${MERCHANT_DB_URL:jdbc:postgresql://merchant-db:5432/merchant-db}
     username: ${MERCHANT_DB_USER:merchant}
     password: ${MERCHANT_DB_PASSWORD:merchant-dev-password}
+    hikari:
+      data-source-properties:
+        # 카탈로그 풀 적재의 배치 INSERT 를 다중 VALUES 하나로 다시 쓴다(DESIGN.md 5.7절). 27만 행 첫 적재 시간이다.
+        reWriteBatchedInserts: true
   flyway:
     enabled: true
 
@@ -37,11 +41,48 @@ merchant:
   currency: KRW
   # Core 가 Profile 의 endpoint 값에서 읽어 가는 주소의 앞부분. 몰 하나의 endpoint 는 여기에 /api/ucp/v1/{id} 를 붙인 값이다.
   public-base-url: ${MERCHANT_PUBLIC_BASE_URL:http://ucp-merchant-mock:8080}
-  # 시연 카탈로그 시드(DESIGN.md 5.7절). 기본값은 비어 있고 그러면 로더가 아무 일도 하지 않는다.
-  # 테스트와 CI 는 V3 fixture 5건만 봐야 하므로 여기에 경로를 박지 않는다.
-  # 시연은 compose 에서 켠다. 쉼표로 이어 준다. 예: classpath:catalog/merchant-a.json,classpath:catalog/merchant-b.json
+  # 카탈로그 풀(DESIGN.md 5.7절 2026-09-21 개정, ADR 0011). 파일 하나이고 몰 셋의 가격·재고 편차는 로더가 계산한다.
+  # 기본값은 비어 있고 그러면 로더가 아무 일도 하지 않는다. 테스트와 CI 는 V3 fixture 5건만 봐야 하므로
+  # 여기에 경로를 박지 않는다. 시연은 compose 에서 켠다. 예: classpath:catalog/pool.json.gz
   catalog:
-    seed-files: ${MERCHANT_CATALOG_SEED_FILES:}
+    pool-file: ${MERCHANT_CATALOG_POOL_FILE:}
+    # 풀의 앞 N 건만 싣는다. 0 이면 전량. 앞 1,592건이 시연 필수라 N 은 그 이상이어야 한다.
+    # compose 기본은 30000 이고 EC2 RAM 이 확인되면 0 으로 올린다(13절).
+    pool-limit: ${MERCHANT_CATALOG_POOL_LIMIT:0}
+    # 검색 점수 조정값(DESIGN.md 6.7절, ADR 0012). 둘 다 1.0 이면 흔한 낱말 가중치만 남는다(A3).
+    search:
+      fluff-weight: 0.2
+      tail-boost: 1.5
+      # 정보가 없는 수식어. 이 낱말만으로 검색하면 감쇠하지 않는다(그때는 그것이 검색어다).
+      fluff-words:
+        - 맛있는
+        - 신선한
+        - 저렴한
+        - 싼
+        - 가벼운
+        - 좋은
+        - 예쁜
+        - 튼튼한
+        - 괜찮은
+        - 인기
+        - 베스트
+        - 최고
+        - 제일
+        - 가장
+        - 추천
+        - 추천해줘
+        - 추천해
+        - 찾아줘
+        - 보여줘
+        - 알려줘
+        - 이하
+        - 이상
+        - 미만
+        - 만원
+        - 원
+        - 정도
+        - 쯤
+        - 좀
     # 검색 동의어 묶음(470, DESIGN.md 5.7절). 한 묶음 안의 낱말은 서로를 대신한다.
     #
     # 카테고리 매칭만으로는 한글 합성어가 안 이어진다. "운동화" 로 쳐도 러닝화 상품의 카테고리가
@@ -50,13 +91,20 @@ merchant:
     # 묶음은 좁게 잡는다. 상위어를 넣으면 정밀도가 무너진다 — "오일" 을 넣었더니 "올리브유" 검색에
     # 클렌징 오일·립 오일까지 48건이 걸렸다. 같은 물건을 가리키는 말만 넣는다.
     synonyms:
-      - ["신발", "운동화", "러닝화", "스니커즈", "워킹화", "스포츠화"]
+      - ["신발", "운동화", "러닝화", "런닝화", "스니커즈", "워킹화", "스포츠화"]
       - ["올리브유", "올리브오일"]
       - ["참기름", "참깨기름"]
       # "노트북 ↔ 랩탑" 은 넣었다가 뺐다. 실측에서 "랩탑 파워뱅크"(보조배터리)가 진짜 노트북보다
       # 위로 올라왔다. 같은 물건을 가리키는 말이어도 다른 물건 이름에 그 낱말이 박혀 있으면 해가 된다.
       - ["이어폰", "이어버드"]
       - ["텀블러", "보온병"]
+      # 영문 브랜드와 표기 흔들림(6.7절 A2). 실측에서 nike·adidas·요쿠르트가 0건이었다.
+      - ["nike", "나이키"]
+      - ["adidas", "아디다스"]
+      - ["puma", "푸마"]
+      - ["newbalance", "뉴발란스"]
+      - ["요쿠르트", "요거트"]
+      - ["초콜렛", "초콜릿"]
   checkout:
     # 서명 시각 + 이 값이 expires_at 이다. 설계서 D-03.
     ttl: PT5M

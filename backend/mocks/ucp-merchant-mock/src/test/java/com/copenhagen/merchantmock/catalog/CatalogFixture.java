@@ -59,6 +59,12 @@ public final class CatalogFixture {
                         variant("product-302-single", "type", "기본", 0, 10, Product.ProductStatus.ACTIVE))));
     }
 
+    /** 제목·카테고리만 있는 판매 중 상품 하나. 검색 순서 시험(6.7절)이 쓴다. */
+    public static Product simple(String externalId, String title, String category) {
+        return product(externalId, title, category, null, 5000, Product.ProductStatus.ACTIVE, List.of(
+                variant(externalId + "-single", "option", "기본", 0, 10, Product.ProductStatus.ACTIVE)));
+    }
+
     /** 상한 시험용. 검색어가 전부 걸리도록 같은 낱말을 제목에 둔다(470). */
     public static List<Product> many(int count) {
         List<Product> products = new ArrayList<>(count);

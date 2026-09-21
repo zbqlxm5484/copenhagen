@@ -133,9 +133,15 @@ def to_row(item, category):
 
 
 def seeded_ids(seed_path):
+    """이미 풀에 있는 상품. 풀은 gzip 일 수 있다(2026-09-21 부터 pool.json.gz)."""
     if not seed_path or not Path(seed_path).exists():
         return set()
-    document = json.loads(Path(seed_path).read_text(encoding="utf-8"))
+    raw = Path(seed_path).read_bytes()
+    if raw[:2] == b"\x1f\x8b":
+        import gzip
+
+        raw = gzip.decompress(raw)
+    document = json.loads(raw.decode("utf-8"))
     return {product["externalId"] for product in document.get("products", [])}
 
 
@@ -172,7 +178,7 @@ def collect(per_keyword, delay, timeout, seed_path):
 def main():
     parser = argparse.ArgumentParser(description="시연용 식재료 수집(컬리 공개 검색)")
     parser.add_argument("--out", required=True, help="출력 JSON 경로")
-    parser.add_argument("--seed", default="src/main/resources/catalog/merchant-a.json",
+    parser.add_argument("--seed", default="src/main/resources/catalog/pool.json.gz",
                         help="중복 제거에 쓸 기존 시드")
     parser.add_argument("--per-keyword", type=int, default=4, help="키워드당 상품 수 (기본 4)")
     parser.add_argument("--delay", type=float, default=1.0, help="요청 간 대기 초 (기본 1.0)")

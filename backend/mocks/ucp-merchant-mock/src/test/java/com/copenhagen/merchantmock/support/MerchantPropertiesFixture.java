@@ -38,6 +38,10 @@ public final class MerchantPropertiesFixture {
             new MerchantProperties.Fulfillment.RemoteArea("제주", 3000L, List.of("63"),
                     List.of(), List.of()));
 
+    /** 검색 수식어 목록(6.7절). application.yml 과 같은 모양이고 낱말만 줄였다. */
+    public static final MerchantProperties.Catalog.Search SEARCH = new MerchantProperties.Catalog.Search(
+            List.of("맛있는", "신선한", "저렴한", "가벼운", "추천해줘", "이하", "만원"), 0.2, 1.5);
+
     public static final String PUBLIC_JWK = """
             {"kty":"EC","crv":"P-256",\
             "x":"Kv4fWw_TEzEQ2EOMOgsbIyH9314FhRdQknrvaPY5Q3Q",\
@@ -58,7 +62,7 @@ public final class MerchantPropertiesFixture {
                 "2026-08-25",
                 "KRW",
                 "http://ucp-merchant-mock:8080",
-                new MerchantProperties.Catalog(List.of(), SYNONYMS),
+                new MerchantProperties.Catalog("", 0, SYNONYMS, SEARCH),
                 new MerchantProperties.Checkout(Duration.ofMinutes(5), Duration.ofSeconds(5)),
                 new MerchantProperties.Fulfillment(3000L, REMOTE_AREAS),
                 signing,
@@ -71,19 +75,15 @@ public final class MerchantPropertiesFixture {
                 new MerchantProperties.Webhook(Duration.ofSeconds(10), 8, Duration.ofSeconds(5)));
     }
 
-    /** 시연 카탈로그 시드 경로만 바꾼 설정. 로더 테스트가 쓴다(DESIGN.md 5.7절). */
-    public static MerchantProperties withCatalogSeedFile(String seedFile) {
-        return withCatalogSeedFiles(List.of(seedFile));
-    }
-
-    public static MerchantProperties withCatalogSeedFiles(List<String> seedFiles) {
+    /** 카탈로그 풀 경로와 limit 만 바꾼 설정. 로더·풀 파일 테스트가 쓴다(DESIGN.md 5.7절). */
+    public static MerchantProperties withCatalogPool(String poolFile, int poolLimit) {
         MerchantProperties base = defaults();
         return new MerchantProperties(
                 base.malls(),
                 base.ucpVersion(),
                 base.currency(),
                 base.publicBaseUrl(),
-                new MerchantProperties.Catalog(seedFiles, SYNONYMS),
+                new MerchantProperties.Catalog(poolFile, poolLimit, SYNONYMS, SEARCH),
                 base.checkout(),
                 base.fulfillment(),
                 base.signing(),

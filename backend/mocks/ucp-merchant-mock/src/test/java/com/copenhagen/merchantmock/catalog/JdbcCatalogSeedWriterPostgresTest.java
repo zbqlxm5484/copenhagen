@@ -158,25 +158,29 @@ class JdbcCatalogSeedWriterPostgresTest {
     }
 
     @Test
-    @DisplayName("커밋한 시드 파일이 실제 DB 를 거쳐 카탈로그에 올라온다")
-    void seedFile_loadedThroughDatabase_appearsInCatalogStore() {
+    @DisplayName("커밋한 풀의 앞 2,000건이 실제 DB 를 거쳐 몰 셋 카탈로그에 올라오고 두 번째 적재는 건너뛴다")
+    void poolFile_loadedThroughDatabase_appearsInCatalogStore() {
         // given
+        ObjectMapper mapper = new ObjectMapper();
         CatalogSeedLoader loader = new CatalogSeedLoader(
-                MerchantPropertiesFixture.withCatalogSeedFile("classpath:catalog/merchant-a.json"),
-                new DefaultResourceLoader(),
-                new ObjectMapper(),
-                writer);
-        CatalogStore store = new CatalogStore(new JdbcProductRepository(jdbc, new ObjectMapper()));
+                MerchantPropertiesFixture.withCatalogPool("classpath:catalog/pool.json.gz", 2000),
+                new CatalogPoolReader(new DefaultResourceLoader(), mapper),
+                new MallVariation(mapper),
+                writer,
+                new JdbcCatalogPoolStateRepository(jdbc));
+        CatalogStore store = new CatalogStore(new JdbcProductRepository(jdbc, mapper));
 
         // when
         int written = loader.loadIfConfigured();
+        int again = loader.loadIfConfigured();
         store.load();
 
         // then
-        // 몰 하나가 풀 1,408건의 약 78% 를 갖는다(DESIGN.md 5.7절). 정확한 수는 CatalogSeedFilesTest 가 본다.
-        assertTrue(written >= 1000, "적재 " + written + "건");
+        assertEquals(2000 * 3, written, "몰 셋 × 2,000건");
+        assertEquals(0, again, "같은 풀·몰·limit 이면 건너뛴다(V12 catalog_pool_state)");
         // V3 fixture 5건이 그대로 남아 있어야 한다.
-        assertEquals(written + 5, store.all("merchant-a").size());
+        assertEquals(2000 + 5, store.all("merchant-a").size());
+        assertEquals(2000, store.all("merchant-b").size());
 
         Product product = store.all("merchant-a").stream()
                 .filter(candidate -> candidate.externalId().startsWith("kurly:"))

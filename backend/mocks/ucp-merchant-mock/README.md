@@ -40,13 +40,18 @@ GET   /api/ucp/v1/{merchantId}/orders/{orderId}
 원본에 옵션이 없는 상품(다나와·다이소)은 카테고리를 보고 옵션을 합성합니다. 신발은 사이즈 250~280 × 색상, 의류는 S·M·L, 색이 갈리는 카테고리(휴대폰·태블릿·노트북·가방 등)는 색상입니다. 가전·부품은 합성하지 않습니다. 몰당 상품 1,592건에 SKU 4,332개, 고를 옵션이 둘 이상인 상품이 847건입니다. 풀은 원본 1,408건과 시연용 식재료 수집본 184건을 합친 것입니다 — 원본에 마늘·두부·파마산 같은 기본 식재료가 없어 "재료 찾아서 장바구니에 담아줘" 시나리오가 성립하지 않았습니다(`tools/collect_kurly_grocery.py`). 카탈로그 응답에는 상품 이미지(`imageUrl`)가 함께 나갑니다.
 
 ```bash
-# 시드 JSON 셋 재생성. 원본 sqlite 는 Git 에 없다(김지호 전처리 번들)
-python tools/build_demo_catalog.py \
-  --sqlite ~/Downloads/korean_products_clean_bundle/korean_products_clean.sqlite \
-  --out-dir src/main/resources/catalog
+# 카탈로그 풀 재생성(DESIGN.md 5.7절, ADR 0011). 원본 넷은 Git 에 없다 — 김지호 번들 둘과 컬리 수집본은 Downloads 에 있다
+python tools/build_catalog_pool.py \
+  --clean-sqlite ~/Downloads/korean_products_clean_bundle/korean_products_clean.sqlite \
+  --raw-sqlite   ~/Downloads/korean_products_bundle/korean_products.sqlite \
+  --kurly-catalog ~/Downloads/kurly-catalog-2026-09-21.json \
+  --grocery tools/kurly-grocery.json \
+  --out src/main/resources/catalog/pool.json.gz
+# 규칙을 바꿨으면 황금값도 다시 뽑는다
+python tools/mall_variation_golden.py --pool src/main/resources/catalog/pool.json.gz --out src/test/resources/catalog-pool/golden.json
 ```
 
-인스턴스 하나는 `MERCHANT_ID`·`MERCHANT_SELLER_NAME`·`MERCHANT_CATALOG_SEED_FILE`·`MERCHANT_SIGNING_KID`·`MERCHANT_PUBLIC_BASE_URL`·DB 여섯을 한 몰로 받습니다. `MERCHANT_CATALOG_SEED_FILE` 을 비우면 V3 fixture 5건만 뜨고 테스트·CI 가 그 상태입니다.
+컨테이너 하나가 몰 셋을 서빙하고(ADR 0008) 풀 파일 하나를 `MERCHANT_CATALOG_POOL_FILE` 로 받습니다. 몰별 가격·재고 편차는 로더가 기동 때 계산합니다(ADR 0011). `MERCHANT_CATALOG_POOL_LIMIT` 은 풀 앞 N 건만 싣는 값이고 0 이면 전량입니다. `MERCHANT_CATALOG_POOL_FILE` 을 비우면 V3 fixture 5건만 뜨고 테스트·CI 가 그 상태입니다.
 
 compose 에서 b·c 는 profile `malls` 뒤에 있습니다. 기본 `up` 과 CI 스모크는 a 하나만 띄웁니다.
 

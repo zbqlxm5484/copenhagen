@@ -1,12 +1,13 @@
 package com.copenhagen.merchantmock.catalog;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 
 import com.copenhagen.merchantmock.support.ApiException;
 import com.copenhagen.merchantmock.support.MerchantProperties;
@@ -30,17 +31,16 @@ public class CatalogService {
      */
     private static final int MAX_RESULTS = 100;
 
-    /** 낱말 경계. 한글·영문·숫자가 아닌 것은 전부 구분자로 본다. 상품명의 대괄호·슬래시·괄호를 가른다. */
-    private static final Pattern WORD_BREAK = Pattern.compile("[^0-9a-z\uac00-\ud7a3]+");
-
     private final CatalogStore store;
     private final MerchantProperties merchants;
     private final Map<String, List<String>> synonyms;
+    private final MerchantProperties.Catalog.Search tuning;
 
     public CatalogService(CatalogStore store, MerchantProperties merchants) {
         this.store = store;
         this.merchants = merchants;
         this.synonyms = indexSynonyms(merchants.catalog().synonyms());
+        this.tuning = merchants.catalog().search();
     }
 
     /** 낱말 하나에서 자기 묶음으로 가는 색인. 같은 낱말이 두 묶음에 있으면 먼저 온 묶음을 쓴다. */
@@ -55,28 +55,94 @@ public class CatalogService {
     }
 
     /**
-     * 검색어를 공백으로 쪼개 모든 토큰이 제목·브랜드·카테고리 중 어딘가에 있으면 통과시키고,
-     * 어디서 맞았는지로 줄을 세운다(470).
+     * 검색어를 낱말로 쪼개 동의어로 넓히고, 하나라도 제목·브랜드·카테고리에 있으면 후보로 삼아 점수로
+     * 줄을 세운다(DESIGN.md 6.7절, ADR 0012).
      *
-     * <p>순서가 곧 결과다. MCP 도구 기본값이 {@code pageSize} 4 · {@code sort} RELEVANCE 인데 Core 는
-     * RELEVANCE 를 무정렬로 통과시키므로 여기서 매긴 순서가 그대로 사용자 화면이 된다.
+     * <p>470 은 모든 낱말이 맞아야 통과시켰다(AND). 수식어가 하나 붙으면 0건이라 "가벼운 러닝화", "러닝화
+     * 추천해줘" 가 전부 0 이었다. OR 로 바꾸면 결과 수의 책임이 순서로 옮겨 온다 — MCP 도구 기본값이
+     * {@code pageSize} 4 라 첫 화면 넷이 곧 결과다.
      *
-     * <p>카테고리 매칭은 재현율을 올리는 대신 정밀도를 떨어뜨린다 — "올리브유" 에 같은 카테고리의
-     * 고추장이 딸려 온다. 그래서 제목에서 맞은 것을 앞에 두고 카테고리로만 맞은 것을 뒤로 민다.
+     * <pre>
+     * 점수 = Σ_{맞은 묶음 g} f(g) × t(g)
+     *   f  수식어 감쇠. 검색어 낱말이 fluff-words 에 있으면 fluff-weight(0.2). 전부 수식어면 감쇠하지 않는다
+     *   t  끝 낱말 가중. 검색어의 마지막 낱말이면 tail-boost(1.5). 한국어 명사구는 핵심 명사가 뒤에 온다
+     * 동점은 자리 단계(제목 낱말 4 > 제목 부분 3 > 브랜드 2 > 카테고리 1, 맞은 묶음 중 가장 약한 자리),
+     * 그래도 같으면 풀 순서. 안정 정렬이라 같은 요청에 같은 답이 나온다.
+     * </pre>
+     *
+     * <p>흔한 낱말을 가볍게 보는 가중치(역문서빈도)는 넣었다가 뺐다. 1,592건에서는 적중이 +5 였지만 10만 건 풀에서는
+     * -4 였다 — "남자 양말" 에서 양말이 805건으로 흔해 가중치가 0 에 가까워지고 "남자" 만 맞은 한복·스킨이 위로 왔다.
+     * 핵심 명사가 흔한 낱말인 경우가 많아 방향이 틀린 신호였다(DESIGN.md 6.7절 실측).
+     *
+     * <p>두 번 훑는다. 첫 번째로 상품마다 묶음이 어느 자리에서 맞았는지(병렬), 두 번째로 점수. 10만 건 풀에서 요청당
+     * 수십 ms 를 목표로 하고 실측은 13절에 적는다.
      */
     public CatalogMessages.ItemsResponse search(String merchantId, CatalogMessages.SearchRequest request) {
         merchants.requireMall(merchantId);
-        List<List<String>> groups = expand(request == null ? null : request.query());
         CatalogMessages.SearchRequest.Filters filters = request == null ? null : request.filters();
-        List<CatalogMessages.Item> items = store.all(merchantId).stream()
-                .filter(CatalogService::onSale)
-                .filter(product -> matches(product, groups))
-                .filter(product -> matchesPrice(product, filters))
-                .filter(product -> matchesCurrency(product, filters))
-                .sorted(Comparator.comparingInt((Product product) -> relevance(product, groups)).reversed())
-                .limit(MAX_RESULTS)
-                .map(CatalogMessages.Item::of)
-                .toList();
+        List<Product> products = store.all(merchantId);
+        List<Term> terms = expand(request == null ? null : request.query());
+
+        List<CatalogMessages.Item> items = new ArrayList<>();
+        if (terms.isEmpty()) {
+            // 빈 검색어는 전부 후보다. 순서를 매길 근거가 없어 풀 순서 그대로 상한까지 낸다(470 결정 유지).
+            for (Product product : products) {
+                if (items.size() == MAX_RESULTS) {
+                    break;
+                }
+                if (onSale(product) && matchesPrice(product, filters) && matchesCurrency(product, filters)) {
+                    items.add(CatalogMessages.Item.of(product));
+                }
+            }
+            return new CatalogMessages.ItemsResponse(items);
+        }
+
+        List<SearchDoc> docs = store.searchDocs(merchantId);
+        int width = terms.size();
+        byte[] tiers = new byte[products.size() * width];
+        // 1차 훑기는 상품마다 독립이라 병렬로 돈다. 10만 건 × 낱말 × 세 필드 contains 가 검색 시간의 대부분이다.
+        // 쓰는 칸이 상품마다 다르므로 배열에 경쟁이 없다. df 는 2차에서 순서대로 센다.
+        IntStream.range(0, products.size()).parallel().forEach(index -> {
+            if (!onSale(products.get(index))) {
+                return;
+            }
+            SearchDoc doc = docs.get(index);
+            for (int k = 0; k < width; k++) {
+                tiers[index * width + k] = doc.tier(terms.get(k).group());
+            }
+        });
+        double[] weights = weights(terms);
+
+        List<Candidate> candidates = new ArrayList<>();
+        for (int index = 0; index < products.size(); index++) {
+            Product product = products.get(index);
+            if (!onSale(product)) {
+                continue;
+            }
+            double score = 0;
+            int weakest = Integer.MAX_VALUE;
+            for (int k = 0; k < width; k++) {
+                byte tier = tiers[index * width + k];
+                if (tier > 0) {
+                    score += weights[k];
+                    weakest = Math.min(weakest, tier);
+                }
+            }
+            if (weakest == Integer.MAX_VALUE
+                    || !matchesPrice(product, filters) || !matchesCurrency(product, filters)) {
+                continue;
+            }
+            candidates.add(new Candidate(index, score, weakest));
+        }
+        candidates.sort(Comparator.comparingDouble(Candidate::score).reversed()
+                .thenComparing(Comparator.comparingInt(Candidate::weakestTier).reversed())
+                .thenComparingInt(Candidate::index));
+        for (Candidate candidate : candidates) {
+            if (items.size() == MAX_RESULTS) {
+                break;
+            }
+            items.add(CatalogMessages.Item.of(products.get(candidate.index())));
+        }
         return new CatalogMessages.ItemsResponse(items);
     }
 
@@ -111,62 +177,47 @@ public class CatalogService {
         return product.status() == Product.ProductStatus.ACTIVE;
     }
 
+    /** 검색어 낱말 하나와 그 동의어 묶음. 수식어 판정은 원래 낱말로 한다 — 묶음의 다른 낱말이 아니라. */
+    private record Term(String token, List<String> group) {
+    }
+
+    private record Candidate(int index, double score, int weakestTier) {
+    }
+
     /**
      * 검색어를 낱말로 쪼개고 낱말마다 동의어 묶음으로 넓힌다. 묶음이 없는 낱말은 혼자 있는 묶음이 된다.
-     *
-     * <p>빈 검색어는 묶음이 없어 전부 통과한다. 그때 결과를 막는 것은 {@link #MAX_RESULTS} 하나뿐이다.
+     * 빈 검색어는 빈 목록이고 그때 결과를 막는 것은 {@link #MAX_RESULTS} 하나뿐이다.
      */
-    private List<List<String>> expand(String query) {
+    private List<Term> expand(String query) {
         if (query == null || query.isBlank()) {
             return List.of();
         }
         return Arrays.stream(query.trim().toLowerCase(Locale.ROOT).split("\\s+"))
                 .filter(token -> !token.isEmpty())
-                .map(token -> synonyms.getOrDefault(token, List.of(token)))
+                .map(token -> new Term(token, synonyms.getOrDefault(token, List.of(token))))
                 .toList();
     }
 
-    /** 묶음마다 하나라도 제목·브랜드·카테고리에 있으면 통과다. 묶음 사이는 AND 다. */
-    private static boolean matches(Product product, List<List<String>> groups) {
-        String haystack = lower(product.title()) + ' ' + lower(product.brand()) + ' ' + lower(product.category());
-        return groups.stream().allMatch(group -> anyIn(group, haystack));
-    }
-
     /**
-     * 큰 값이 앞이다. 빈 검색어면 전부 0 이라 시드 순서가 그대로 남는다.
+     * 묶음마다 가중치. 기본 1, 수식어는 가볍게, 마지막 낱말은 무겁게(6.7절).
      *
-     * <p>단계를 넷으로 둔 이유는 실측이다. 제목 부분문자열만 보면 "우유" 검색에서 우유팩 키링과
-     * 우유니 캔들이 실제 우유와 같은 취급을 받는다. 낱말 단위로 맞은 것을 한 칸 올리면 그 둘이
-     * 아래로 내려간다. 카테고리로만 맞은 것은 맨 뒤다 — 재현율은 얻되 첫 화면은 내주지 않는다.
-     *
-     * <p>{@code List.sort} 가 안정 정렬이므로 같은 단계끼리는 시드 순서를 지킨다. 같은 요청에 같은 답이
-     * 나와야 시연과 테스트가 성립한다.
+     * <p>검색어 낱말이 전부 수식어면 감쇠하지 않는다 — 그때는 그것이 검색어다. 낱말이 하나면 끝 낱말 가중도
+     * 뜻이 없어 곱하지 않는다.
      */
-    private static int relevance(Product product, List<List<String>> groups) {
-        if (groups.isEmpty()) {
-            return 0;
+    private double[] weights(List<Term> terms) {
+        boolean allFluff = terms.stream().allMatch(term -> tuning.isFluff(term.token()));
+        double[] weights = new double[terms.size()];
+        for (int k = 0; k < terms.size(); k++) {
+            double weight = 1.0;
+            if (!allFluff && tuning.isFluff(terms.get(k).token())) {
+                weight *= tuning.fluffWeight();
+            }
+            if (terms.size() > 1 && k == terms.size() - 1) {
+                weight *= tuning.tailBoost();
+            }
+            weights[k] = weight;
         }
-        String title = lower(product.title());
-        List<String> titleWords = List.of(WORD_BREAK.split(title));
-        if (groups.stream().allMatch(group -> group.stream().anyMatch(titleWords::contains))) {
-            return 4;
-        }
-        if (groups.stream().allMatch(group -> anyIn(group, title))) {
-            return 3;
-        }
-        String brand = lower(product.brand());
-        if (groups.stream().allMatch(group -> anyIn(group, title) || anyIn(group, brand))) {
-            return 2;
-        }
-        return 1;
-    }
-
-    private static boolean anyIn(List<String> group, String haystack) {
-        return group.stream().anyMatch(haystack::contains);
-    }
-
-    private static String lower(String field) {
-        return field == null ? "" : field.toLowerCase(Locale.ROOT);
+        return weights;
     }
 
     private static boolean matchesPrice(Product product, CatalogMessages.SearchRequest.Filters filters) {
