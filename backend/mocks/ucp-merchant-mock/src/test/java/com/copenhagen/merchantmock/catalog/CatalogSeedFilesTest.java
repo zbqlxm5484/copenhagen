@@ -206,4 +206,75 @@ class CatalogSeedFilesTest {
         }
         return false;
     }
+
+    /**
+     * 시드 항목을 검색 가능한 상품으로 바꾼다. 옵션은 이 테스트의 관심사가 아니라 살 수 있는 것
+     * 하나로 대신한다 — 검색은 제목·브랜드·카테고리만 보고 재고는 {@code availability} 에만 쓰인다.
+     */
+    private static CatalogService searchOver(String mall) {
+        List<Product> products = new ArrayList<>();
+        for (CatalogSeed.Entry entry : load(mall)) {
+            products.add(new Product(
+                    entry.id(), entry.merchantId(), entry.externalId(), entry.title(), null,
+                    entry.category(), entry.brand(), entry.imageUrl(), entry.basePrice(), entry.currency(),
+                    Product.ProductStatus.valueOf(entry.status()),
+                    List.of(new Product.Variant(entry.externalId() + "-any", "option", "기본", 0, 100,
+                            Product.ProductStatus.ACTIVE))));
+        }
+        CatalogStore store = new CatalogStore(() -> products);
+        store.load();
+        return new CatalogService(store, MerchantPropertiesFixture.defaults());
+    }
+
+    private static List<String> titlesOf(CatalogService service, String query) {
+        List<String> titles = new ArrayList<>();
+        service.search("merchant-a", new CatalogMessages.SearchRequest(query, null)).items()
+                .forEach(item -> titles.add(item.title()));
+        return titles;
+    }
+
+    @Test
+    @DisplayName("실제 시드에서 운동화를 치면 러닝화도 함께 나온다")
+    void seedFile_synonymSearch_findsRunningShoesForSneakerQuery() {
+        // given: 시드 1,408건에 "운동화" 라는 낱말이 든 제목은 둘뿐이고 러닝화는 일곱이다
+        CatalogService service = searchOver("merchant-a");
+
+        // when
+        List<String> titles = titlesOf(service, "운동화");
+
+        // then 470 이전에는 제목 부분문자열이라 2건이었다
+        assertTrue(titles.size() >= 9, "운동화 검색 " + titles.size() + "건");
+        assertTrue(titles.stream().anyMatch(title -> title.contains("러닝화")), titles.toString());
+        assertTrue(titles.stream().limit(4).allMatch(title -> title.contains("러닝화") || title.contains("운동화")),
+                "첫 화면 네 칸은 신발이어야 한다: " + titles.subList(0, Math.min(4, titles.size())));
+    }
+
+    @Test
+    @DisplayName("실제 시드에서 우유를 치면 키링과 캔들이 앞에 오지 않는다")
+    void seedFile_wordBoundary_keepsLookalikesOutOfTheFirstPage() {
+        // given: "우유팩 키링" 과 "우유니 캔들" 이 제목 부분문자열로는 우유와 구분되지 않는다
+        CatalogService service = searchOver("merchant-a");
+
+        // when
+        List<String> titles = titlesOf(service, "우유");
+
+        // then
+        assertFalse(titles.isEmpty());
+        assertTrue(titles.stream().limit(2).noneMatch(title -> title.contains("키링") || title.contains("캔들")),
+                "앞 두 칸: " + titles.subList(0, Math.min(2, titles.size())));
+    }
+
+    @Test
+    @DisplayName("실제 시드에서 올리브유는 카테고리로 걸린다")
+    void seedFile_categoryMatch_findsOilWithoutTheWordInTitle() {
+        // given: 제목에 "올리브" 가 없고 카테고리가 "양념/오일 > 식용유/오일 > 올리브오일" 인 상품들이다
+        CatalogService service = searchOver("merchant-a");
+
+        // when
+        List<String> titles = titlesOf(service, "올리브유");
+
+        // then 470 이전에는 0건이었다
+        assertFalse(titles.isEmpty(), "올리브유 검색이 0건이면 카테고리 매칭이 죽은 것이다");
+        assertTrue(titles.stream().allMatch(title -> title.contains("오일")), titles.toString());
+    }
 }

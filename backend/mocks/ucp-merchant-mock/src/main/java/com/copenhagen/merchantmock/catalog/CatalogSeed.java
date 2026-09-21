@@ -17,6 +17,8 @@ public record CatalogSeed(String mall, String mallName, List<Entry> products) {
             String merchantId,
             String externalId,
             String title,
+            String category,
+            String brand,
             String imageUrl,
             long basePrice,
             String currency,

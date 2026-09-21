@@ -278,13 +278,13 @@ def load_rows(sqlite_path):
     connection = sqlite3.connect(sqlite_path)
     query = """
         SELECT product_id, source_code, name, primary_image_url, sale_price, variants_json,
-               category_path, colors_json
+               category_path, colors_json, brand
           FROM clean_catalog
          ORDER BY product_id
     """
     rows = []
     for (product_id, source, name, image, price, variants_json,
-            category_path, colors_json) in connection.execute(query):
+            category_path, colors_json, brand) in connection.execute(query):
         if not (product_id and name and image and price):
             continue
         raw = json.loads(variants_json) if variants_json and variants_json not in ("[]", "null") else []
@@ -297,6 +297,7 @@ def load_rows(sqlite_path):
             "price": price,
             "raw_variants": raw,
             "category": category_path or "",
+            "brand": brand or "",
             "colors": [color for color in colors if str(color).strip()],
         })
     connection.close()
@@ -313,6 +314,9 @@ def to_product(row, mall, max_variants):
         "id": deterministic_id(mall, external_id),
         "externalId": external_id,
         "title": row["name"],
+        # 검색 매칭 전용이다(470). UCP 응답에는 싣지 않는다 — 내보내면 Core 와 필드 합의가 필요하다.
+        "category": row["category"],
+        "brand": row["brand"],
         "imageUrl": row["image"],
         "basePrice": base_price,
         "currency": "KRW",
@@ -352,7 +356,10 @@ def main():
             "products": products,
         }
         path = out_dir / f"{mall}.json"
-        path.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        # newline="" 로 줄바꿈 변환을 끈다. 윈도우에서 돌리면 CRLF 로 나가 git 이 파일 전체를 바뀐 것으로
+        # 보고, 커밋할 때 다시 LF 로 눕혀 작업본이 영원히 수정됨 상태로 남는다.
+        path.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n",
+                        encoding="utf-8", newline="")
 
         skus = sum(len(product["variants"]) for product in products)
         synthesized = sum(

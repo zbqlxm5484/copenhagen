@@ -46,6 +46,8 @@ class JdbcCatalogSeedWriterPostgresTest {
                 "merchant-a",
                 externalId,
                 title,
+                "테스트 > 시드",
+                "테스트브랜드",
                 "https://cdn.example.test/" + externalId + ".jpg",
                 basePrice,
                 "KRW",

@@ -20,10 +20,13 @@ public class JdbcCatalogSeedWriter implements CatalogSeedWriter {
 
     private static final String UPSERT = """
             INSERT INTO products
-                (id, merchant_id, external_id, title, image_url, base_price, currency, status, variants_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb)
+                (id, merchant_id, external_id, title, category, brand, image_url,
+                 base_price, currency, status, variants_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb)
             ON CONFLICT (merchant_id, external_id) DO UPDATE
                     SET title         = EXCLUDED.title,
+                        category      = EXCLUDED.category,
+                        brand         = EXCLUDED.brand,
                         image_url     = EXCLUDED.image_url,
                         base_price    = EXCLUDED.base_price,
                         currency      = EXCLUDED.currency,
@@ -50,6 +53,8 @@ public class JdbcCatalogSeedWriter implements CatalogSeedWriter {
                     entry.merchantId(),
                     entry.externalId(),
                     entry.title(),
+                    entry.category(),
+                    entry.brand(),
                     entry.imageUrl(),
                     entry.basePrice(),
                     entry.currency(),

@@ -11,6 +11,9 @@ import java.util.List;
  * <p>옵션과 재고는 variants 로 흡수했다. 전량 메모리 로드가 조인보다 싸다(13절).
  *
  * <p>MVP 는 재고를 차감하지 않는다. 품절은 시나리오 API 로 stock 을 0 으로 주입해 만든다.
+ *
+ * <p>{@code category}·{@code brand} 는 검색 매칭 전용이다(470). UCP 응답에 싣지 않으므로 Core 는 보지
+ * 못한다. 내보내려면 필드 합의가 필요하다(DESIGN.md 11절).
  */
 public record Product(
         String id,
@@ -18,6 +21,8 @@ public record Product(
         String externalId,
         String title,
         String description,
+        String category,
+        String brand,
         String imageUrl,
         long basePrice,
         String currency,
