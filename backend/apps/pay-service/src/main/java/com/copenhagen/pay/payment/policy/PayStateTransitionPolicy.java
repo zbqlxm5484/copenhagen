@@ -21,7 +21,6 @@ public final class PayStateTransitionPolicy {
                             AuthorizationSessionStatus.INVALIDATED),
                     AuthorizationSessionStatus.APPROVED,
                     Set.of(
-                            AuthorizationSessionStatus.COMPLETED,
                             AuthorizationSessionStatus.EXPIRED,
                             AuthorizationSessionStatus.INVALIDATED));
 
@@ -50,6 +49,18 @@ public final class PayStateTransitionPolicy {
                             ReconciliationJobStatus.RUNNING,
                             ReconciliationJobStatus.EXHAUSTED));
 
+    /**
+     * 판매처별 결제 결과. 세션은 APPROVED 에서 종료하므로 결제 성공/실패는 여기서 추적한다.
+     * 판매처 A 성공 · 판매처 B 실패를 세션 하나의 상태로 표현할 수 없기 때문이다.
+     */
+    private static final Map<AuthorizationSessionItemStatus, Set<AuthorizationSessionItemStatus>>
+            AUTHORIZATION_ITEM_TRANSITIONS = Map.of(
+                    AuthorizationSessionItemStatus.PENDING,
+                    Set.of(
+                            AuthorizationSessionItemStatus.COMPLETED,
+                            AuthorizationSessionItemStatus.INVALIDATED,
+                            AuthorizationSessionItemStatus.EXPIRED));
+
     private PayStateTransitionPolicy() {
     }
 
@@ -57,6 +68,12 @@ public final class PayStateTransitionPolicy {
             AuthorizationSessionStatus from,
             AuthorizationSessionStatus to) {
         return AUTHORIZATION_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
+    }
+
+    public static boolean canTransition(
+            AuthorizationSessionItemStatus from,
+            AuthorizationSessionItemStatus to) {
+        return AUTHORIZATION_ITEM_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
     }
 
     public static boolean canTransition(PaymentStatus from, PaymentStatus to) {

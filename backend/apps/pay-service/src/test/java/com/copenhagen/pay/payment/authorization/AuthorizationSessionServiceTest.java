@@ -69,7 +69,8 @@ class AuthorizationSessionServiceTest {
         assertNull(result.session().selectedPaymentMethodId());
         assertEquals(
                 "러닝화",
-                service.displaySnapshot(result.session()).summary().getFirst().name());
+                service.displaySnapshot(result.session().items().getFirst())
+                        .summary().getFirst().name());
         assertEquals(NOW.plusSeconds(300), result.session().expiresAt());
     }
 
@@ -114,9 +115,13 @@ class AuthorizationSessionServiceTest {
 
         assertEquals(AuthorizationSessionStatus.PENDING, after.status());
         assertEquals("method-002", after.selectedPaymentMethodId());
-        assertEquals(before.checkoutDigest(), after.checkoutDigest());
-        assertEquals(before.displaySnapshotJson(), after.displaySnapshotJson());
-        assertEquals(before.amountMinor(), after.amountMinor());
+        assertEquals(
+                before.items().getFirst().checkoutDigest(),
+                after.items().getFirst().checkoutDigest());
+        assertEquals(
+                before.items().getFirst().displaySnapshotJson(),
+                after.items().getFirst().displaySnapshotJson());
+        assertEquals(before.totalAmountMinor(), after.totalAmountMinor());
         assertEquals(before.currency(), after.currency());
         assertEquals(before.expiresAt(), after.expiresAt());
         assertEquals(1, store.sessions.size());
@@ -142,7 +147,9 @@ class AuthorizationSessionServiceTest {
         assertEquals("method-002", after.selectedPaymentMethodId());
         assertEquals(before.requiredAction(), after.requiredAction());
         assertEquals(before.purchaseRequestId(), after.purchaseRequestId());
-        assertEquals(before.externalCheckoutId(), after.externalCheckoutId());
+        assertEquals(
+                before.items().getFirst().externalCheckoutId(),
+                after.items().getFirst().externalCheckoutId());
         assertEquals(before.expiresAt(), after.expiresAt());
     }
 
@@ -356,16 +363,20 @@ class AuthorizationSessionServiceTest {
                 new InMemoryPaymentMethodRepository(),
                 evidence);
         CreateAuthorizationSessionCommand valid = command();
+        CreateAuthorizationSessionCommand.Item validItem = valid.items().getFirst();
         CreateAuthorizationSessionCommand mismatched = new CreateAuthorizationSessionCommand(
                 valid.purchaseRequestId(),
                 valid.userId(),
-                valid.merchantId(),
-                valid.checkoutId(),
-                externalHash("another-checkout"),
-                valid.checkoutJwt(),
-                valid.displaySnapshot(),
-                valid.amountMinor(),
-                valid.currency());
+                valid.totalAmountMinor(),
+                valid.currency(),
+                List.of(new CreateAuthorizationSessionCommand.Item(
+                        validItem.merchantId(),
+                        validItem.checkoutId(),
+                        externalHash("another-checkout"),
+                        validItem.checkoutJwt(),
+                        validItem.displaySnapshot(),
+                        validItem.amountMinor(),
+                        validItem.currency())));
 
         PayException exception = assertThrows(
                 PayException.class,
@@ -374,6 +385,96 @@ class AuthorizationSessionServiceTest {
         assertEquals(PayErrorCode.INVALID_REQUEST, exception.errorCode());
         assertTrue(sessions.sessions.isEmpty());
         assertTrue(evidence.items.isEmpty());
+    }
+
+    @Test
+    void totalAmountMustMatchTheSumOfItems() {
+        // 사용자가 승인 화면에서 본 합계와 실제 결제 합계가 어긋나는 것을 여기서 막는다.
+        InMemoryAuthorizationSessionStore store = new InMemoryAuthorizationSessionStore();
+        AuthorizationSessionService service = service(store, new InMemoryPaymentMethodRepository());
+        CreateAuthorizationSessionCommand base = command();
+        CreateAuthorizationSessionCommand wrongTotal = new CreateAuthorizationSessionCommand(
+                base.purchaseRequestId(),
+                base.userId(),
+                base.totalAmountMinor() + 1,
+                base.currency(),
+                base.items());
+
+        PayException exception = assertThrows(
+                PayException.class,
+                () -> service.create(wrongTotal, "request-001", "hash-001"));
+
+        assertEquals(PayErrorCode.INVALID_REQUEST, exception.errorCode());
+        assertTrue(store.sessions.isEmpty());
+    }
+
+    @Test
+    void everyItemMustUseTheRequestCurrency() {
+        InMemoryAuthorizationSessionStore store = new InMemoryAuthorizationSessionStore();
+        AuthorizationSessionService service = service(store, new InMemoryPaymentMethodRepository());
+        CreateAuthorizationSessionCommand base = command();
+        CreateAuthorizationSessionCommand.Item item = base.items().getFirst();
+        CreateAuthorizationSessionCommand mixed = new CreateAuthorizationSessionCommand(
+                base.purchaseRequestId(),
+                base.userId(),
+                base.totalAmountMinor(),
+                "KRW",
+                List.of(new CreateAuthorizationSessionCommand.Item(
+                        item.merchantId(),
+                        item.checkoutId(),
+                        item.checkoutHash(),
+                        item.checkoutJwt(),
+                        item.displaySnapshot(),
+                        item.amountMinor(),
+                        "USD")));
+
+        PayException exception = assertThrows(
+                PayException.class,
+                () -> service.create(mixed, "request-001", "hash-001"));
+
+        assertEquals(PayErrorCode.INVALID_REQUEST, exception.errorCode());
+        assertTrue(store.sessions.isEmpty());
+    }
+
+    @Test
+    void theSameMerchantCannotAppearTwiceInOneRequest() {
+        InMemoryAuthorizationSessionStore store = new InMemoryAuthorizationSessionStore();
+        AuthorizationSessionService service = service(store, new InMemoryPaymentMethodRepository());
+        CreateAuthorizationSessionCommand base = command();
+        CreateAuthorizationSessionCommand.Item item = base.items().getFirst();
+        CreateAuthorizationSessionCommand duplicated = new CreateAuthorizationSessionCommand(
+                base.purchaseRequestId(),
+                base.userId(),
+                item.amountMinor() * 2,
+                base.currency(),
+                List.of(item, item));
+
+        PayException exception = assertThrows(
+                PayException.class,
+                () -> service.create(duplicated, "request-001", "hash-001"));
+
+        assertEquals(PayErrorCode.INVALID_REQUEST, exception.errorCode());
+        assertTrue(store.sessions.isEmpty());
+    }
+
+    @Test
+    void emptyItemsIsRejected() {
+        InMemoryAuthorizationSessionStore store = new InMemoryAuthorizationSessionStore();
+        AuthorizationSessionService service = service(store, new InMemoryPaymentMethodRepository());
+        CreateAuthorizationSessionCommand base = command();
+        CreateAuthorizationSessionCommand empty = new CreateAuthorizationSessionCommand(
+                base.purchaseRequestId(),
+                base.userId(),
+                0,
+                base.currency(),
+                List.of());
+
+        PayException exception = assertThrows(
+                PayException.class,
+                () -> service.create(empty, "request-001", "hash-001"));
+
+        assertEquals(PayErrorCode.INVALID_REQUEST, exception.errorCode());
+        assertTrue(store.sessions.isEmpty());
     }
 
     private AuthorizationSessionService service(
@@ -393,7 +494,7 @@ class AuthorizationSessionServiceTest {
                 new IdempotencyGuard(),
                 new ObjectMapper(),
                 Clock.fixed(NOW, ZoneOffset.UTC),
-                new ApprovalProperties(300, 60),
+                new ApprovalProperties(300, 60, true),
                 new MerchantCheckoutVerifier(
                         merchantPublicKeyClient(),
                         new MerchantServiceProperties(
@@ -421,33 +522,40 @@ class AuthorizationSessionServiceTest {
         return new CreateAuthorizationSessionCommand(
                 purchaseRequestId,
                 userId,
-                "merchant-001",
-                "checkout-001",
-                externalHash(checkoutJwt),
-                checkoutJwt,
-                new AuthorizationDisplaySnapshot(
-                        "예시 상점",
-                        List.of(new AuthorizationDisplaySnapshot.SummaryItem(
-                                "러닝화",
-                                "270",
-                                1,
-                                99000))),
                 99000,
-                "KRW");
+                "KRW",
+                List.of(new CreateAuthorizationSessionCommand.Item(
+                        "merchant-001",
+                        "checkout-001",
+                        externalHash(checkoutJwt),
+                        checkoutJwt,
+                        new AuthorizationDisplaySnapshot(
+                                "예시 상점",
+                                List.of(new AuthorizationDisplaySnapshot.SummaryItem(
+                                        "러닝화",
+                                        "270",
+                                        1,
+                                        99000))),
+                        99000,
+                        "KRW")));
     }
 
     private CreateAuthorizationSessionCommand commandWithJwt(String checkoutJwt) {
         CreateAuthorizationSessionCommand base = command();
+        CreateAuthorizationSessionCommand.Item baseItem = base.items().getFirst();
         return new CreateAuthorizationSessionCommand(
                 base.purchaseRequestId(),
                 base.userId(),
-                base.merchantId(),
-                base.checkoutId(),
-                externalHash(checkoutJwt),
-                checkoutJwt,
-                base.displaySnapshot(),
-                base.amountMinor(),
-                base.currency());
+                base.totalAmountMinor(),
+                base.currency(),
+                List.of(new CreateAuthorizationSessionCommand.Item(
+                        baseItem.merchantId(),
+                        baseItem.checkoutId(),
+                        externalHash(checkoutJwt),
+                        checkoutJwt,
+                        baseItem.displaySnapshot(),
+                        baseItem.amountMinor(),
+                        baseItem.currency())));
     }
 
     private PaymentMethod paymentMethod(
@@ -574,23 +682,20 @@ class AuthorizationSessionServiceTest {
             implements AuthorizationSessionStore {
 
         private final Map<String, AuthorizationSession> sessions = new HashMap<>();
-
         @Override
-        public Optional<AuthorizationSession> findByMerchantAndIdempotencyKey(
-                String merchantAccountId,
+        public Optional<AuthorizationSession> findByUserAndIdempotencyKey(
+                String userId,
                 String idempotencyKey) {
             return sessions.values().stream()
-                    .filter(session -> session.merchantAccountId().equals(merchantAccountId))
+                    .filter(session -> session.userId().equals(userId))
                     .filter(session -> session.idempotencyKey().equals(idempotencyKey))
                     .findFirst();
         }
 
         @Override
-        public Optional<AuthorizationSession> findActiveByMerchantAndPurchaseRequest(
-                String merchantAccountId,
+        public Optional<AuthorizationSession> findActiveByPurchaseRequest(
                 String purchaseRequestId) {
             return sessions.values().stream()
-                    .filter(session -> session.merchantAccountId().equals(merchantAccountId))
                     .filter(session -> session.purchaseRequestId().equals(purchaseRequestId))
                     .filter(session -> session.status().isActive())
                     .findFirst();
@@ -599,11 +704,10 @@ class AuthorizationSessionServiceTest {
         @Override
         public boolean insert(AuthorizationSession session) {
             boolean duplicateIdempotency = sessions.values().stream()
-                    .anyMatch(existing -> existing.merchantAccountId().equals(session.merchantAccountId())
+                    .anyMatch(existing -> existing.userId().equals(session.userId())
                             && existing.idempotencyKey().equals(session.idempotencyKey()));
-            boolean duplicateActiveRequest = findActiveByMerchantAndPurchaseRequest(
-                    session.merchantAccountId(),
-                    session.purchaseRequestId()).isPresent();
+            boolean duplicateActiveRequest =
+                    findActiveByPurchaseRequest(session.purchaseRequestId()).isPresent();
             if (duplicateIdempotency || duplicateActiveRequest) {
                 return false;
             }
@@ -668,13 +772,7 @@ class AuthorizationSessionServiceTest {
                             current.id(),
                             current.purchaseRequestId(),
                             current.userId(),
-                            current.merchantAccountId(),
-                            current.merchantId(),
-                            current.merchantName(),
-                            current.externalCheckoutId(),
-                            current.checkoutDigest(),
-                            current.displaySnapshotJson(),
-                            current.amountMinor(),
+                            current.totalAmountMinor(),
                             current.currency(),
                             paymentMethodId,
                             nextStatus,
@@ -686,7 +784,8 @@ class AuthorizationSessionServiceTest {
                             current.authMethod(),
                             current.createdAt(),
                             now,
-                            current.version() + 1));
+                            current.version() + 1,
+                            current.items()));
             return true;
         }
 
@@ -700,13 +799,7 @@ class AuthorizationSessionServiceTest {
                             current.id(),
                             current.purchaseRequestId(),
                             current.userId(),
-                            current.merchantAccountId(),
-                            current.merchantId(),
-                            current.merchantName(),
-                            current.externalCheckoutId(),
-                            current.checkoutDigest(),
-                            current.displaySnapshotJson(),
-                            current.amountMinor(),
+                            current.totalAmountMinor(),
                             current.currency(),
                             current.selectedPaymentMethodId(),
                             status,
@@ -718,7 +811,8 @@ class AuthorizationSessionServiceTest {
                             current.authMethod(),
                             current.createdAt(),
                             current.updatedAt(),
-                            current.version()));
+                            current.version(),
+                            current.items()));
         }
     }
 
@@ -729,8 +823,8 @@ class AuthorizationSessionServiceTest {
 
         @Override
         public boolean insert(VerifiedCheckoutEvidence evidence) {
-            if (items.stream().anyMatch(existing -> existing.authorizationSessionId()
-                    .equals(evidence.authorizationSessionId()))) {
+            if (items.stream().anyMatch(existing -> existing.sessionItemId()
+                    .equals(evidence.sessionItemId()))) {
                 return false;
             }
             items.add(evidence);

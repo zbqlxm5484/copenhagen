@@ -195,12 +195,11 @@ class PaymentApprovalStatusPostgresIntegrationTest {
         jdbc.update(
                 """
                 INSERT INTO authorization_sessions
-                    (id, purchase_request_id, user_id, merchant_account_id,
-                     external_checkout_id, checkout_digest, display_snapshot,
-                     amount_minor, currency, selected_payment_method_id, status,
+                    (id, purchase_request_id, user_id,
+                     total_amount_minor, currency, selected_payment_method_id, status,
                      idempotency_key, request_hash, required_action, expires_at,
                      approved_at, auth_method, created_at, updated_at, version)
-                VALUES (?, ?, ?, ?, ?, ?, '{}'::jsonb, 99000, 'KRW', ?, ?, ?, ?,
+                VALUES (?, ?, ?, 99000, 'KRW', ?, ?, ?, ?,
                         'PIN', ?, ?, ?, ?, ?, 1)
                 """,
                 sessionId,
@@ -208,9 +207,6 @@ class PaymentApprovalStatusPostgresIntegrationTest {
                         ? PENDING_PURCHASE_REQUEST_ID
                         : PURCHASE_REQUEST_ID,
                 USER_ID,
-                MERCHANT_ACCOUNT_ID,
-                CHECKOUT_ID,
-                DIGEST,
                 paymentMethodId,
                 status.name(),
                 "approval-key-" + sessionId,
@@ -220,20 +216,42 @@ class PaymentApprovalStatusPostgresIntegrationTest {
                 approved ? "PIN" : null,
                 java.sql.Timestamp.from(NOW),
                 java.sql.Timestamp.from(NOW));
+        jdbc.update(
+                """
+                INSERT INTO authorization_session_items
+                    (id, authorization_session_id, merchant_account_id, external_checkout_id,
+                     checkout_digest, display_snapshot, amount_minor, currency, status,
+                     created_at, updated_at, version)
+                VALUES (?, ?, ?, ?, ?, '{}'::jsonb, 99000, 'KRW', 'PENDING', ?, ?, 0)
+                """,
+                sessionItemId(sessionId),
+                sessionId,
+                MERCHANT_ACCOUNT_ID,
+                CHECKOUT_ID,
+                DIGEST,
+                java.sql.Timestamp.from(NOW),
+                java.sql.Timestamp.from(NOW));
+    }
+
+    /** 세션당 item 이 하나라 세션 id 에서 결정적으로 만든다. */
+    private static String sessionItemId(String sessionId) {
+        return java.util.UUID.nameUUIDFromBytes(("item:" + sessionId).getBytes(
+                java.nio.charset.StandardCharsets.UTF_8)).toString();
     }
 
     private void insertPaymentChain() {
         jdbc.update(
                 """
                 INSERT INTO checkout_mandates
-                    (id, authorization_session_id, jti, issuer, audience,
+                    (id, authorization_session_id, session_item_id, jti, issuer, audience,
                      checkout_digest, signed_artifact_encrypted, artifact_hash,
                      status, issued_at, expires_at)
-                VALUES (?, ?, 'checkout-jti', 'pay-service', ?, ?, 'encrypted', ?,
+                VALUES (?, ?, ?, 'checkout-jti', 'pay-service', ?, ?, 'encrypted', ?,
                         'ISSUED', ?, ?)
                 """,
                 CHECKOUT_MANDATE_ID,
                 APPROVED_SESSION_ID,
+                sessionItemId(APPROVED_SESSION_ID),
                 "merchant:" + MERCHANT_ID,
                 DIGEST,
                 "c".repeat(64),
@@ -242,14 +260,15 @@ class PaymentApprovalStatusPostgresIntegrationTest {
         jdbc.update(
                 """
                 INSERT INTO payment_mandates
-                    (id, authorization_session_id, jti, transaction_id, merchant_id,
+                    (id, authorization_session_id, session_item_id, jti, transaction_id, merchant_id,
                      external_checkout_id, amount_minor, currency, payment_method_ref,
                      signed_artifact_encrypted, artifact_hash, status, issued_at, expires_at)
-                VALUES (?, ?, 'payment-jti', 'transaction-001', ?, ?, 1, 'KRW',
+                VALUES (?, ?, ?, 'payment-jti', 'transaction-001', ?, ?, 1, 'KRW',
                         'provider-token-ref', 'encrypted', ?, 'ISSUED', ?, ?)
                 """,
                 PAYMENT_MANDATE_ID,
                 APPROVED_SESSION_ID,
+                sessionItemId(APPROVED_SESSION_ID),
                 MERCHANT_ID,
                 CHECKOUT_ID,
                 "d".repeat(64),
@@ -258,13 +277,15 @@ class PaymentApprovalStatusPostgresIntegrationTest {
         jdbc.update(
                 """
                 INSERT INTO payment_credential_tokens
-                    (id, authorization_session_id, checkout_mandate_id, payment_mandate_id,
+                    (id, authorization_session_id, session_item_id, checkout_mandate_id,
+                     payment_mandate_id,
                      token_hash, token_ciphertext, merchant_id, external_checkout_id,
                      checkout_digest, amount_minor, currency, status, issued_at, expires_at)
-                VALUES (?, ?, ?, ?, ?, 'encrypted', ?, ?, ?, 1, 'KRW', 'ISSUED', ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, 'encrypted', ?, ?, ?, 1, 'KRW', 'ISSUED', ?, ?)
                 """,
                 CREDENTIAL_ID,
                 APPROVED_SESSION_ID,
+                sessionItemId(APPROVED_SESSION_ID),
                 CHECKOUT_MANDATE_ID,
                 PAYMENT_MANDATE_ID,
                 "e".repeat(64),

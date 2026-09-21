@@ -1,5 +1,6 @@
 package com.copenhagen.pay.payment.credential.mandate;
 
+import com.copenhagen.pay.payment.authorization.AuthorizationSessionFixtures;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -43,7 +44,7 @@ class MandateCredentialServiceTest {
                 new ObjectMapper(),
                 Clock.fixed(NOW, ZoneOffset.UTC));
 
-        IssuedPaymentCredential credential = service.issue(session(), "BIOMETRIC");
+        IssuedPaymentCredential credential = service.issue(session(), session().items().getFirst(), "BIOMETRIC");
 
         assertNotNull(credential.credentialId());
         assertNotNull(credential.checkoutMandate());
@@ -82,39 +83,41 @@ class MandateCredentialServiceTest {
                 new ObjectMapper(),
                 Clock.fixed(NOW, ZoneOffset.UTC));
 
+        AuthorizationSession pendingSession = AuthorizationSessionFixtures.singleMerchant(
+                "session-001",
+                "purchase-001",
+                "user-001",
+                "merchant-account-001",
+                "merchant-001",
+                "예시 상점",
+                "checkout-001",
+                "0".repeat(64),
+                "{}",
+                87000,
+                "KRW",
+                "method-001",
+                AuthorizationSessionStatus.PENDING,
+                "idempotency-001",
+                "request-hash",
+                "BIOMETRIC",
+                NOW.plusSeconds(600),
+                null,
+                null,
+                NOW,
+                NOW,
+                0);
         PayException exception = assertThrows(
                 PayException.class,
                 () -> service.issue(
-                        new AuthorizationSession(
-                                "session-001",
-                                "purchase-001",
-                                "user-001",
-                                "merchant-account-001",
-                                "merchant-001",
-                                "예시 상점",
-                                "checkout-001",
-                                "0".repeat(64),
-                                "{}",
-                                87000,
-                                "KRW",
-                                "method-001",
-                                AuthorizationSessionStatus.PENDING,
-                                "idempotency-001",
-                                "request-hash",
-                                "BIOMETRIC",
-                                NOW.plusSeconds(600),
-                                null,
-                                null,
-                                NOW,
-                                NOW,
-                                0),
+                        pendingSession,
+                        pendingSession.items().getFirst(),
                         "BIOMETRIC"));
 
         assertEquals(PayErrorCode.STATE_CONFLICT, exception.errorCode());
     }
 
     private AuthorizationSession session() {
-        return new AuthorizationSession(
+        return AuthorizationSessionFixtures.singleMerchant(
                 "session-001",
                 "purchase-001",
                 "user-001",

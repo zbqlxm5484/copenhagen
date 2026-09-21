@@ -1,6 +1,7 @@
 package com.copenhagen.pay.payment.credential.mandate;
 
 import com.copenhagen.pay.payment.authorization.AuthorizationSession;
+import com.copenhagen.pay.payment.authorization.AuthorizationSessionItem;
 import com.copenhagen.pay.payment.authorization.CheckoutHashCodec;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JOSEObjectType;
@@ -52,9 +53,10 @@ public class MandateSigningService {
 
     public String createCheckoutMandate(
             AuthorizationSession session,
+            AuthorizationSessionItem item,
             String mandateId,
             Instant issuedAt) {
-        JWTClaimsSet claims = baseClaims(session, mandateId, issuedAt)
+        JWTClaimsSet claims = baseClaims(session, item, mandateId, issuedAt)
                 .claim("checkoutMandateType", "CHECKOUT")
                 .build();
         return sign(claims);
@@ -62,11 +64,12 @@ public class MandateSigningService {
 
     public String createPaymentMandate(
             AuthorizationSession session,
+            AuthorizationSessionItem item,
             String mandateId,
             String transactionId,
             String paymentMethodRef,
             Instant issuedAt) {
-        JWTClaimsSet claims = baseClaims(session, mandateId, issuedAt)
+        JWTClaimsSet claims = baseClaims(session, item, mandateId, issuedAt)
                 .claim("paymentMandateType", "PAYMENT")
                 .claim("transactionId", transactionId)
                 .claim("paymentMethodRef", paymentMethodRef)
@@ -76,20 +79,21 @@ public class MandateSigningService {
 
     private JWTClaimsSet.Builder baseClaims(
             AuthorizationSession session,
+            AuthorizationSessionItem item,
             String mandateId,
             Instant issuedAt) {
         return new JWTClaimsSet.Builder()
                 .issuer(properties.issuer())
-                .audience(AUDIENCE_PREFIX + session.merchantId())
+                .audience(AUDIENCE_PREFIX + item.merchantId())
                 .issueTime(Date.from(issuedAt))
                 .expirationTime(Date.from(session.expiresAt()))
                 .jwtID(mandateId)
-                .claim("merchantId", session.merchantId())
-                .claim("checkoutId", session.externalCheckoutId())
-                .claim("checkoutHash", CheckoutHashCodec.toExternalHash(session.checkoutDigest()))
+                .claim("merchantId", item.merchantId())
+                .claim("checkoutId", item.externalCheckoutId())
+                .claim("checkoutHash", CheckoutHashCodec.toExternalHash(item.checkoutDigest()))
                 .claim("purchaseRequestId", session.purchaseRequestId())
-                .claim("amountMinor", session.amountMinor())
-                .claim("currency", session.currency());
+                .claim("amountMinor", item.amountMinor())
+                .claim("currency", item.currency());
     }
 
     private String sign(JWTClaimsSet claims) {

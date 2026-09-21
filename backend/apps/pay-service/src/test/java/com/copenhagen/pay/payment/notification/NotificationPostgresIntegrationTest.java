@@ -200,21 +200,33 @@ class NotificationPostgresIntegrationTest {
         jdbc.update(
                 """
                 INSERT INTO authorization_sessions
-                    (id, purchase_request_id, user_id, merchant_account_id,
-                     external_checkout_id, checkout_digest, display_snapshot,
-                     amount_minor, currency, selected_payment_method_id, status,
+                    (id, purchase_request_id, user_id,
+                     total_amount_minor, currency, selected_payment_method_id, status,
                      idempotency_key, request_hash, required_action, expires_at,
                      created_at, updated_at, version)
-                VALUES (?, 'purchase-1', ?, ?, 'checkout-1', ?, '{}'::jsonb,
+                VALUES (?, 'purchase-1', ?,
                         1000, 'KRW', NULL, 'PAYMENT_METHOD_REQUIRED',
                         'approval-key-1', ?, 'BIOMETRIC', ?, ?, ?, 0)
                 """,
                 SESSION_ID,
                 USER_ID,
-                MERCHANT_ACCOUNT_ID,
-                "a".repeat(64),
                 "b".repeat(64),
                 java.sql.Timestamp.from(NOW.plusSeconds(300)),
+                java.sql.Timestamp.from(NOW),
+                java.sql.Timestamp.from(NOW));
+        jdbc.update(
+                """
+                INSERT INTO authorization_session_items
+                    (id, authorization_session_id, merchant_account_id, external_checkout_id,
+                     checkout_digest, display_snapshot, amount_minor, currency, status,
+                     created_at, updated_at, version)
+                VALUES (?, ?, ?, 'checkout-1', ?, '{}'::jsonb, 1000, 'KRW', 'PENDING',
+                        ?, ?, 0)
+                """,
+                java.util.UUID.randomUUID().toString(),
+                SESSION_ID,
+                MERCHANT_ACCOUNT_ID,
+                "a".repeat(64),
                 java.sql.Timestamp.from(NOW),
                 java.sql.Timestamp.from(NOW));
     }

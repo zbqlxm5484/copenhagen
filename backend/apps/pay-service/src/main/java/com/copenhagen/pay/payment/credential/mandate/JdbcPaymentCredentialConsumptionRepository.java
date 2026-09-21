@@ -25,7 +25,7 @@ public class JdbcPaymentCredentialConsumptionRepository
             """;
 
     private static final String FIND_CREDENTIAL_FOR_UPDATE_SQL = """
-            SELECT c.id, c.authorization_session_id, s.merchant_account_id,
+            SELECT c.id, c.authorization_session_id, i.merchant_account_id,
                    c.merchant_id, s.purchase_request_id, c.external_checkout_id,
                    c.checkout_digest, c.amount_minor, c.currency, c.status,
                    c.expires_at, c.consumed_at,
@@ -33,6 +33,7 @@ public class JdbcPaymentCredentialConsumptionRepository
                    payment_mandate.status AS payment_mandate_status
             FROM payment_credential_tokens c
             JOIN authorization_sessions s ON s.id = c.authorization_session_id
+            JOIN authorization_session_items i ON i.id = c.session_item_id
             JOIN checkout_mandates checkout_mandate
               ON checkout_mandate.id = c.checkout_mandate_id
             JOIN payment_mandates payment_mandate

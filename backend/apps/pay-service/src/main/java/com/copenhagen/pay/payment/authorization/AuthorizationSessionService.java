@@ -10,12 +10,16 @@ import com.copenhagen.pay.payment.merchant.MerchantAccountRepository;
 import com.copenhagen.pay.payment.notification.NotificationEventPublisher;
 import com.copenhagen.pay.payment.paymentmethod.PaymentMethod;
 import com.copenhagen.pay.payment.paymentmethod.PaymentMethodRepository;
+import com.copenhagen.pay.payment.policy.AuthorizationSessionItemStatus;
 import com.copenhagen.pay.payment.policy.AuthorizationSessionStatus;
 import java.time.Clock;
-import java.time.Instant;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +29,11 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * 구매 요청 단위 승인 세션. 판매처가 몇 곳이든 세션은 1개이고 사용자 인증도 1회다.
+ * 판매처별 주문서는 {@link AuthorizationSessionItem} 으로 보관하며 credential 도 item 당
+ * 1장씩 발급된다.
+ */
 @Service
 public class AuthorizationSessionService {
 
@@ -33,6 +42,7 @@ public class AuthorizationSessionService {
     private static final int MAX_SUMMARY_ITEMS = 100;
     private static final int MAX_ITEM_NAME_LENGTH = 200;
     private static final int MAX_OPTION_LENGTH = 200;
+    private static final int MAX_MERCHANTS = 20;
     private static final Logger log = LoggerFactory.getLogger(AuthorizationSessionService.class);
 
     private final AuthorizationSessionStore store;
@@ -83,18 +93,13 @@ public class AuthorizationSessionService {
         PayLogContext.putFingerprint(PayLogContext.USER_ID, command.userId());
         PayLogContext.put(PayLogContext.ORDER_ID, command.purchaseRequestId());
         log.info(
-                "pay.approval.create.start merchantId={} checkoutId={} amountMinor={} currency={}",
-                command.merchantId(),
-                command.checkoutId(),
-                command.amountMinor(),
+                "pay.approval.create.start merchantCount={} totalAmountMinor={} currency={}",
+                command.items().size(),
+                command.totalAmountMinor(),
                 command.currency());
 
-        MerchantAccount merchantAccount = merchantAccountRepository
-                .findActiveByMerchantId(command.merchantId())
-                .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
-
-        Optional<AuthorizationSession> existing = store.findByMerchantAndIdempotencyKey(
-                merchantAccount.id(),
+        Optional<AuthorizationSession> existing = store.findByUserAndIdempotencyKey(
+                command.userId(),
                 idempotencyKey);
         if (existing.isPresent()) {
             IdempotencyGuard.Decision decision = idempotencyGuard.check(
@@ -111,67 +116,64 @@ public class AuthorizationSessionService {
             }
         }
 
-        store.findActiveByMerchantAndPurchaseRequest(
-                        merchantAccount.id(),
-                        command.purchaseRequestId())
+        store.findActiveByPurchaseRequest(command.purchaseRequestId())
                 .ifPresent(session -> {
                     throw stateConflict(session.status());
                 });
 
-        MerchantCheckoutVerifier.VerificationResult verification = checkoutVerifier.verify(command);
-        String displaySnapshotJson = serializeDisplaySnapshot(command.displaySnapshot());
+        Instant now = clock.instant();
+        String sessionId = UUID.randomUUID().toString();
+        List<PreparedItem> prepared = prepareItems(command, sessionId);
         PaymentMethod selectedPaymentMethod = selectPaymentMethod(command.userId());
         AuthorizationSessionStatus status = selectedPaymentMethod == null
                 ? AuthorizationSessionStatus.PAYMENT_METHOD_REQUIRED
                 : AuthorizationSessionStatus.PENDING;
-        Instant now = clock.instant();
-        String checkoutDigest = CheckoutHashCodec.toInternalDigest(command.checkoutHash());
+
         AuthorizationSession session = new AuthorizationSession(
-                UUID.randomUUID().toString(),
+                sessionId,
                 command.purchaseRequestId(),
                 command.userId(),
-                merchantAccount.id(),
-                merchantAccount.merchantId(),
-                merchantAccount.displayName(),
-                command.checkoutId(),
-                checkoutDigest,
-                displaySnapshotJson,
-                command.amountMinor(),
+                command.totalAmountMinor(),
                 command.currency(),
                 selectedPaymentMethod == null ? null : selectedPaymentMethod.id(),
                 status,
                 idempotencyKey,
                 requestHash,
                 BIOMETRIC,
-                now.plus(Duration.ofSeconds(approvalProperties.expirationSeconds())),
+                expiresAt(prepared, now),
                 null,
                 null,
                 now,
                 now,
-                0);
+                0,
+                prepared.stream().map(PreparedItem::item).toList());
         PayLogContext.put(PayLogContext.APPROVAL_ID, session.id());
 
         if (store.insert(session)) {
-            VerifiedCheckoutEvidence evidence = VerifiedCheckoutEvidence.from(
-                    UUID.randomUUID().toString(),
-                    session.id(),
-                    command,
-                    checkoutDigest,
-                    verification,
-                    now);
-            if (!evidenceRepository.insert(evidence)) {
-                throw new PayException(PayErrorCode.INTERNAL_ERROR);
+            for (PreparedItem preparedItem : prepared) {
+                VerifiedCheckoutEvidence evidence = VerifiedCheckoutEvidence.from(
+                        UUID.randomUUID().toString(),
+                        sessionId,
+                        preparedItem.item().id(),
+                        preparedItem.command(),
+                        preparedItem.item().checkoutDigest(),
+                        preparedItem.verification(),
+                        now);
+                if (!evidenceRepository.insert(evidence)) {
+                    throw new PayException(PayErrorCode.INTERNAL_ERROR);
+                }
             }
             notificationEventPublisher.publishApprovalRequested(session);
             log.info(
-                    "pay.approval.create.complete approvalId={} status={}",
+                    "pay.approval.create.complete approvalId={} status={} merchantCount={}",
                     session.id(),
-                    session.status());
+                    session.status(),
+                    session.merchantCount());
             return new CreateResult(session, false);
         }
 
         CreateResult concurrentResult = resolveConcurrentInsert(
-                merchantAccount.id(),
+                command.userId(),
                 command.purchaseRequestId(),
                 idempotencyKey,
                 requestHash);
@@ -216,6 +218,7 @@ public class AuthorizationSessionService {
         return session;
     }
 
+    /** 결제수단은 세션 단위다. 한 번 고르면 전 판매처에 적용된다. */
     @Transactional
     public AuthorizationSession selectPaymentMethod(
             String userId,
@@ -269,10 +272,11 @@ public class AuthorizationSessionService {
         return updated;
     }
 
-    public AuthorizationDisplaySnapshot displaySnapshot(AuthorizationSession session) {
+    /** 표시용 주문 요약은 판매처별이다. */
+    public AuthorizationDisplaySnapshot displaySnapshot(AuthorizationSessionItem item) {
         try {
             return objectMapper.readValue(
-                    session.displaySnapshotJson(),
+                    item.displaySnapshotJson(),
                     AuthorizationDisplaySnapshot.class);
         } catch (JacksonException exception) {
             throw new PayException(
@@ -284,13 +288,67 @@ public class AuthorizationSessionService {
         }
     }
 
+    /**
+     * 판매처별 주문서를 검증해 item 을 만든다. 하나라도 실패하면 예외가 그대로 전파되어
+     * 세션 전체가 만들어지지 않는다.
+     */
+    private List<PreparedItem> prepareItems(
+            CreateAuthorizationSessionCommand command,
+            String sessionId) {
+        Instant now = clock.instant();
+        List<PreparedItem> prepared = new ArrayList<>(command.items().size());
+        for (CreateAuthorizationSessionCommand.Item item : command.items()) {
+            MerchantAccount merchantAccount = merchantAccountRepository
+                    .findActiveByMerchantId(item.merchantId())
+                    .orElseThrow(() -> new PayException(PayErrorCode.RESOURCE_NOT_FOUND));
+            MerchantCheckoutVerifier.VerificationResult verification =
+                    checkoutVerifier.verify(command.purchaseRequestId(), item);
+            String checkoutDigest = CheckoutHashCodec.toInternalDigest(item.checkoutHash());
+            AuthorizationSessionItem sessionItem = new AuthorizationSessionItem(
+                    UUID.randomUUID().toString(),
+                    sessionId,
+                    merchantAccount.id(),
+                    merchantAccount.merchantId(),
+                    merchantAccount.displayName(),
+                    item.checkoutId(),
+                    checkoutDigest,
+                    serializeDisplaySnapshot(item.displaySnapshot()),
+                    item.amountMinor(),
+                    item.currency(),
+                    AuthorizationSessionItemStatus.PENDING,
+                    now,
+                    now,
+                    0);
+            prepared.add(new PreparedItem(item, sessionItem, verification));
+        }
+        return prepared;
+    }
+
+    /**
+     * 세션 만료는 판매처별 checkout 만료 중 가장 이른 시각으로 잡되, 기본 TTL 을 하한으로 둔다.
+     * 하한이 없으면 짧은 만료를 주는 판매처 하나가 세션 전체를 끌어내려 인증을 1회로 줄인
+     * 효과가 상쇄된다.
+     */
+    private Instant expiresAt(List<PreparedItem> prepared, Instant now) {
+        Instant floor = now.plus(Duration.ofSeconds(approvalProperties.expirationSeconds()));
+        Instant earliestCheckout = prepared.stream()
+                .map(item -> item.verification().expiresAt())
+                .filter(java.util.Objects::nonNull)
+                .min(Instant::compareTo)
+                .orElse(floor);
+        if (!approvalProperties.floorEnabled()) {
+            return earliestCheckout;
+        }
+        return earliestCheckout.isAfter(floor) ? earliestCheckout : floor;
+    }
+
     private CreateResult resolveConcurrentInsert(
-            String merchantAccountId,
+            String userId,
             String purchaseRequestId,
             String idempotencyKey,
             String requestHash) {
-        Optional<AuthorizationSession> existing = store.findByMerchantAndIdempotencyKey(
-                merchantAccountId,
+        Optional<AuthorizationSession> existing = store.findByUserAndIdempotencyKey(
+                userId,
                 idempotencyKey);
         if (existing.isPresent()) {
             IdempotencyGuard.Decision decision = idempotencyGuard.check(
@@ -302,9 +360,7 @@ public class AuthorizationSessionService {
             }
         }
 
-        Optional<AuthorizationSession> active = store.findActiveByMerchantAndPurchaseRequest(
-                merchantAccountId,
-                purchaseRequestId);
+        Optional<AuthorizationSession> active = store.findActiveByPurchaseRequest(purchaseRequestId);
         if (active.isPresent()) {
             throw stateConflict(active.get().status());
         }
@@ -341,21 +397,9 @@ public class AuthorizationSessionService {
         }
         RequestValidation.requireLengthAtMost(command.purchaseRequestId(), "purchaseRequestId", 36);
         RequestValidation.requireLengthAtMost(command.userId(), "userId", 36);
-        RequestValidation.requireLengthAtMost(command.merchantId(), "merchantId", 100);
-        RequestValidation.requireLengthAtMost(command.checkoutId(), "checkoutId", 150);
-        RequestValidation.requireLengthAtMost(command.checkoutHash(), "checkoutHash", 100);
         RequestValidation.requireLengthAtMost(idempotencyKey, "idempotencyKey", 100);
         RequestValidation.requireLengthAtMost(requestHash, "requestHash", 64);
-        if (!isCompactJws(command.checkoutJwt())) {
-            throw new PayException(
-                    PayErrorCode.INVALID_REQUEST,
-                    "checkoutJwt는 Compact JWS 형식이어야 합니다.",
-                    null,
-                    "CHECK_CHECKOUT_JWT");
-        }
-        CheckoutHashCodec.toInternalDigest(command.checkoutHash());
-        CheckoutHashCodec.validateMatchesJwt(command.checkoutHash(), command.checkoutJwt());
-        if (command.amountMinor() < 0) {
+        if (command.totalAmountMinor() < 0) {
             throw new PayException(PayErrorCode.INVALID_REQUEST);
         }
         if (!KRW.equals(command.currency())) {
@@ -365,7 +409,72 @@ public class AuthorizationSessionService {
                     null,
                     "USE_KRW_CURRENCY");
         }
-        validateDisplaySnapshot(command.displaySnapshot());
+        if (command.items().isEmpty() || command.items().size() > MAX_MERCHANTS) {
+            throw new PayException(
+                    PayErrorCode.INVALID_REQUEST,
+                    "items는 1개 이상 " + MAX_MERCHANTS + "개 이하여야 합니다.",
+                    null,
+                    "CHECK_ITEMS");
+        }
+
+        Set<String> merchantIds = new HashSet<>();
+        Set<String> checkoutIds = new HashSet<>();
+        long sum = 0;
+        for (CreateAuthorizationSessionCommand.Item item : command.items()) {
+            validateItem(item);
+            if (!merchantIds.add(item.merchantId())) {
+                throw new PayException(
+                        PayErrorCode.INVALID_REQUEST,
+                        "같은 판매처가 items에 중복으로 들어올 수 없습니다.",
+                        null,
+                        "CHECK_ITEMS");
+            }
+            if (!checkoutIds.add(item.checkoutId())) {
+                throw new PayException(
+                        PayErrorCode.INVALID_REQUEST,
+                        "같은 checkoutId가 items에 중복으로 들어올 수 없습니다.",
+                        null,
+                        "CHECK_ITEMS");
+            }
+            if (!command.currency().equals(item.currency())) {
+                throw new PayException(
+                        PayErrorCode.INVALID_REQUEST,
+                        "items의 통화는 요청 통화와 모두 같아야 합니다.",
+                        null,
+                        "CHECK_CURRENCY");
+            }
+            sum += item.amountMinor();
+        }
+        // 사용자가 승인 화면에서 본 합계와 실제 결제 합계가 어긋나는 것을 여기서 막는다.
+        if (sum != command.totalAmountMinor()) {
+            throw new PayException(
+                    PayErrorCode.INVALID_REQUEST,
+                    "totalAmountMinor가 items 금액 합과 다릅니다.",
+                    null,
+                    "CHECK_TOTAL_AMOUNT");
+        }
+    }
+
+    private void validateItem(CreateAuthorizationSessionCommand.Item item) {
+        if (item == null) {
+            throw new PayException(PayErrorCode.INVALID_REQUEST);
+        }
+        RequestValidation.requireLengthAtMost(item.merchantId(), "merchantId", 100);
+        RequestValidation.requireLengthAtMost(item.checkoutId(), "checkoutId", 150);
+        RequestValidation.requireLengthAtMost(item.checkoutHash(), "checkoutHash", 100);
+        if (!isCompactJws(item.checkoutJwt())) {
+            throw new PayException(
+                    PayErrorCode.INVALID_REQUEST,
+                    "checkoutJwt는 Compact JWS 형식이어야 합니다.",
+                    null,
+                    "CHECK_CHECKOUT_JWT");
+        }
+        CheckoutHashCodec.toInternalDigest(item.checkoutHash());
+        CheckoutHashCodec.validateMatchesJwt(item.checkoutHash(), item.checkoutJwt());
+        if (item.amountMinor() < 0) {
+            throw new PayException(PayErrorCode.INVALID_REQUEST);
+        }
+        validateDisplaySnapshot(item.displaySnapshot());
     }
 
     private boolean isCompactJws(String checkoutJwt) {
@@ -438,6 +547,12 @@ public class AuthorizationSessionService {
                 PayErrorCode.STATE_CONFLICT.defaultMessage(),
                 currentStatus.name(),
                 PayErrorCode.STATE_CONFLICT.defaultNextAction());
+    }
+
+    private record PreparedItem(
+            CreateAuthorizationSessionCommand.Item command,
+            AuthorizationSessionItem item,
+            MerchantCheckoutVerifier.VerificationResult verification) {
     }
 
     public record CreateResult(

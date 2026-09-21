@@ -58,6 +58,7 @@ class MerchantPaymentPostgresIntegrationTest {
     private static final String MERCHANT_ACCOUNT_ID = "00000000-0000-0000-0000-000000000001";
     private static final String MERCHANT_ID = "merchant-a";
     private static final String SESSION_ID = "00000000-0000-0000-0000-000000000004";
+    private static final String SESSION_ITEM_ID = "00000000-0000-0000-0000-000000000104";
     private static final String USER_ID = "00000000-0000-0000-0000-000000000003";
     private static final String PAYMENT_METHOD_ID = "00000000-0000-0000-0000-000000000002";
     private static final String PURCHASE_REQUEST_ID = "00000000-0000-0000-0000-000000000005";
@@ -139,7 +140,9 @@ class MerchantPaymentPostgresIntegrationTest {
         assertEquals("SUCCESS", status("payments"));
         assertEquals("SUCCESS", status("payment_attempts"));
         assertEquals("SUCCESS", status("pg_transactions"));
-        assertEquals("COMPLETED", status("authorization_sessions"));
+        // 결제 결과는 세션이 아니라 판매처별 item 이 받는다.
+        assertEquals("APPROVED", status("authorization_sessions"));
+        assertEquals("COMPLETED", status("authorization_session_items"));
         assertEquals(1, count("payment_receipts"));
         assertEquals(0, count("payment_reconciliation_jobs"));
         assertEquals(1, gateway.calls.get());
@@ -155,7 +158,8 @@ class MerchantPaymentPostgresIntegrationTest {
         assertEquals("FAILED", status("payments"));
         assertEquals("FAILED", status("payment_attempts"));
         assertEquals("FAILED", status("pg_transactions"));
-        assertEquals("INVALIDATED", status("authorization_sessions"));
+        assertEquals("APPROVED", status("authorization_sessions"));
+        assertEquals("INVALIDATED", status("authorization_session_items"));
         assertEquals(0, count("payment_receipts"));
         assertEquals(0, count("payment_reconciliation_jobs"));
     }
@@ -333,20 +337,16 @@ class MerchantPaymentPostgresIntegrationTest {
         jdbc.update(
                 """
                 INSERT INTO authorization_sessions
-                    (id, purchase_request_id, user_id, merchant_account_id,
-                     external_checkout_id, checkout_digest, display_snapshot,
-                     amount_minor, currency, selected_payment_method_id, status,
+                    (id, purchase_request_id, user_id,
+                     total_amount_minor, currency, selected_payment_method_id, status,
                      idempotency_key, request_hash, required_action, expires_at,
                      approved_at, auth_method, created_at, updated_at, version)
-                VALUES (?, ?, ?, ?, ?, ?, '{}'::jsonb, ?, 'KRW', ?, 'APPROVED',
+                VALUES (?, ?, ?, ?, 'KRW', ?, 'APPROVED',
                         'approval-key', ?, 'PIN', ?, ?, 'PIN', ?, ?, 1)
                 """,
                 SESSION_ID,
                 PURCHASE_REQUEST_ID,
                 USER_ID,
-                MERCHANT_ACCOUNT_ID,
-                CHECKOUT_ID,
-                DIGEST,
                 AMOUNT_MINOR,
                 PAYMENT_METHOD_ID,
                 REQUEST_HASH,
@@ -356,15 +356,32 @@ class MerchantPaymentPostgresIntegrationTest {
                 java.sql.Timestamp.from(NOW));
         jdbc.update(
                 """
+                INSERT INTO authorization_session_items
+                    (id, authorization_session_id, merchant_account_id, external_checkout_id,
+                     checkout_digest, display_snapshot, amount_minor, currency, status,
+                     created_at, updated_at, version)
+                VALUES (?, ?, ?, ?, ?, '{}'::jsonb, ?, 'KRW', 'PENDING', ?, ?, 0)
+                """,
+                SESSION_ITEM_ID,
+                SESSION_ID,
+                MERCHANT_ACCOUNT_ID,
+                CHECKOUT_ID,
+                DIGEST,
+                AMOUNT_MINOR,
+                java.sql.Timestamp.from(NOW),
+                java.sql.Timestamp.from(NOW));
+        jdbc.update(
+                """
                 INSERT INTO checkout_mandates
-                    (id, authorization_session_id, jti, issuer, audience,
+                    (id, authorization_session_id, session_item_id, jti, issuer, audience,
                      checkout_digest, signed_artifact_encrypted, artifact_hash,
                      status, issued_at, expires_at)
-                VALUES (?, ?, 'checkout-jti', 'pay-service', ?, ?, 'encrypted', ?,
+                VALUES (?, ?, ?, 'checkout-jti', 'pay-service', ?, ?, 'encrypted', ?,
                         'ISSUED', ?, ?)
                 """,
                 CHECKOUT_MANDATE_ID,
                 SESSION_ID,
+                SESSION_ITEM_ID,
                 "merchant:" + MERCHANT_ID,
                 DIGEST,
                 "b".repeat(64),
@@ -373,14 +390,15 @@ class MerchantPaymentPostgresIntegrationTest {
         jdbc.update(
                 """
                 INSERT INTO payment_mandates
-                    (id, authorization_session_id, jti, transaction_id, merchant_id,
+                    (id, authorization_session_id, session_item_id, jti, transaction_id, merchant_id,
                      external_checkout_id, amount_minor, currency, payment_method_ref,
                      signed_artifact_encrypted, artifact_hash, status, issued_at, expires_at)
-                VALUES (?, ?, 'payment-jti', 'transaction-001', ?, ?, ?, 'KRW',
+                VALUES (?, ?, ?, 'payment-jti', 'transaction-001', ?, ?, ?, 'KRW',
                         'provider-token-ref', 'encrypted', ?, 'ISSUED', ?, ?)
                 """,
                 PAYMENT_MANDATE_ID,
                 SESSION_ID,
+                SESSION_ITEM_ID,
                 MERCHANT_ID,
                 CHECKOUT_ID,
                 AMOUNT_MINOR,
@@ -390,13 +408,15 @@ class MerchantPaymentPostgresIntegrationTest {
         jdbc.update(
                 """
                 INSERT INTO payment_credential_tokens
-                    (id, authorization_session_id, checkout_mandate_id, payment_mandate_id,
+                    (id, authorization_session_id, session_item_id, checkout_mandate_id,
+                     payment_mandate_id,
                      token_hash, token_ciphertext, merchant_id, external_checkout_id,
                      checkout_digest, amount_minor, currency, status, issued_at, expires_at)
-                VALUES (?, ?, ?, ?, ?, 'encrypted', ?, ?, ?, ?, 'KRW', 'ISSUED', ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, 'encrypted', ?, ?, ?, ?, 'KRW', 'ISSUED', ?, ?)
                 """,
                 CREDENTIAL_ID,
                 SESSION_ID,
+                SESSION_ITEM_ID,
                 CHECKOUT_MANDATE_ID,
                 PAYMENT_MANDATE_ID,
                 "d".repeat(64),

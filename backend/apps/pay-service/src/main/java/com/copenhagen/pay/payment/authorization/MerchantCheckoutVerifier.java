@@ -55,7 +55,9 @@ public class MerchantCheckoutVerifier {
         this.clock = clock;
     }
 
-    public VerificationResult verify(CreateAuthorizationSessionCommand command) {
+    public VerificationResult verify(
+            String purchaseRequestId,
+            CreateAuthorizationSessionCommand.Item command) {
         SignedJWT signedJwt = parse(command);
         JWSHeader header = signedJwt.getHeader();
         String algorithm = header.getAlgorithm() == null
@@ -80,7 +82,7 @@ public class MerchantCheckoutVerifier {
 
         verifySignature(signedJwt, algorithm, verificationKey);
         JWTClaimsSet claims = claims(signedJwt);
-        validateClaims(command, claims);
+        validateClaims(purchaseRequestId, command, claims);
         return new VerificationResult(
                 keyId,
                 algorithm,
@@ -91,7 +93,7 @@ public class MerchantCheckoutVerifier {
                 true);
     }
 
-    private SignedJWT parse(CreateAuthorizationSessionCommand command) {
+    private SignedJWT parse(CreateAuthorizationSessionCommand.Item command) {
         if (command == null || command.checkoutJwt() == null || command.checkoutJwt().isBlank()) {
             throw invalidRequest("checkoutJwt가 없습니다.", "CHECK_CHECKOUT_JWT");
         }
@@ -207,10 +209,13 @@ public class MerchantCheckoutVerifier {
         }
     }
 
-    private void validateClaims(CreateAuthorizationSessionCommand command, JWTClaimsSet claims) {
+    private void validateClaims(
+            String purchaseRequestId,
+            CreateAuthorizationSessionCommand.Item command,
+            JWTClaimsSet claims) {
         compareStringClaim(command.merchantId(), claims, CLAIM_MERCHANT_ID);
         compareStringClaim(command.checkoutId(), claims, CLAIM_CHECKOUT_ID);
-        compareStringClaim(command.purchaseRequestId(), claims, CLAIM_PURCHASE_REQUEST_ID);
+        compareStringClaim(purchaseRequestId, claims, CLAIM_PURCHASE_REQUEST_ID);
         long claimAmountMinor = requiredLongClaim(claims, CLAIM_AMOUNT_MINOR);
         if (claimAmountMinor != command.amountMinor()) {
             throw invalidRequest("checkoutJwt의 amountMinor가 요청과 다릅니다.", "CHECKOUT_CLAIMS");

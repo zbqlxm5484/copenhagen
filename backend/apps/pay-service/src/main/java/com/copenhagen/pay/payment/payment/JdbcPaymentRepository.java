@@ -23,6 +23,14 @@ public class JdbcPaymentRepository implements PaymentRepository {
             WHERE payment.id = ?
             """;
 
+    private static final String FIND_SESSION_ITEM_SQL = """
+            SELECT credential.session_item_id
+            FROM payments payment
+            JOIN payment_credential_tokens credential
+              ON credential.id = payment.credential_token_id
+            WHERE payment.id = ?
+            """;
+
     private static final String EXISTS_LIVE_SQL = """
             SELECT EXISTS (
                 SELECT 1
@@ -62,6 +70,18 @@ public class JdbcPaymentRepository implements PaymentRepository {
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject(
                     FIND_AUTHORIZATION_SESSION_SQL,
+                    String.class,
+                    paymentId));
+        } catch (EmptyResultDataAccessException exception) {
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public Optional<String> findSessionItemId(String paymentId) {
+        try {
+            return Optional.ofNullable(jdbcTemplate.queryForObject(
+                    FIND_SESSION_ITEM_SQL,
                     String.class,
                     paymentId));
         } catch (EmptyResultDataAccessException exception) {

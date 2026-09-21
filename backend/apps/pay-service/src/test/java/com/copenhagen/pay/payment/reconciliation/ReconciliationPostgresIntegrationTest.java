@@ -136,11 +136,13 @@ class ReconciliationPostgresIntegrationTest {
         assertEquals(outcome.name(), status("payment_attempts"));
         assertEquals(outcome.name(), status("pg_transactions"));
         assertEquals(outcome == Outcome.UNKNOWN ? "FAILED" : "SUCCEEDED", status("payment_reconciliation_jobs"));
+        // 결제 결과는 세션이 아니라 판매처별 item 이 받는다.
+        assertEquals("APPROVED", status("authorization_sessions"));
         assertEquals(switch (outcome) {
             case SUCCESS -> "COMPLETED";
             case FAILED -> "INVALIDATED";
-            case UNKNOWN -> "APPROVED";
-        }, status("authorization_sessions"));
+            case UNKNOWN -> "PENDING";
+        }, status("authorization_session_items"));
         assertEquals(outcome == Outcome.SUCCESS ? 1 : 0, count("payment_receipts"));
         assertEquals(1, count("payments"));
         assertEquals(1, count("payment_attempts"));
@@ -240,7 +242,7 @@ class ReconciliationPostgresIntegrationTest {
         settlement.settle(job, success);
         settlement.settle(job, success);
         assertEquals(1, count("payment_receipts"));
-        assertEquals("COMPLETED", status("authorization_sessions"));
+        assertEquals("COMPLETED", status("authorization_session_items"));
     }
 
     @Test

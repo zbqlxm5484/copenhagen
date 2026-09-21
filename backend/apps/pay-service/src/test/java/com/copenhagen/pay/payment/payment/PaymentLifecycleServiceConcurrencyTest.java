@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.copenhagen.pay.payment.authorization.AuthorizationSessionLifecycleService;
 import com.copenhagen.pay.payment.authorization.AuthorizationSessionRepository;
+import com.copenhagen.pay.payment.authorization.AuthorizationSessionItemRepository;
+import com.copenhagen.pay.payment.policy.AuthorizationSessionItemStatus;
 import com.copenhagen.pay.payment.policy.AuthorizationSessionStatus;
 import com.copenhagen.pay.payment.policy.PaymentStatus;
 import java.util.Optional;
@@ -26,7 +28,7 @@ class PaymentLifecycleServiceConcurrencyTest {
                 new InMemoryAuthorizationSessionRepository();
         PaymentLifecycleService service = new PaymentLifecycleService(
                 paymentRepository,
-                new AuthorizationSessionLifecycleService(sessionRepository));
+                new AuthorizationSessionLifecycleService(sessionRepository, sessionRepository));
         CountDownLatch start = new CountDownLatch(1);
 
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
@@ -39,7 +41,9 @@ class PaymentLifecycleServiceConcurrencyTest {
         }
 
         assertEquals(PaymentStatus.SUCCESS, paymentRepository.status.get());
-        assertEquals(AuthorizationSessionStatus.COMPLETED, sessionRepository.status.get());
+        assertEquals(
+                AuthorizationSessionItemStatus.COMPLETED,
+                sessionRepository.itemStatus.get());
         assertEquals(1, paymentRepository.transitionCount.get());
     }
 
@@ -71,6 +75,11 @@ class PaymentLifecycleServiceConcurrencyTest {
         }
 
         @Override
+        public Optional<String> findSessionItemId(String paymentId) {
+            return Optional.of("session-1-item-1");
+        }
+
+        @Override
         public boolean existsLiveByPurchaseRequest(String merchantAccountId, String purchaseRequestId) {
             return status.get().isLive();
         }
@@ -89,7 +98,7 @@ class PaymentLifecycleServiceConcurrencyTest {
     }
 
     private static final class InMemoryAuthorizationSessionRepository
-            implements AuthorizationSessionRepository {
+            implements AuthorizationSessionRepository, AuthorizationSessionItemRepository {
 
         private final AtomicReference<AuthorizationSessionStatus> status =
                 new AtomicReference<>(AuthorizationSessionStatus.APPROVED);
@@ -105,6 +114,22 @@ class PaymentLifecycleServiceConcurrencyTest {
                 AuthorizationSessionStatus expectedStatus,
                 AuthorizationSessionStatus targetStatus) {
             return status.compareAndSet(expectedStatus, targetStatus);
+        }
+
+        private final AtomicReference<AuthorizationSessionItemStatus> itemStatus =
+                new AtomicReference<>(AuthorizationSessionItemStatus.PENDING);
+
+        @Override
+        public Optional<AuthorizationSessionItemStatus> findItemStatus(String sessionItemId) {
+            return Optional.of(itemStatus.get());
+        }
+
+        @Override
+        public boolean transitionItemStatus(
+                String sessionItemId,
+                AuthorizationSessionItemStatus expectedStatus,
+                AuthorizationSessionItemStatus targetStatus) {
+            return itemStatus.compareAndSet(expectedStatus, targetStatus);
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.copenhagen.pay.payment.credential.biometric;
 
+import com.copenhagen.pay.payment.authorization.AuthorizationSessionFixtures;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -51,7 +52,7 @@ class BiometricChallengeServiceTest {
                 NOW,
                 null);
         credentialRepository.credentials.put(credential.id(), credential);
-        session = new AuthorizationSession(
+        session = AuthorizationSessionFixtures.singleMerchant(
                 "session-001",
                 "purchase-001",
                 "user-001",
@@ -78,7 +79,7 @@ class BiometricChallengeServiceTest {
                 challengeRepository,
                 credentialRepository,
                 Clock.fixed(NOW, ZoneOffset.UTC),
-                new ApprovalProperties(300, 60));
+                new ApprovalProperties(300, 60, true));
     }
 
     @Test

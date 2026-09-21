@@ -294,23 +294,35 @@ class BiometricCredentialApiPostgresIntegrationTest {
     private void insertPendingSession(String sessionId, String userId) {
         jdbc.update("""
                 INSERT INTO authorization_sessions
-                    (id, purchase_request_id, user_id, merchant_account_id,
-                     external_checkout_id, checkout_digest, display_snapshot,
-                     amount_minor, currency, selected_payment_method_id, status,
+                    (id, purchase_request_id, user_id,
+                     total_amount_minor, currency, selected_payment_method_id, status,
                      idempotency_key, request_hash, required_action, expires_at,
                      created_at, updated_at, version)
-                VALUES (?, ?, ?, ?, 'checkout-test', ?, '{}'::jsonb, 99000, 'KRW', ?,
+                VALUES (?, ?, ?, 99000, 'KRW', ?,
                         'PENDING', ?, ?, 'BIOMETRIC', ?, ?, ?, 0)
                 """,
                 sessionId,
                 UUID.randomUUID().toString(),
                 userId,
-                MERCHANT_ACCOUNT_ID,
-                "0".repeat(64),
                 USER_ID.equals(userId) ? PAYMENT_METHOD_ID : OTHER_PAYMENT_METHOD_ID,
                 "idem-" + sessionId,
                 "a".repeat(64),
                 Timestamp.from(NOW.plusSeconds(300)),
+                Timestamp.from(NOW),
+                Timestamp.from(NOW));
+        jdbc.update(
+                """
+                INSERT INTO authorization_session_items
+                    (id, authorization_session_id, merchant_account_id, external_checkout_id,
+                     checkout_digest, display_snapshot, amount_minor, currency, status,
+                     created_at, updated_at, version)
+                VALUES (?, ?, ?, 'checkout-test', ?, '{}'::jsonb, 99000, 'KRW', 'PENDING',
+                        ?, ?, 0)
+                """,
+                UUID.randomUUID().toString(),
+                sessionId,
+                MERCHANT_ACCOUNT_ID,
+                "0".repeat(64),
                 Timestamp.from(NOW),
                 Timestamp.from(NOW));
     }

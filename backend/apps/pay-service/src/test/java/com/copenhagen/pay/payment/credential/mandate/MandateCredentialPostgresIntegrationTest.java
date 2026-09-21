@@ -33,6 +33,7 @@ class MandateCredentialPostgresIntegrationTest {
     private static final String MERCHANT_ACCOUNT_ID = "00000000-0000-0000-0000-000000000001";
     private static final String PAYMENT_METHOD_ID = "00000000-0000-0000-0000-000000000002";
     private static final String SESSION_ID = "00000000-0000-0000-0000-000000000004";
+    private static final String SESSION_ITEM_ID = "00000000-0000-0000-0000-000000000014";
     private static final String PURCHASE_REQUEST_ID = "00000000-0000-0000-0000-000000000005";
 
     private EmbeddedPostgres postgres;
@@ -107,6 +108,7 @@ class MandateCredentialPostgresIntegrationTest {
         return new MandateCredentialRepository.Issuance(
                 "cm-001",
                 SESSION_ID,
+                SESSION_ITEM_ID,
                 "jti-checkout-001",
                 "pay-service",
                 "merchant-test",
@@ -163,22 +165,34 @@ class MandateCredentialPostgresIntegrationTest {
         jdbc.update(
                 """
                 INSERT INTO authorization_sessions
-                    (id, purchase_request_id, user_id, merchant_account_id,
-                     external_checkout_id, checkout_digest, display_snapshot,
-                     amount_minor, currency, selected_payment_method_id, status,
+                    (id, purchase_request_id, user_id,
+                     total_amount_minor, currency, selected_payment_method_id, status,
                      idempotency_key, request_hash, required_action, expires_at,
                      created_at, updated_at, version)
-                VALUES (?, ?, ?, ?, 'checkout-test', ?, '{}'::jsonb, 99000, 'KRW', ?,
+                VALUES (?, ?, ?, 99000, 'KRW', ?,
                         'PENDING', 'approval-test', ?, 'PIN', ?, ?, ?, 0)
                 """,
                 SESSION_ID,
                 PURCHASE_REQUEST_ID,
                 USER_ID,
-                MERCHANT_ACCOUNT_ID,
-                "0".repeat(64),
                 PAYMENT_METHOD_ID,
                 "a".repeat(64),
                 Timestamp.from(EXPIRES_AT),
+                Timestamp.from(ISSUED_AT),
+                Timestamp.from(ISSUED_AT));
+        jdbc.update(
+                """
+                INSERT INTO authorization_session_items
+                    (id, authorization_session_id, merchant_account_id, external_checkout_id,
+                     checkout_digest, display_snapshot, amount_minor, currency, status,
+                     created_at, updated_at, version)
+                VALUES (?, ?, ?, 'checkout-test', ?, '{}'::jsonb, 99000, 'KRW', 'PENDING',
+                        ?, ?, 0)
+                """,
+                SESSION_ITEM_ID,
+                SESSION_ID,
+                MERCHANT_ACCOUNT_ID,
+                "0".repeat(64),
                 Timestamp.from(ISSUED_AT),
                 Timestamp.from(ISSUED_AT));
     }

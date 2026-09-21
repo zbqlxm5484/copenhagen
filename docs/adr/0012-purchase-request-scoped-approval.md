@@ -2,7 +2,8 @@
 
 - **Status:** Accepted
 - **Recorded:** 2026-09-21
-- **Issue:** S15P21A207-486
+- **Last updated:** 2026-09-22
+- **Issue:** S15P21A207-486 (Core), S15P21A207-487 (Pay)
 - **관련:** ADR-0003(사용자 승인), ADR-0005(Merchant Cart 없이 Checkout 생성), ADR-0008(Payment Credential 소유·보관)
 
 ## Context
@@ -45,6 +46,28 @@
 | 재승인 | 승인 전체 무효화 후 1회 재인증 |
 | 승인 TTL | `max( min(판매처별 checkout 만료), 기본 TTL )` |
 | 조립 | Core가 Checkout 전부 확정 후 배치 1회 전송 |
+| 승인 후 세션 상태 | 세션은 `APPROVED`에서 종료. 결제 결과는 item이 추적 |
+
+### 승인 후 세션 상태
+
+결제 결과는 **item**이 받는다. 세션은 사용자 인증까지만 책임지고 `APPROVED`에서 종료한다.
+
+세션 1건에 결제가 N건 붙으므로 그대로 두면 깨진다. `PaymentLifecycleService`가
+`completeAfterPaymentSuccess()`로 세션을 `COMPLETED`(종료 상태)로 보내는데, 먼저 끝난 결제 하나가
+세션을 닫으면 나머지 판매처의 결과를 기록할 수 없다. 판매처가 2곳 이상이면 부분 실패 여부와 무관하게
+항상 발생한다.
+
+A몰 성공·B몰 실패를 세션 단일 상태로 표현할 수도 없다. 구매 전체 집계는 Core
+`PurchaseWorkflowService.aggregate()`가 이미 담당하므로 Pay가 중복으로 보유할 이유가 없다
+(`technical-flow.md` §1의 원본 구분과도 부합한다).
+
+| 계층 | 상태 |
+|---|---|
+| `authorization_sessions` | `PAYMENT_METHOD_REQUIRED` → `PENDING` → `APPROVED` 에서 종료 |
+| `authorization_session_items` | `PENDING` → `COMPLETED` / `INVALIDATED` / `EXPIRED` |
+
+Core 폴링은 `APPROVED`와 `COMPLETED`를 동일하게 처리하므로 이 변경에 영향받지 않는다. 세션 status
+CHECK에서 `COMPLETED`는 과거 행 때문에 제거하지 않았다.
 
 ## Alternatives considered
 
@@ -85,5 +108,12 @@ Pay가 구매 요청에 속한 Checkout이 다 모였는지 세어 결제를 진
   `PARTIALLY_COMPLETED`는 정상 상태로 남는다.
 - 승인 생성에 부분 성공이 없어진다. 실패하면 Checkout 전부가 `CREATING`으로 남고 구매 요청 단위로
   재시도한다.
-- Pay 마이그레이션은 컬럼 제거 4개·유니크 제약 완화 6건·신규 테이블 1개·백필을 포함해 되돌리기 어렵다.
+- Pay 마이그레이션은 컬럼 제거 5개·유니크 제약 완화 6건·신규 테이블 1개·백필을 포함해 되돌리기 어렵다.
   진행 중 세션을 드레인한 뒤 배포한다.
+
+## Revision History
+
+| 날짜 | 변경 내용 |
+|---|---|
+| 2026-09-21 | 최초 기록 (S15P21A207-486) |
+| 2026-09-22 | 확정 정책에 "승인 후 세션 상태" 추가. Pay 구현(S15P21A207-487) 과정에서 `PaymentLifecycleService`가 결제 결과로 세션을 종료시키던 경로를 발견해, 결제 결과를 item이 받도록 정리한 내용을 기록했다. 결정 자체는 바뀌지 않았고 비어 있던 항목을 채운 것이다. 함께 Consequences의 컬럼 제거 개수를 4개에서 5개로 정정했다(`display_snapshot`이 item으로 이동). |

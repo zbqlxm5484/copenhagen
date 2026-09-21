@@ -1,5 +1,6 @@
 package com.copenhagen.pay.payment.credential.mandate;
 
+import com.copenhagen.pay.payment.authorization.AuthorizationSessionFixtures;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -45,6 +46,7 @@ class MandateKeySetTest {
 
         SignedJWT mandate = SignedJWT.parse(signingService.createCheckoutMandate(
                 session(),
+                session().items().getFirst(),
                 "mandate-001",
                 NOW));
 
@@ -201,7 +203,7 @@ class MandateKeySetTest {
     }
 
     private AuthorizationSession session() {
-        return new AuthorizationSession(
+        return AuthorizationSessionFixtures.singleMerchant(
                 "session-001",
                 "purchase-001",
                 "user-001",

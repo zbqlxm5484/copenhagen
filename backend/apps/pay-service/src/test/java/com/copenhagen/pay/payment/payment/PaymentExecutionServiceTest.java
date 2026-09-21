@@ -1,5 +1,7 @@
 package com.copenhagen.pay.payment.payment;
 
+import com.copenhagen.pay.payment.authorization.AuthorizationSessionItemRepository;
+import com.copenhagen.pay.payment.policy.AuthorizationSessionItemStatus;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -41,7 +43,9 @@ class PaymentExecutionServiceTest {
         authorizationSessionRepository = new RecordingAuthorizationSessionRepository();
         PaymentLifecycleService lifecycleService = new PaymentLifecycleService(
                 new RecordingPaymentRepository(executionRepository),
-                new AuthorizationSessionLifecycleService(authorizationSessionRepository));
+                new AuthorizationSessionLifecycleService(
+                        authorizationSessionRepository,
+                        authorizationSessionRepository));
         PaymentExecutionPreparationService preparationService =
                 new PaymentExecutionPreparationService(
                         executionRepository,
@@ -70,7 +74,9 @@ class PaymentExecutionServiceTest {
         assertEquals(1, gateway.calls);
         assertEquals(1, executionRepository.attemptInsertCount);
         assertEquals(1, executionRepository.receiptInsertCount);
-        assertEquals(AuthorizationSessionStatus.COMPLETED, authorizationSessionRepository.status);
+        assertEquals(
+                AuthorizationSessionItemStatus.COMPLETED,
+                authorizationSessionRepository.itemStatus);
     }
 
     @Test
@@ -82,7 +88,9 @@ class PaymentExecutionServiceTest {
         assertEquals(PaymentStatus.FAILED, result.status());
         assertEquals(1, gateway.calls);
         assertEquals(0, executionRepository.receiptInsertCount);
-        assertEquals(AuthorizationSessionStatus.INVALIDATED, authorizationSessionRepository.status);
+        assertEquals(
+                AuthorizationSessionItemStatus.INVALIDATED,
+                authorizationSessionRepository.itemStatus);
     }
 
     @Test
@@ -194,6 +202,11 @@ class PaymentExecutionServiceTest {
         }
 
         @Override
+        public Optional<String> findSessionItemId(String paymentId) {
+            return Optional.of("authorization-session-1-item-1");
+        }
+
+        @Override
         public boolean existsLiveByPurchaseRequest(String merchantAccountId, String purchaseRequestId) {
             return delegate.paymentStatus.isLive();
         }
@@ -212,7 +225,7 @@ class PaymentExecutionServiceTest {
     }
 
     private static final class RecordingAuthorizationSessionRepository
-            implements AuthorizationSessionRepository {
+            implements AuthorizationSessionRepository, AuthorizationSessionItemRepository {
 
         private AuthorizationSessionStatus status = AuthorizationSessionStatus.APPROVED;
 
@@ -230,6 +243,25 @@ class PaymentExecutionServiceTest {
                 return false;
             }
             status = targetStatus;
+            return true;
+        }
+
+        private AuthorizationSessionItemStatus itemStatus = AuthorizationSessionItemStatus.PENDING;
+
+        @Override
+        public Optional<AuthorizationSessionItemStatus> findItemStatus(String sessionItemId) {
+            return Optional.of(itemStatus);
+        }
+
+        @Override
+        public boolean transitionItemStatus(
+                String sessionItemId,
+                AuthorizationSessionItemStatus expectedStatus,
+                AuthorizationSessionItemStatus targetStatus) {
+            if (itemStatus != expectedStatus) {
+                return false;
+            }
+            itemStatus = targetStatus;
             return true;
         }
     }
