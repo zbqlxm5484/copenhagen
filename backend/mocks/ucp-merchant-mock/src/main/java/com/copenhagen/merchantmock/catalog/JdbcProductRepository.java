@@ -1,7 +1,9 @@
 package com.copenhagen.merchantmock.catalog;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -35,26 +37,37 @@ public class JdbcProductRepository implements ProductRepository {
 
     @Override
     public List<Product> findAll() {
-        return jdbcTemplate.query(SELECT_ALL, rowMapper());
+        // 몰 셋이 같은 상품을 팔아 제목·카테고리·이미지·SKU 문자열이 세 번씩 온다. 같은 문자열을 한 객체로
+        // 모아 27만 행을 한 벌 값으로 올린다(DESIGN.md 13절). 맵은 이 호출 안에서만 산다.
+        Map<String, String> shared = new HashMap<>();
+        return jdbcTemplate.query(SELECT_ALL, rowMapper(shared));
     }
 
-    private RowMapper<Product> rowMapper() {
+    private RowMapper<Product> rowMapper(Map<String, String> shared) {
         return (rs, rowNum) -> new Product(
                 rs.getString("id"),
-                rs.getString("merchant_id"),
-                rs.getString("external_id"),
-                rs.getString("title"),
+                share(shared, rs.getString("merchant_id")),
+                share(shared, rs.getString("external_id")),
+                share(shared, rs.getString("title")),
                 null,
-                rs.getString("category"),
-                rs.getString("brand"),
-                rs.getString("image_url"),
+                share(shared, rs.getString("category")),
+                share(shared, rs.getString("brand")),
+                share(shared, rs.getString("image_url")),
                 rs.getLong("base_price"),
-                rs.getString("currency"),
+                share(shared, rs.getString("currency")),
                 Product.ProductStatus.valueOf(rs.getString("status")),
-                parseVariants(rs.getString("variants_json")));
+                parseVariants(rs.getString("variants_json"), shared));
     }
 
-    private List<Product.Variant> parseVariants(String json) {
+    private static String share(Map<String, String> shared, String value) {
+        if (value == null) {
+            return null;
+        }
+        String existing = shared.putIfAbsent(value, value);
+        return existing == null ? value : existing;
+    }
+
+    private List<Product.Variant> parseVariants(String json, Map<String, String> shared) {
         if (json == null || json.isBlank()) {
             return List.of();
         }
@@ -63,9 +76,9 @@ public class JdbcProductRepository implements ProductRepository {
             List<Product.Variant> variants = new ArrayList<>();
             for (JsonNode node : array) {
                 variants.add(new Product.Variant(
-                        node.path("sku").asText(),
-                        node.path("optionName").asText(),
-                        node.path("optionValue").asText(),
+                        share(shared, node.path("sku").asText()),
+                        share(shared, node.path("optionName").asText()),
+                        share(shared, node.path("optionValue").asText()),
                         node.path("priceDelta").asLong(0L),
                         node.path("stock").asInt(0),
                         Product.ProductStatus.valueOf(node.path("status").asText("ACTIVE"))));

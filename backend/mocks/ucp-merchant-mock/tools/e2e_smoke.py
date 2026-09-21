@@ -706,8 +706,6 @@ class Smoke:
 
 def launch_command(args) -> str:
     stub = f"http://{args.stub_host}:{args.stub_port}"
-    seeds = ",".join(f"classpath:catalog/{m}.json"
-                     for m in ("merchant-a", "merchant-b", "merchant-c"))
     return (
         "# 1) DB 만 컨테이너로\n"
         "docker compose up -d merchant-db\n\n"
@@ -721,7 +719,8 @@ def launch_command(args) -> str:
         f"CORE_WEBHOOK_URL={stub}{WEBHOOK_PATH} \\\n"
         "PAY_MERCHANT_TOKEN=local-smoke-token \\\n"
         "MERCHANT_AP2_LIKE_ENABLED=true \\\n"
-        f"MERCHANT_CATALOG_SEED_FILES={seeds} \\\n"
+        "MERCHANT_CATALOG_POOL_FILE=classpath:catalog/pool.json.gz \\\n"
+        "MERCHANT_CATALOG_POOL_LIMIT=5000 \\\n"
         "./gradlew :mocks:ucp-merchant-mock:bootRun"
     )
 

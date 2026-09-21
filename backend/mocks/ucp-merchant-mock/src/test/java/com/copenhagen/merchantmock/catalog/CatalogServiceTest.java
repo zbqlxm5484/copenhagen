@@ -312,17 +312,94 @@ class CatalogServiceTest {
     }
 
     @Test
-    @DisplayName("낱말 여러 개는 전부 맞아야 하고 브랜드에서 맞아도 된다")
-    void search_multipleTokens_requiresAllAndLooksAtBrand() {
+    @DisplayName("낱말 여러 개는 하나만 맞아도 후보고, 다 맞은 것이 앞이며, 브랜드에서 맞아도 된다")
+    void search_multipleTokens_orCandidatesRankedByMatchedWeight() {
         // given & when: "나이키" 는 브랜드에만, "러닝화" 는 제목에만 있다
-        CatalogMessages.ItemsResponse matched =
+        CatalogMessages.ItemsResponse both =
                 service.search("merchant-a", new CatalogMessages.SearchRequest("나이키 러닝화", null));
-        CatalogMessages.ItemsResponse unmatched =
+        CatalogMessages.ItemsResponse split =
                 service.search("merchant-a", new CatalogMessages.SearchRequest("아디다스 러닝화", null));
 
-        // then 470 이전에는 통짜 부분문자열이라 둘 다 0건이었다
-        assertEquals(List.of("product-101"), idsOf(matched));
-        assertTrue(unmatched.items().isEmpty(), "브랜드는 맞아도 제목이 안 맞으면 빠진다");
+        // then 470 은 AND 라 "아디다스 러닝화" 가 0건이었다. 2차(6.7절)는 둘 다 후보고 끝 낱말 러닝화가 맞은 것이 앞이다
+        assertEquals("product-101", idsOf(both).get(0));
+        assertEquals(List.of("product-101", "product-102"), idsOf(split));
+    }
+
+    @Test
+    @DisplayName("수식어가 붙은 검색어도 살아남는다 — 가벼운 러닝화")
+    void search_modifierPlusNoun_stillFindsTheNoun() {
+        // given & when: "가벼운" 은 어디에도 없다. 470 의 AND 규칙이면 0건이다
+        CatalogMessages.ItemsResponse response =
+                service.search("merchant-a", new CatalogMessages.SearchRequest("가벼운 러닝화", null));
+
+        // then
+        assertEquals("product-101", idsOf(response).get(0));
+    }
+
+    @Test
+    @DisplayName("수식어 감쇠 — 맛있는 우유는 맛있는 사과보다 우유가 앞이다")
+    void search_fluffWord_isDemoted() {
+        // given: 시드 순서는 사과가 먼저다. 감쇠와 끝 낱말 가중이 없으면 둘의 점수가 같아 사과가 앞이다
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-401", "못생겨도 맛있는 사과 1kg", "과일 > 사과"),
+                CatalogFixture.simple("product-402", "서울우유 나 100% 우유 1L", "유제품 > 우유")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("맛있는 우유", null));
+
+        // then
+        assertEquals(List.of("product-402", "product-401"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("검색어가 수식어뿐이면 감쇠하지 않는다 — 그때는 그것이 검색어다")
+    void search_onlyFluffWords_stillMatches() {
+        // given
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-401", "못생겨도 맛있는 사과 1kg", "과일 > 사과")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("맛있는", null));
+
+        // then
+        assertEquals(List.of("product-401"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("끝 낱말 가중 — 유기농 토마토는 유기농 사과보다 토마토가 앞이다")
+    void search_lastWord_isBoosted() {
+        // given: 두 낱말이 각각 한 상품씩 맞아 흔한 낱말 가중치가 같다. 한국어 명사구는 핵심 명사가 뒤다
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-411", "유기농 사과 2kg", "과일 > 사과"),
+                CatalogFixture.simple("product-412", "대추방울 토마토 1kg", "채소 > 토마토")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("유기농 토마토", null));
+
+        // then
+        assertEquals(List.of("product-412", "product-411"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("흔한 낱말이라고 가볍게 보지 않는다 — 국산 돼지고기는 둘 다 맞은 상품이 앞이고 나머지는 시드 순서다")
+    void search_commonWord_isNotDemotedByFrequency() {
+        // given: "국산" 은 네 상품에 다 있고 "돼지고기" 는 하나에만 있다. 역문서빈도를 넣었다가 뺐다(6.7절) —
+        //        10만 건 풀에서 핵심 명사(양말·이불)가 흔한 낱말이라 가중치가 0 에 가까워지는 역효과가 났다
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-421", "국산 참기름 300ml", "양념 > 참기름"),
+                CatalogFixture.simple("product-422", "국산 스텐 반찬통", "주방 > 밀폐용기"),
+                CatalogFixture.simple("product-423", "국산 햇 마늘 1kg", "채소 > 마늘"),
+                CatalogFixture.simple("product-424", "미국산 돼지고기 목살 구이용", "돼지고기 > 목살")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("국산 돼지고기", null));
+
+        // then: OR 라 네 건 전부 후보다
+        assertEquals(List.of("product-424", "product-421", "product-422", "product-423"), idsOf(response));
     }
 
     @Test

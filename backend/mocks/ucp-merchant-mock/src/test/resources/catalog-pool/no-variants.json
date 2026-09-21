@@ -1,11 +1,9 @@
 {
-  "mall": "merchant-a",
-  "mallName": "테스트 몰",
+  "count": 1,
   "products": [
     {
-      "id": "99999999-9999-4999-8999-999999999999",
       "externalId": "kurly:1000000009",
-      "title": "옵션 없는 상품",
+      "title": "옵션이 없는 상품",
       "imageUrl": "https://cdn.example.test/seed-9.jpg",
       "basePrice": 5000,
       "currency": "KRW",

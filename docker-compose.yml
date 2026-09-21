@@ -158,7 +158,10 @@ services:
       PAY_MERCHANT_TOKEN: ${PAY_MERCHANT_TOKEN:-}
       PAY_MERCHANT_TOKENS_JSON: ${PAY_MERCHANT_TOKENS_JSON:-}
       # 시연 카탈로그. 몰 셋의 시드 파일을 쉼표로 이어 한 DB 에 넣는다(몰당 약 1,100건). 비우면 V3 시드 5건만 뜬다.
-      MERCHANT_CATALOG_SEED_FILES: ${MERCHANT_CATALOG_SEED_FILES:-classpath:catalog/merchant-a.json,classpath:catalog/merchant-b.json,classpath:catalog/merchant-c.json}
+      # 카탈로그 풀 하나(DESIGN.md 5.7절 2026-09-21). 몰 셋의 가격·재고 편차는 로더가 계산한다.
+      # 0 은 전량(약 10만 건 × 몰 셋). EC2 RAM 16GB 확인(2026-09-21). 줄이려면 앞 N 건만 싣는 N 을 준다.
+      MERCHANT_CATALOG_POOL_FILE: ${MERCHANT_CATALOG_POOL_FILE:-classpath:catalog/pool.json.gz}
+      MERCHANT_CATALOG_POOL_LIMIT: ${MERCHANT_CATALOG_POOL_LIMIT:-0}
     depends_on:
       merchant-db:
         condition: service_healthy
