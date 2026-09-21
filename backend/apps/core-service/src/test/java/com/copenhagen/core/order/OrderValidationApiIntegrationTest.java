@@ -58,6 +58,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -132,7 +133,8 @@ class OrderValidationApiIntegrationTest {
     private com.copenhagen.core.purchase.PurchaseWorkflowService workflow;
 
     @Test
-    void mcpDefaultAddress_continuesOriginalPurchaseAndAgentConnection() throws Exception {
+    @DisplayName("기본 배송지가 있어도 서버가 대신 고르지 않고 앱의 선택을 기다린다")
+    void mcpDefaultAddress_stillWaitsForUserSelection() throws Exception {
         String token = signupAndLogin("handoff1", "테스트");
         addCartItem(token);
         registerAddress(token);
@@ -141,10 +143,35 @@ class OrderValidationApiIntegrationTest {
         workflow.process(row);
         workflow.process(workflowRepository.require(row.publicId(), row.userId()));
         assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM purchase_requests", Integer.class));
-        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM merchant_checkouts", Integer.class));
+        assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM merchant_checkouts", Integer.class));
+        assertEquals("PENDING_ADDRESS", workflowRepository.require(row.publicId(), row.userId()).status());
+        org.junit.jupiter.api.Assertions.assertNull(jdbcTemplate.queryForObject(
+                "SELECT shipping_address_id FROM purchase_requests", Long.class));
         assertEquals(row.connectionId(), jdbcTemplate.queryForObject(
                 "SELECT agent_connection_id FROM purchase_requests", Long.class));
-        assertEquals("AWAITING_APPROVAL", workflow.view(row.publicId(), row.userId(), row.connectionId()).status());
+        org.mockito.Mockito.verify(paymentApprovalClient, org.mockito.Mockito.atLeastOnce())
+                .notifyPurchase(row.userPublicId(), row.publicId());
+        org.mockito.Mockito.verify(checkoutClient, org.mockito.Mockito.never()).create(any(), any());
+    }
+
+    @Test
+    @DisplayName("기본이 아닌 배송지로 재개하면 그 주소로 checkout이 생기고 기본 배송지는 그대로다")
+    void mcpNonDefaultAddress_resumeUsesSelectionAndKeepsDefault() throws Exception {
+        String token = signupAndLogin("handoff5", "테스트");
+        addCartItem(token);
+        String defaultAddress = registerAddress(token);
+        String otherAddress = registerAddress(token);
+        var row = createHandoff();
+        workflow.process(row);
+        when(checkoutClient.create(any(), any())).thenReturn(readyCheckout());
+        workflow.resume(row.publicId(), row.userId(), UUID.fromString(otherAddress), 1, UUID.randomUUID());
+        workflow.process(workflowRepository.require(row.publicId(), row.userId()));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM merchant_checkouts", Integer.class));
+        assertEquals(otherAddress, jdbcTemplate.queryForObject("""
+                SELECT a.public_id FROM purchase_requests p JOIN addresses a ON a.id = p.shipping_address_id
+                """, String.class));
+        assertEquals(defaultAddress, jdbcTemplate.queryForObject(
+                "SELECT public_id FROM addresses WHERE is_default AND deleted_at IS NULL", String.class));
         org.mockito.Mockito.verify(checkoutClient).create(any(),
                 eq(OrderValidationService.idempotencyKey(row.publicId(), MERCHANT_ID)));
     }
@@ -188,14 +215,85 @@ class OrderValidationApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("앱이 쓰는 공개 경로로 배송지를 선택하면 상태·다음 행동이 계약대로 나온다")
+    void mcpResume_overHttpSelectsAddressAndKeepsAddressOutOfResponse() throws Exception {
+        String token = signupAndLogin("handoff6", "테스트");
+        addCartItem(token);
+        registerAddress(token);
+        String otherAddress = registerAddress(token);
+        var row = createHandoff();
+        workflow.process(row);
+
+        mockMvc.perform(get("/api/core/v1/purchase-requests/" + row.publicId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING_ADDRESS"))
+                .andExpect(jsonPath("$.nextAction").value("SELECT_SHIPPING_ADDRESS"))
+                .andExpect(jsonPath("$.cartVersion").value(1));
+
+        String resumed = mockMvc.perform(post("/api/core/v1/purchase-requests/" + row.publicId() + "/resume")
+                        .header("Authorization", "Bearer " + token)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"addressId":"%s","cartVersion":1}
+                                """.formatted(otherAddress)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CREATING_CHECKOUTS"))
+                .andExpect(jsonPath("$.nextAction").value("WAIT"))
+                .andExpect(jsonPath("$.addressId").doesNotExist())
+                .andExpect(jsonPath("$.shippingAddress").doesNotExist())
+                .andReturn().getResponse().getContentAsString();
+        // 선택한 배송지는 DB에만 남고 응답으로 새어 나가지 않는다.
+        assertEquals(false, resumed.contains("테헤란로"));
+        assertEquals(otherAddress, jdbcTemplate.queryForObject("""
+                SELECT a.public_id FROM purchase_requests p JOIN addresses a ON a.id = p.shipping_address_id
+                """, String.class));
+    }
+
+    @Test
+    @DisplayName("다른 사용자의 구매 요청은 배송지를 선택할 수 없고 멱등키 헤더는 필수다")
+    void mcpResume_overHttpRejectsOtherUserAndMissingIdempotencyKey() throws Exception {
+        String token = signupAndLogin("handoff7", "테스트");
+        addCartItem(token);
+        String addressId = registerAddress(token);
+        var row = createHandoff();
+        workflow.process(row);
+        String intruder = signupAndLogin("handoff8", "침입자");
+
+        mockMvc.perform(post("/api/core/v1/purchase-requests/" + row.publicId() + "/resume")
+                        .header("Authorization", "Bearer " + intruder)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"addressId":"%s","cartVersion":1}
+                                """.formatted(addressId)))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(post("/api/core/v1/purchase-requests/" + row.publicId() + "/resume")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"addressId":"%s","cartVersion":1}
+                                """.formatted(addressId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("INVALID_REQUEST"));
+
+        assertEquals("PENDING_ADDRESS", workflowRepository.require(row.publicId(), row.userId()).status());
+        assertEquals(0, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM purchase_resume_commands", Integer.class));
+    }
+
+    @Test
     void mcpMerchantTimeout_retriesSamePurchaseAndIdempotencyKey() throws Exception {
         String token = signupAndLogin("handoff4", "테스트");
         addCartItem(token);
-        registerAddress(token);
+        UUID addressId = UUID.fromString(registerAddress(token));
         var row = createHandoff();
         when(checkoutClient.create(any(), any()))
                 .thenThrow(new CoreException(CoreErrorCode.MERCHANT_CHECKOUT_UNAVAILABLE));
-        workflow.process(row);
+        workflow.resume(row.publicId(), row.userId(), addressId, 1, UUID.randomUUID());
+        workflow.process(workflowRepository.require(row.publicId(), row.userId()));
         assertEquals("CREATING_CHECKOUTS", workflowRepository.require(row.publicId(), row.userId()).status());
         doReturn(readyCheckout()).when(checkoutClient).create(any(), any());
         workflow.process(workflowRepository.require(row.publicId(), row.userId()));

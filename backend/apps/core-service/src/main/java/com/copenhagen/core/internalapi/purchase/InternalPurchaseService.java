@@ -18,10 +18,10 @@ import com.copenhagen.core.order.PurchaseRequest;
 import com.copenhagen.core.order.PurchaseRequestRepository;
 
 /**
- * MCP 구매 요청을 멱등하게 생성한다. 이후 PurchaseWorkflowWorker가 기본 배송지로 주문을 검증하고
- * Pay의 결제 승인 요청과 푸시 알림으로 이어간다.
+ * MCP 구매 요청을 멱등하게 생성한다. 이후 PurchaseWorkflowWorker가 앱에 배송지 선택 알림을 보내고,
+ * 사용자가 고른 배송지로 주문을 검증한 뒤 Pay의 결제 승인 요청과 푸시 알림으로 이어간다.
  *
- * <p>이 트랜잭션에서는 외부 호출을 하지 않는다. 배송지가 없으면 같은 구매 요청을 앱에서 보완한다.
+ * <p>이 트랜잭션에서는 외부 호출을 하지 않는다. 배송지는 항상 같은 구매 요청을 앱에서 보완해 정한다.
  */
 @Service
 public class InternalPurchaseService {

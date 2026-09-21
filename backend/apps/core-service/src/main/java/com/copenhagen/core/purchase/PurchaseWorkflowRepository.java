@@ -53,18 +53,6 @@ public class PurchaseWorkflowRepository {
                 """, Timestamp.from(now.plusSeconds(120)), id, Timestamp.from(now)) == 1;
     }
 
-    public void selectDefault(long id, long userId) {
-        jdbc.update("""
-                UPDATE purchase_requests SET shipping_address_id = (
-                    SELECT id FROM addresses WHERE user_id = ? AND is_default AND deleted_at IS NULL LIMIT 1)
-                WHERE id = ? AND status = 'PENDING_ADDRESS' AND shipping_address_id IS NULL
-                """, userId, id);
-        jdbc.update("""
-                UPDATE purchase_requests SET status = 'CREATING_CHECKOUTS'
-                WHERE id = ? AND status = 'PENDING_ADDRESS' AND shipping_address_id IS NOT NULL
-                """, id);
-    }
-
     @Transactional
     public void resume(UUID publicId, long userId, UUID addressId, int version, UUID key, Instant now) {
         Row row = require(publicId, userId);

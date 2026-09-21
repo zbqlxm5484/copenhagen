@@ -9,9 +9,10 @@
 
 1. MCP `prepare_purchase_handoff`가 장바구니 ID·버전·UUID 멱등키로 Core 구매 요청을 만든다.
    같은 멱등키의 재전송은 최초 응답을 그대로 돌려준다.
-2. Core worker가 기본 배송지를 선택하고 재고·가격·배송을 검증한다. 기본 배송지가 없으면
-   Pay의 `PURCHASE_HANDOFF` 알림을 보낸다. 이 알림에는 `purchaseRequestId`가 들어간다.
-3. 배송지가 있는 요청은 같은 구매 ID로 Merchant checkout을 생성한다.
+2. Core worker는 배송지를 대신 고르지 않는다. 등록된 배송지 유무와 관계없이 Pay의
+   `PURCHASE_HANDOFF` 알림을 보내 앱에서 배송지를 고르게 한다. 이 알림에는 `purchaseRequestId`가
+   들어간다. 사용자는 저장된 배송지를 선택하거나 새 배송지를 등록해 같은 구매 요청을 재개한다.
+3. 배송지가 정해진 요청은 재고·가격·배송을 검증하고 같은 구매 ID로 Merchant checkout을 생성한다.
    Merchant가 확정한 주문서와 승인 생성 요청을 저장한 뒤 Pay 승인 세션을 생성한다.
    Pay는 등록된 기본 결제수단을 선택하며, 없으면 `PAYMENT_METHOD_REQUIRED` 상태로 만든다.
 4. Pay는 결제수단 등록 여부와 관계없이 `APPROVAL_REQUESTED` 알림을 발행한다.
