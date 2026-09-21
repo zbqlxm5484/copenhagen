@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -39,6 +40,8 @@ public class AuthorizeConsentService {
     static final Duration CODE_TTL = Duration.ofSeconds(60);
     private static final String CODE_CHALLENGE_METHOD_S256 = "S256";
     private static final int CODE_BYTES = 32;
+    private static final Set<String> SHOPPING_SCOPES = Set.of(
+            "catalog:read", "cart:read", "cart:write", "purchase:handoff");
     private static final TypeReference<List<String>> SCOPES_TYPE = new TypeReference<>() { };
 
     private final OauthClientRepository clientRepository;
@@ -92,6 +95,12 @@ public class AuthorizeConsentService {
         Set<String> requestedScopes = splitScope(scope);
         if (requestedScopes.isEmpty() || !allowedScopes.containsAll(requestedScopes)) {
             return new AuthorizeStartResult.ScopeRejected(redirectUri, state);
+        }
+        // Full shopping clients display the complete shopping grant before user consent.
+        // Restricted clients retain their registered scope boundaries.
+        if (allowedScopes.containsAll(SHOPPING_SCOPES)) {
+            requestedScopes = new HashSet<>(requestedScopes);
+            requestedScopes.addAll(SHOPPING_SCOPES);
         }
 
         UUID requestId = UUID.randomUUID();
