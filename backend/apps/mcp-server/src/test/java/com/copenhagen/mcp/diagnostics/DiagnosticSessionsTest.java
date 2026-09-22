@@ -32,7 +32,9 @@ class DiagnosticSessionsTest {
         McpIdentity reconnect = new McpIdentity("admin", "new", Set.of(), now.plusSeconds(3600));
         assertThrows(McpAuthException.class, () -> sessions.report(reconnect, id, false));
         assertEquals(true, sessions.report(admin, id, true).get("stopped"));
-        assertThrows(McpAuthException.class, () -> sessions.report(admin, id, false));
+        assertEquals(com.copenhagen.mcp.tool.ToolErrorCode.DIAGNOSTIC_SESSION_UNAVAILABLE,
+                assertThrows(com.copenhagen.mcp.core.CoreClientException.class,
+                        () -> sessions.report(admin, id, false)).code());
     }
 
     @Test
@@ -75,7 +77,9 @@ class DiagnosticSessionsTest {
         assertEquals(200, ((List<?>) timed.report(admin, id, false).get("entries")).size());
         assertEquals(true, timed.report(admin, id, false).get("truncated"));
         org.mockito.Mockito.when(moving.instant()).thenReturn(now.plusSeconds(1800));
-        assertThrows(McpAuthException.class, () -> timed.report(admin, id, false));
+        assertEquals(com.copenhagen.mcp.tool.ToolErrorCode.DIAGNOSTIC_SESSION_UNAVAILABLE,
+                assertThrows(com.copenhagen.mcp.core.CoreClientException.class,
+                        () -> timed.report(admin, id, false)).code());
     }
 
     @Test

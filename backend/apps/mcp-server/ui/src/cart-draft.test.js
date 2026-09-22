@@ -20,7 +20,7 @@ test('batch drafts coalesce rapid input and deletion into one final intent witho
   assert.deepEqual(state.changes, [{ operation: 'UPDATE', cartItemId: 'a', merchantVariantId: 'v1', quantity: 4 },
     { operation: 'DELETE', cartItemId: 'b' }]);
   assert.equal(items[0].quantity, 2);
-  assert.match(state.label, /빵 4개, 치즈 삭제/);
+  assert.match(state.label, /빵.*최종 수량 4개, 치즈.*삭제/);
   assert.ok(!state.label.includes('cartItemId'));
 });
 test('reverting drafts and undoing deletion excludes unchanged items', () => {
@@ -51,4 +51,14 @@ test('busy or pending delivery locks mutations; preflight failure can recover', 
   assert.equal(state('3', { busy: true }).canApply, false);
   assert.equal(state('3', { pending: true }).canApply, false);
   assert.equal(state('3').canApply, true);
+});
+
+test('quantity and deletion draft survives remount without assuming option availability', () => {
+  let saved;
+  const draft = createCartDraft(items, {}, value => { saved = structuredClone(value); });
+  draft.quantity('a', '3'); draft.toggleDelete('b');
+  const restored = createCartDraft(items, saved);
+  assert.equal(restored.get('a').quantity, '3');
+  assert.equal(restored.get('b').deleted, true);
+  assert.deepEqual(restored.snapshot().changes, draft.snapshot().changes);
 });

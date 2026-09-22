@@ -24,7 +24,7 @@ export function actionRequest(intent, reference) {
 }
 export async function sendAction(app, intent, deliver) {
   const result = await deliver(() => app.callServerTool({ name: 'prepare_widget_action',
-    arguments: { tool: intent.tool, arguments: intent.args } }));
+    arguments: { tool: intent.tool, arguments: intent.args, intent: intent.label || actionLabel(intent.tool) } }));
   const value = result?.structuredContent ?? result;
   if (result?.isError || value?.error || value?.kind !== 'action.reference') {
     const error = new Error(value?.error?.message ?? '선택 정보를 저장하지 못했어요. 다시 선택해주세요.');
@@ -32,10 +32,9 @@ export async function sendAction(app, intent, deliver) {
     throw error;
   }
   const message = actionRequest(intent, value.data?.reference);
-  if (typeof app.updateModelContext !== 'function') throw new Error('선택 정보를 전달할 수 없어요. 채팅에서 상품명과 옵션·수량을 직접 알려주세요.');
-  await deliver(() => app.updateModelContext({ structuredContent: {
+  if (typeof app.updateModelContext === 'function') await deliver(() => app.updateModelContext({ structuredContent: {
     copenhagenAction: { reference: value.data.reference, intent: message.content[0].text,
-      instruction: '일치하는 사용자 요청에만 resolve_widget_action으로 조회한 뒤 실행하세요. 참조가 없거나 모호하면 재선택을 요청하세요. 내부 식별자를 답변에 출력하지 마세요. 장바구니 변경을 모두 처리한 뒤 display_cart를 정확히 한 번 호출해 최종 수량·금액을 보여주세요. 중간 카드는 표시하지 마세요.' },
+      instruction: '일치하는 사용자 요청에만 resolve_widget_action으로 조회한 뒤 실행하세요. 참조가 없으면 사용자 요청 문장 전체를 intent로 resolve_widget_action에 전달하세요. 모호하면 사용자에게 확인하세요. 내부 식별자를 답변에 출력하지 마세요. 장바구니 변경을 모두 처리한 뒤 display_cart를 정확히 한 번 호출해 최종 수량·금액을 보여주세요. 중간 카드는 표시하지 마세요.' },
   } }));
   return deliver(() => app.sendMessage(message));
 }

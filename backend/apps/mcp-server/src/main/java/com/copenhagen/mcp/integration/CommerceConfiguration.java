@@ -112,7 +112,9 @@ public class CommerceConfiguration {
     McpToolDefinition coreApplyCartChanges(CoreCommerceService service, JsonSchemaValidator validator) {
         var batch = new CartBatchService(service, validator);
         return tool("apply_cart_changes", "장바구니 변경 일괄 적용",
-                "사용자가 선택한 수량 변경·삭제를 순서대로 적용합니다. 변경 없는 항목은 제외하고 동일 항목은 한 번만 넣으세요. "
+                "UI에서 장바구니 변경사항 적용을 요청하면 resolve_widget_action에 참조 또는 요청 문장 전체를 intent로 전달해 먼저 조회하세요. "
+                + "조회된 인자를 그대로 사용하며, 조회 실패를 임의로 만료·안전 차단이라고 설명하지 마세요. "
+                + "사용자가 선택한 수량 변경·삭제를 순서대로 적용합니다. 변경 없는 항목은 제외하고 동일 항목은 한 번만 넣으세요. "
                 + "cartVersion과 changes의 순서·본문·idempotencyKey를 보존하세요. 원자적 일괄 처리가 아니며 "
                 + "실패 시 후속 항목을 중단합니다. APPLIED 항목은 새 키로 재실행하지 마세요. "
                 + "UNKNOWN은 원래 전체 요청을 같은 키·본문으로만 확인하고, 버전 충돌은 현재 장바구니를 확인해 사용자에게 재선택을 요청하세요. "

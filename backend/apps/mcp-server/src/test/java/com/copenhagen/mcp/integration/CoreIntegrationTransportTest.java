@@ -150,12 +150,21 @@ class CoreIntegrationTransportTest {
             var tools = client.listTools().tools();
             var selectedArgs = Map.of("merchantId", "merchant-c", "merchantProductId", "onion-1");
             var prepared = client.callTool(McpSchema.CallToolRequest.builder().name("prepare_widget_action")
-                    .arguments(Map.of("tool", "get_product_detail", "arguments", selectedArgs)).build());
+                    .arguments(Map.of("tool", "get_product_detail", "arguments", selectedArgs,
+                            "intent", "show onion options")).build());
             assertFalse(prepared.isError());
             Map<?, ?> referenceData = (Map<?, ?>) ((Map<?, ?>) prepared.structuredContent()).get("data");
             var resolved = client.callTool(McpSchema.CallToolRequest.builder().name("resolve_widget_action")
                     .arguments(Map.of("reference", referenceData.get("reference"))).build());
             assertFalse(resolved.isError());
+            var recovered = client.callTool(McpSchema.CallToolRequest.builder().name("resolve_widget_action")
+                    .arguments(Map.of("intent", "show onion options")).build());
+            assertFalse(recovered.isError());
+            assertEquals(resolved.structuredContent(), recovered.structuredContent());
+            var ambiguousInput = client.callTool(McpSchema.CallToolRequest.builder().name("resolve_widget_action")
+                    .arguments(Map.of("intent", "show onion options", "reference", referenceData.get("reference")))
+                    .build());
+            assertTrue(ambiguousInput.isError());
             assertEquals(Map.of("tool", "get_product_detail", "arguments", selectedArgs),
                     ((Map<?, ?>) resolved.structuredContent()).get("data"));
             assertEquals(Set.of("search_products", "get_product_detail", "get_cart", "add_cart_item",

@@ -112,4 +112,32 @@ class WidgetActionStoreTest {
         assertFalse(logs.contains("private-product"));
         assertFalse(logs.contains("missing-reference"));
     }
+    @Test
+    void exactIntentFallbackPreservesArgumentsAndRejectsAmbiguousOrForeignSelections() {
+        when(clock.instant()).thenReturn(now);
+        var owner = identity("one", "connection", "cart:write");
+        String intent = "bread final quantity 3";
+        var args = Map.<String, Object>of("cartVersion", 2, "cartItemId", "item-1",
+                "idempotencyKey", "00000000-0000-4000-8000-000000000001");
+        var input = Map.<String, Object>of("tool", "delete_cart_item", "arguments", args, "intent", intent);
+        store.prepare(owner, input);
+        assertEquals(Map.of("tool", "delete_cart_item", "arguments", args),
+                store.resolveIntent(owner, intent).get("data"));
+        assertThrows(RuntimeException.class, () -> store.resolveIntent(owner, "bread"));
+        assertThrows(RuntimeException.class,
+                () -> store.resolveIntent(identity("other", "connection", "cart:write"), intent));
+        assertThrows(RuntimeException.class,
+                () -> store.resolveIntent(identity("one", "other", "cart:write"), intent));
+        store.prepare(owner, input);
+        assertThrows(RuntimeException.class, () -> store.resolveIntent(owner, intent));
+    }
+
+    @Test
+    void intentFallbackDoesNotReviveExpiredSelection() {
+        when(clock.instant()).thenReturn(now);
+        var owner = identity("one", "connection", "catalog:read");
+        store.prepare(owner, Map.of("tool", "search_products", "arguments", Map.of(), "intent", "search bread"));
+        when(clock.instant()).thenReturn(now.plusSeconds(900));
+        assertThrows(RuntimeException.class, () -> store.resolveIntent(owner, "search bread"));
+    }
 }
