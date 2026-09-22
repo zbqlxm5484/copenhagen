@@ -1,5 +1,6 @@
 package com.copenhagen.merchantmock.catalog;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -11,14 +12,22 @@ import java.util.regex.Pattern;
  * <p>풀이 9만 건이면 요청마다 9만 번 소문자 변환과 낱말 분리를 하는 것이 검색 시간의 대부분이다.
  * 제목·브랜드·카테고리의 소문자와 제목 낱말 집합을 여기 둔다.
  *
- * @param title      소문자 제목
- * @param brand      소문자 브랜드. 없으면 빈 문자열
- * @param category   소문자 카테고리 경로. 없으면 빈 문자열
- * @param titleWords 제목을 낱말 경계로 쪼갠 집합. 낱말 단위 일치(4단계)를 판정한다
- * @param haystack   제목·브랜드·카테고리를 공백으로 이은 소문자. 세 필드를 따로 보기 전에 한 번의 contains 로 걸러 낸다 —
- *                   대부분의 상품은 어느 낱말에도 안 맞으므로 이 한 번이 검색 시간의 대부분을 정한다
+ * <p>3차(ADR 0013 규칙 5)에서 공백을 뺀 세 필드가 더 붙었다. "무선이어폰" 처럼 붙여 쓴 검색어가 "무선 이어폰" 제목에
+ * 맞으려면 공백을 뺀 문자열에도 맞춰 봐야 한다. 낱말 단위 일치(4)는 줄 수 없어 제목 3 이 최고다.
+ *
+ * @param title           소문자 제목
+ * @param brand           소문자 브랜드. 없으면 빈 문자열
+ * @param category        소문자 카테고리 경로. 없으면 빈 문자열
+ * @param titleWords      제목을 낱말 경계로 쪼갠 집합. 낱말 단위 일치(4단계)를 판정한다
+ * @param haystack        제목·브랜드·카테고리를 공백으로 이은 소문자. 세 필드를 따로 보기 전에 한 번의 contains 로 걸러 낸다 —
+ *                        대부분의 상품은 어느 낱말에도 안 맞으므로 이 한 번이 검색 시간의 대부분을 정한다
+ * @param titleNoSpace    공백을 뺀 제목
+ * @param brandNoSpace    공백을 뺀 브랜드
+ * @param categoryNoSpace 공백을 뺀 카테고리
+ * @param haystackNoSpace 공백을 뺀 세 필드를 개행으로 이은 것. 그냥 이으면 제목 끝 + 브랜드 앞이 붙어 없는 낱말이 생긴다
  */
-public record SearchDoc(String title, String brand, String category, Set<String> titleWords, String haystack) {
+public record SearchDoc(String title, String brand, String category, Set<String> titleWords, String haystack,
+                        String titleNoSpace, String brandNoSpace, String categoryNoSpace, String haystackNoSpace) {
 
     /** 낱말 경계. 한글·영문·숫자가 아닌 것은 전부 구분자로 본다. 상품명의 대괄호·슬래시·괄호·가운뎃점을 가른다. */
     static final Pattern WORD_BREAK = Pattern.compile("[^0-9a-z가-힣]+");
@@ -27,7 +36,12 @@ public record SearchDoc(String title, String brand, String category, Set<String>
         String title = lower(product.title());
         String brand = lower(product.brand());
         String category = lower(product.category());
-        return new SearchDoc(title, brand, category, Set.of(words(title)), title + ' ' + brand + ' ' + category);
+        String titleNoSpace = title.replace(" ", "");
+        String brandNoSpace = brand.replace(" ", "");
+        String categoryNoSpace = category.replace(" ", "");
+        return new SearchDoc(title, brand, category, Set.of(words(title)), title + ' ' + brand + ' ' + category,
+                titleNoSpace, brandNoSpace, categoryNoSpace,
+                titleNoSpace + '\n' + brandNoSpace + '\n' + categoryNoSpace);
     }
 
     /**
@@ -70,10 +84,47 @@ public record SearchDoc(String title, String brand, String category, Set<String>
         return 0;
     }
 
+    /** 공백을 뺀 문자열에서만 맞은 경우의 자리. 제목 3 > 브랜드 2 > 카테고리 1. 낱말 단위(4)는 줄 수 없다. */
+    byte tierNoSpace(List<String> group) {
+        for (String word : group) {
+            if (titleNoSpace.contains(word)) {
+                return 3;
+            }
+        }
+        for (String word : group) {
+            if (brandNoSpace.contains(word)) {
+                return 2;
+            }
+        }
+        for (String word : group) {
+            if (categoryNoSpace.contains(word)) {
+                return 1;
+            }
+        }
+        return 0;
+    }
+
+    /** 3차 매칭 — 그대로 맞으면 그 자리, 아니면 공백 뺀 문자열로 다시(규칙 5). */
+    byte tierOrNoSpace(List<String> group) {
+        byte tier = tier(group);
+        return tier > 0 ? tier : tierNoSpace(group);
+    }
+
+    /** 묶음의 낱말 하나라도 이 상품 어딘가에 있나. {@code noSpace} 면 공백 뺀 문자열까지 본다. 백오프의 후보 세기용. */
+    boolean containsAny(List<String> group, boolean noSpace) {
+        String target = noSpace ? haystackNoSpace : haystack;
+        for (String word : group) {
+            if (target.contains(word)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static String[] words(String title) {
         String[] split = WORD_BREAK.split(title);
         // 앞이 구분자로 시작하면 빈 문자열이 첫 원소로 온다. Set.of 는 중복을 거절하므로 걸러 낸다.
-        return java.util.Arrays.stream(split).filter(word -> !word.isEmpty()).distinct().toArray(String[]::new);
+        return Arrays.stream(split).filter(word -> !word.isEmpty()).distinct().toArray(String[]::new);
     }
 
     private static String lower(String field) {

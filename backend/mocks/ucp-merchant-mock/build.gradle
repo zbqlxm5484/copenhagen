@@ -15,6 +15,10 @@ dependencies {
     implementation libs.flyway.core
     implementation libs.nimbus.jose.jwt
     implementation libs.json.canonicalization
+    // 검색어 정제용 형태소 분석기 nori(ADR 0013). 검색어 쪽에서만 돌리고 상품 색인에는 쓰지 않는다. 사전이 nori jar 안에 있다
+    implementation libs.lucene.core
+    implementation libs.lucene.analysis.common
+    implementation libs.lucene.analysis.nori
     runtimeOnly libs.flyway.postgresql
     runtimeOnly libs.postgresql
 
@@ -26,7 +30,18 @@ dependencies {
 }
 
 tasks.named('test') {
-    useJUnitPlatform { excludeTags 'postgres' }
+    useJUnitPlatform { excludeTags 'postgres', 'parity' }
+}
+
+// 파이썬 벤치와 자바 검색이 같은 답을 내는지 전량 풀 100,262건에서 대조한다(ADR 0013). 30초쯤 걸리고 대조 자료
+// docs/s19-parity.json 이 개인 문서라 CI 에는 없다. 그래서 기본 test 에서 빼고 따로 돈다.
+tasks.register('parityTest', Test) {
+    description = 'Compares the Java search against the Python bench dump on the full catalog pool.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'parity' }
+    shouldRunAfter tasks.named('test')
 }
 
 tasks.register('postgresTest', Test) {

@@ -23,7 +23,8 @@ public final class MerchantPropertiesFixture {
      */
     public static final List<List<String>> SYNONYMS = List.of(
             List.of("신발", "운동화", "러닝화", "스니커즈", "워킹화", "스포츠화"),
-            List.of("올리브유", "올리브오일"));
+            List.of("올리브유", "올리브오일"),
+            List.of("milk", "우유"));
 
     /**
      * 도서산간 추가금 구간(427). 판정 규칙은 application.yml 과 같은 모양이고 낱말 목록만 줄였다.
@@ -40,7 +41,8 @@ public final class MerchantPropertiesFixture {
 
     /** 검색 수식어 목록(6.7절). application.yml 과 같은 모양이고 낱말만 줄였다. */
     public static final MerchantProperties.Catalog.Search SEARCH = new MerchantProperties.Catalog.Search(
-            List.of("맛있는", "신선한", "저렴한", "가벼운", "추천해줘", "이하", "만원"), 0.2, 1.5);
+            List.of("맛있는", "신선한", "저렴한", "가벼운", "추천해줘", "이하", "만원"), 0.2, 1.5,
+            List.of("대용량", "소형", "대형", "무선", "세트", "4인용", "화이트"), true);
 
     public static final String PUBLIC_JWK = """
             {"kty":"EC","crv":"P-256",\
@@ -77,13 +79,18 @@ public final class MerchantPropertiesFixture {
 
     /** 카탈로그 풀 경로와 limit 만 바꾼 설정. 로더·풀 파일 테스트가 쓴다(DESIGN.md 5.7절). */
     public static MerchantProperties withCatalogPool(String poolFile, int poolLimit) {
+        return withCatalog(new MerchantProperties.Catalog(poolFile, poolLimit, SYNONYMS, SEARCH));
+    }
+
+    /** 카탈로그 설정만 바꾼 설정. 파이썬 벤치 대조 테스트가 application.yml 의 동의어·수식어·속성 목록으로 만든다. */
+    public static MerchantProperties withCatalog(MerchantProperties.Catalog catalog) {
         MerchantProperties base = defaults();
         return new MerchantProperties(
                 base.malls(),
                 base.ucpVersion(),
                 base.currency(),
                 base.publicBaseUrl(),
-                new MerchantProperties.Catalog(poolFile, poolLimit, SYNONYMS, SEARCH),
+                catalog,
                 base.checkout(),
                 base.fulfillment(),
                 base.signing(),
