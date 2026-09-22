@@ -23,7 +23,8 @@ public class WidgetActionConfiguration {
     @Bean
     McpToolDefinition prepareWidgetAction(WidgetActionStore store) {
         var input = CommerceSchemas.object(Map.of("tool", Map.of("type", "string", "maxLength", 64),
-                "arguments", Map.of("type", "object")), List.of("tool", "arguments"));
+                "arguments", Map.of("type", "object"),
+                "intent", Map.of("type", "string", "minLength", 1, "maxLength", 10000)), List.of("tool", "arguments"));
         return new McpToolDefinition(McpSchema.Tool.builder("prepare_widget_action", input)
                 .description("UI 선택 정보를 15분 동안 보관합니다. 실제 장바구니·결제 변경은 실행하지 않습니다.")
                 .outputSchema(CommerceSchemas.OUTPUT)
@@ -37,16 +38,28 @@ public class WidgetActionConfiguration {
     @Bean
     McpToolDefinition resolveWidgetAction(WidgetActionStore store) {
         return new McpToolDefinition(McpSchema.Tool.builder("resolve_widget_action",
-                CommerceSchemas.object(Map.of("reference", CommerceSchemas.KEY), List.of("reference")))
-                .description("위젯 model context의 copenhagenAction.intent가 사용자 요청과 일치하면 reference로 선택 내용을 조회하세요. "
-                        + "반환된 tool과 arguments로 한 번 실행하고 최종 결과만 표시하세요. "
-                        + "상세는 display_product_detail, 장바구니는 display_cart입니다. "
-                        + "컨텍스트가 없거나 여러 선택이 모호하면 추측하지 말고 재선택을 요청하세요. 내부 정보는 출력하지 마세요. 변경 요청의 idempotencyKey를 바꾸거나 "
-                        + "임의 재실행하지 마세요. 참조가 만료되면 실행하지 말고 카드를 다시 선택하도록 안내하세요.")
+                CommerceSchemas.object(Map.of("reference", CommerceSchemas.KEY,
+                        "intent", Map.of("type", "string", "minLength", 1, "maxLength", 10000)), List.of()))
+                .description("사용자가 UI에서 장바구니 변경사항 적용을 요청하면 먼저 이 도구로 저장된 선택을 조회하세요. "
+                        + "copenhagenAction.reference가 있으면 reference를 사용하고, 없으면 사용자 요청 문장 전체를 "
+                        + "intent로 그대로 전달하세요. 둘 중 하나만 입력하세요. 같은 계정·연결의 정확히 일치하는 선택 하나만 반환합니다. "
+                        + "조회 성공은 변경 완료가 아닙니다. 반환된 tool과 arguments를 변경하지 않고 실행하세요. "
+                        + "idempotencyKey를 새로 만들지 마세요. 변경 도구 성공 응답 뒤 display_cart를 한 번 호출하세요. "
+                        + "get_cart만 호출하고 변경했다고 답하지 마세요. 선택을 확인할 수 없으면 최신 장바구니와 "
+                        + "상품·판매처·옵션·최종 수량을 사용자에게 확인하세요. 오류 근거 없이 만료나 안전 차단을 단정하지 마세요.")
                 .outputSchema(CommerceSchemas.OUTPUT)
                 .meta(Map.of("ui", Map.of("visibility", List.of("model"))))
                 .annotations(McpSchema.ToolAnnotations.builder().readOnlyHint(true).destructiveHint(false)
                         .idempotentHint(true).openWorldHint(false).build()).build(), Set.of(),
-                (identity, request) -> store.resolve(identity, (String) request.arguments().get("reference")));
+                (identity, request) -> {
+                    var args = request.arguments();
+                    if (args.containsKey("reference") == args.containsKey("intent")) {
+                        throw new com.copenhagen.mcp.core.CoreClientException(
+                                com.copenhagen.mcp.tool.ToolErrorCode.INVALID_ARGUMENT);
+                    }
+                    return args.containsKey("reference")
+                            ? store.resolve(identity, (String) args.get("reference"))
+                            : store.resolveIntent(identity, (String) args.get("intent"));
+                });
     }
 }

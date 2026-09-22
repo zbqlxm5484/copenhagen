@@ -69,7 +69,8 @@ final class WidgetActionStore {
         try {
             String reference = UUID.randomUUID().toString();
             entries.put(reference, new Entry(identity.publicUserRef(), identity.connectionRef(), tool,
-                    mapper.writeValueAsString(arguments), now, now.plus(Duration.ofMinutes(15))));
+                    mapper.writeValueAsString(arguments), (String) input.get("intent"),
+                    now, now.plus(Duration.ofMinutes(15))));
             WidgetActionTrace.record("PREPARED", reference, identity, tool, 0);
             return Map.of("kind", "action.reference", "data", Map.of("reference", reference));
         } catch (IOException exception) {
@@ -88,7 +89,8 @@ final class WidgetActionStore {
                 : !entry.connection().equals(identity.connectionRef()) ? "CONNECTION_MISMATCH" : null;
         if (reason != null) {
             WidgetActionTrace.record(reason, reference, identity, entry == null ? "-" : entry.tool(), ageMs);
-            throw new CoreClientException(ToolErrorCode.ACTION_REFERENCE_UNAVAILABLE);
+            throw new CoreClientException("REFERENCE_EXPIRED".equals(reason)
+                    ? ToolErrorCode.ACTION_REFERENCE_EXPIRED : ToolErrorCode.ACTION_REFERENCE_UNAVAILABLE);
         }
         requireScopes(identity, entry.tool(), reference, ageMs);
         try {
@@ -100,6 +102,21 @@ final class WidgetActionStore {
             WidgetActionTrace.record("SERIALIZATION_ERROR", null, identity, "-", -1);
             throw new CoreClientException(ToolErrorCode.INTERNAL_ERROR);
         }
+    }
+
+    synchronized Map<String, Object> resolveIntent(McpIdentity identity, String intent) {
+        // Never choose the latest request: an older card can describe a different mutation.
+        var matches = entries.entrySet().stream().filter(item ->
+                item.getValue().owner().equals(identity.publicUserRef())
+                && item.getValue().connection().equals(identity.connectionRef())
+                && intent != null && intent.equals(item.getValue().intent())).toList();
+        if (matches.size() != 1) {
+            WidgetActionTrace.record(matches.isEmpty() ? "INTENT_NOT_FOUND" : "INTENT_AMBIGUOUS",
+                    null, identity, "-", -1);
+            throw new CoreClientException(matches.isEmpty() ? ToolErrorCode.ACTION_REFERENCE_UNAVAILABLE
+                    : ToolErrorCode.ACTION_REFERENCE_AMBIGUOUS);
+        }
+        return resolve(identity, matches.getFirst().getKey());
     }
 
     private static void requireScopes(McpIdentity identity, String tool, String reference, long ageMs) {
@@ -121,7 +138,7 @@ final class WidgetActionStore {
         });
     }
 
-    private record Entry(String owner, String connection, String tool, String arguments,
+    private record Entry(String owner, String connection, String tool, String arguments, String intent,
             Instant createdAt, Instant expiresAt) {
     }
 }

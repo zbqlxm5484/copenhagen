@@ -50,10 +50,17 @@ public final class DiagnosticSessions {
     private synchronized Session owned(McpIdentity identity, String id) {
         authorize(identity);
         Session session = sessions.get(id);
-        if (session == null || !session.owner.equals(identity.publicUserRef())
-                || !session.connection.equals(identity.connectionRef())
-                || !clock.instant().isBefore(session.expires)) {
+        if (session == null) {
+            throw new com.copenhagen.mcp.core.CoreClientException(
+                    com.copenhagen.mcp.tool.ToolErrorCode.DIAGNOSTIC_SESSION_UNAVAILABLE);
+        }
+        if (!session.owner.equals(identity.publicUserRef())
+                || !session.connection.equals(identity.connectionRef())) {
             throw new McpAuthException(McpAuthError.ACCESS_DENIED);
+        }
+        if (!clock.instant().isBefore(session.expires)) {
+            throw new com.copenhagen.mcp.core.CoreClientException(
+                    com.copenhagen.mcp.tool.ToolErrorCode.DIAGNOSTIC_SESSION_UNAVAILABLE);
         }
         return session;
     }

@@ -25,10 +25,11 @@ function collapseResult() {
   if (!latest) document.body.classList.add('result-collapsed');
   sizing.notify();
 }
+let cartDraft = window.openai?.widgetState?.commerceCartDraft;
 let selection = window.openai?.widgetState?.commerceSelection;
-function saveSelection() { window.openai?.setWidgetState?.({ version: 5, commercePending: session.pending, commerceSelection: selection }); }
+function saveSelection() { window.openai?.setWidgetState?.({ version: 5, commercePending: session.pending, commerceSelection: selection, commerceCartDraft: cartDraft }); }
 const session = actionSession(window.openai?.widgetState?.commercePending,
-  pending => window.openai?.setWidgetState?.({ version: 5, commercePending: pending, commerceSelection: selection }));
+  pending => window.openai?.setWidgetState?.({ version: 5, commercePending: pending, commerceSelection: selection, commerceCartDraft: cartDraft }));
 const coalesce = createReadCoalescer();
 const cartPreparation = createCartPreparation(() => read('prepare_cart', {}, 'cart.view'));
 window.copenhagenDiagnostics = requestDiagnostics;
@@ -77,7 +78,7 @@ async function deliver(intent) {
     internalReads++;
     try { result = await sendAction(app, intent, awaitDelivery); } finally { internalReads--; }
     if (result?.isError) throw new Error('요청 전달 결과를 확인하지 못했어요. 대화의 후속 결과를 확인해주세요.');
-    progress.finish(token, 'delivered', '요청을 전달했어요. 새 결과가 대화에 표시됩니다.');
+    progress.finish(token, 'delivered', '요청을 전달했어요. 실제 변경 여부는 대화의 처리 결과를 확인해주세요.');
   } finally { sending = false; }
 }
 async function next(tool, args = {}, label) {
@@ -99,6 +100,7 @@ function renderCardNotice() {
   noticeReason = notice?.title;
   const panel = $('card-notice'); panel.replaceChildren(); panel.hidden = !notice;
   if (notice) {
+    if (session.pending?.label) panel.append(el('p', `요청한 변경: ${session.pending.label}`));
     panel.append(el('strong', `ⓘ ${notice.title}`), el('p', notice.text),
       button('최신 장바구니 보기 ↗', () => next('get_cart', {}, '최신 장바구니를 보여주세요.'), true));
   }
@@ -212,7 +214,10 @@ function renderCart(data) {
   const list = el('section', null, 'receipt-list'), grid = el('div', null, 'receipt-items');
   list.setAttribute('aria-label', '장바구니 상품'); list.append(grid);
   if (!data.items.length) list.append(el('p', '장바구니가 비어 있어요. 채팅에서 원하는 상품을 찾아보세요.', 'empty'));
-  const draft = createCartDraft(data.items);
+  const draft = createCartDraft(data.items.map(item => ({ ...item,
+    merchantName: data.merchantSummaries.find(m => m.merchantId === item.merchantId)?.merchantName })),
+    cartDraft?.cartId === data.cartId && cartDraft?.version === data.version ? cartDraft.edits : {},
+    edits => { cartDraft = { cartId: data.cartId, version: data.version, edits }; saveSelection(); });
   const rowUpdates = [];
   const merchants = new Map(data.merchantSummaries.map(m => [m.merchantId, m.merchantName]));
   for (const item of data.items) if (!merchants.has(item.merchantId)) merchants.set(item.merchantId, '판매처');
@@ -221,7 +226,7 @@ function renderCart(data) {
       const row = el('article', null, 'receipt-row'), info = el('div', null, 'receipt-info');
       info.append(el('h2', item.name, 'name'), el('p', name, 'price-caption'));
       const linePrice = el('p', amount(item.lineTotalAmount), 'receipt-price');
-      const actions = el('div', null, 'receipt-controls'), quantity = el('input'); quantity.type = 'number'; quantity.min = '1'; quantity.max = '99'; quantity.value = item.quantity;
+      const actions = el('div', null, 'receipt-controls'), quantity = el('input'); quantity.type = 'number'; quantity.min = '1'; quantity.max = '99'; quantity.value = draft.get(item.cartItemId).quantity;
       const label = el('label', '수량'); label.append(quantity);
       const optionArea = el('div', null, 'receipt-option'), optionSelect = el('select');
       optionSelect.setAttribute('aria-label', `${item.name} 옵션`); optionSelect.hidden = true;
