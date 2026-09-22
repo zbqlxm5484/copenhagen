@@ -26,12 +26,24 @@ public final class CommerceSchemas {
             List.of("cartVersion", "cartItemId", "merchantVariantId", "quantity", "idempotencyKey"));
     public static final Map<String, Object> DELETE = object(Map.of("cartVersion", VERSION, "cartItemId", ID,
             "idempotencyKey", KEY), List.of("cartVersion", "cartItemId", "idempotencyKey"));
+    public static final Map<String, Object> CART_BATCH = object(Map.of("cartVersion", VERSION,
+            "idempotencyKey", KEY, "changes", Map.of("type", "array", "minItems", 1, "maxItems", 30,
+                    "items", Map.of("oneOf", List.of(
+                            object(Map.of("operation", Map.of("const", "UPDATE"), "cartItemId", ID,
+                                    "merchantVariantId", ID, "quantity", QUANTITY),
+                                    List.of("operation", "cartItemId", "merchantVariantId", "quantity")),
+                            object(Map.of("operation", Map.of("const", "DELETE"), "cartItemId", ID),
+                                    List.of("operation", "cartItemId")))))),
+            List.of("cartVersion", "idempotencyKey", "changes"));
     public static final Map<String, Object> PURCHASE = object(Map.of("cartId", ID, "cartVersion", VERSION,
             "idempotencyKey", KEY), List.of("cartId", "cartVersion", "idempotencyKey"));
     public static final Map<String, Object> OUTPUT = object(Map.of("kind", Map.of("type", "string"),
             "data", Map.of("type", "object")), List.of("kind", "data"));
     public static final Map<String, Object> PURCHASE_STATUS = object(
             Map.of("purchaseRequestId", KEY), List.of("purchaseRequestId"));
+    public static final Map<String, Object> PURCHASE_HISTORY = object(Map.of(
+            "pageSize", Map.of("type", "integer", "minimum", 1, "maximum", 50, "default", 20),
+            "cursor", Map.of("type", "string", "maxLength", 4096)), List.of());
     public static final Map<String, Object> PURCHASE_NOTIFY = object(
             Map.of("purchaseRequestId", KEY, "idempotencyKey", KEY),
             List.of("purchaseRequestId", "idempotencyKey"));

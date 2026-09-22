@@ -47,6 +47,18 @@ class CoreIntegrationTransportTest {
     private static ConfigurableApplicationContext application;
     private static final AtomicReference<String> delegated = new AtomicReference<>();
     private static final AtomicReference<String> service = new AtomicReference<>();
+    private static final AtomicReference<String> historyQuery = new AtomicReference<>();
+    private static final AtomicReference<String> historyBody = new AtomicReference<>();
+    private static final java.util.concurrent.atomic.AtomicInteger historyStatus =
+            new java.util.concurrent.atomic.AtomicInteger(200);
+
+    @org.junit.jupiter.api.BeforeEach
+    void resetHistoryResponse() {
+        historyStatus.set(200);
+        historyBody.set("""
+                {"periodStart":"2026-03-22T00:00:00Z","items":[],"nextCursor":null}
+                """);
+    }
 
     @BeforeAll
     static void start() throws Exception {
@@ -69,6 +81,12 @@ class CoreIntegrationTransportTest {
                 {"purchaseRequestId":"request1","status":"PENDING_ADDRESS","cartId":"cart1",
                  "cartVersion":12,"expiresAt":"%s","nextAction":"SELECT_SHIPPING_ADDRESS"}
                 """.formatted(Instant.now().plusSeconds(1800))));
+        core.createContext("/internal/v1/purchase-history", exchange -> {
+            historyQuery.set(exchange.getRequestURI().getRawQuery());
+            delegated.set(exchange.getRequestHeaders().getFirst("X-Agent-Authorization"));
+            service.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            reply(exchange, historyStatus.get(), historyBody.get());
+        });
         core.createContext("/internal/v1/carts/current", exchange -> reply(exchange, """
                 {"cartId":"cart1","version":1,"items":[],"merchantSummaries":[],
                  "summary":{"currency":"KRW","itemSubtotalAmount":0,"discountAmount":null,
@@ -79,6 +97,8 @@ class CoreIntegrationTransportTest {
         application = new SpringApplicationBuilder(McpServerApplication.class)
                 .profiles("core-integration")
                 .run("--server.port=0", "--spring.main.banner-mode=off",
+                        "--mcp.diagnostics.enabled=true",
+                        "--mcp.diagnostics.admin-user-refs=00000000-0000-0000-0000-000000000001",
                         "--mcp.server.allowed-hosts=127.0.0.1:*", "--mcp.auth.jwt.jwks-uri=" + base + "/jwks",
                         "--mcp.auth.issuer=https://core.example", "--mcp.auth.resource=" + RESOURCE,
                         "--services.core.base-url=" + base, "--services.core.auth.token-uri=" + base + "/token",
@@ -118,7 +138,9 @@ class CoreIntegrationTransportTest {
                     "update_cart_item", "delete_cart_item", "prepare_purchase_handoff", "open_copenhagen",
                     "display_products", "get_purchase_status", "resend_purchase_notification", "prepare_cart",
                     "prepare_widget_action", "resolve_widget_action", "search_products_batch",
-                    "display_search_batch", "get_product_details_batch", "display_cart", "display_product_detail"),
+                    "display_search_batch", "get_product_details_batch", "display_cart", "display_product_detail",
+                    "get_purchase_history", "apply_cart_changes", "start_response_timing",
+                    "get_response_timing", "stop_response_timing"),
                     tools.stream().map(McpSchema.Tool::name).collect(Collectors.toSet()));
             var result = client.callTool(McpSchema.CallToolRequest.builder().name("open_copenhagen")
                     .arguments(Map.of("query", "삼성")).build());
@@ -143,8 +165,9 @@ class CoreIntegrationTransportTest {
             for (var tool : tools) {
                 if (Set.of("search_products", "prepare_widget_action", "resolve_widget_action",
                         "search_products_batch", "get_product_details_batch", "get_cart", "prepare_cart",
-                        "add_cart_item", "update_cart_item", "delete_cart_item",
-                        "get_product_detail").contains(tool.name())) {
+                        "add_cart_item", "update_cart_item", "delete_cart_item", "apply_cart_changes",
+                        "get_product_detail", "get_purchase_history", "start_response_timing",
+                        "get_response_timing", "stop_response_timing").contains(tool.name())) {
                     assertFalse(tool.meta().containsKey("openai/outputTemplate"));
                     if (tool.meta().get("ui") instanceof Map<?, ?> ui) {
                         assertFalse(ui.containsKey("resourceUri"));
@@ -177,6 +200,100 @@ class CoreIntegrationTransportTest {
             var html = (McpSchema.TextResourceContents) client.readResource(
                     new McpSchema.ReadResourceRequest(resource.uri())).contents().getFirst();
             assertTrue(html.text().contains("data-view=\"cart\""));
+        }
+    }
+
+    @Test
+    void purchaseHistory_delegatesIdentityAndQueryWithoutUi() throws Exception {
+        String agent = token("catalog:read cart:read cart:write purchase:handoff");
+        try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application), agent)) {
+            client.initialize();
+            var tool = client.listTools().tools().stream()
+                    .filter(value -> value.name().equals("get_purchase_history")).findFirst().orElseThrow();
+            assertTrue(tool.annotations().readOnlyHint());
+            assertFalse(tool.annotations().destructiveHint());
+            assertFalse(tool.meta().containsKey("openai/outputTemplate"));
+            assertTrue(tool.meta().get("securitySchemes").toString().contains("purchase:handoff"));
+            var result = client.callTool(McpSchema.CallToolRequest.builder().name("get_purchase_history")
+                    .arguments(Map.of("pageSize", 2, "cursor", "opaque+/=")).build());
+            assertFalse(result.isError());
+            assertEquals("purchase.history", ((Map<?, ?>) result.structuredContent()).get("kind"));
+            assertTrue(historyQuery.get().contains("pageSize=2"));
+            assertTrue(historyQuery.get().contains("cursor=opaque%2B%2F%3D"));
+            assertEquals("Bearer " + agent, delegated.get());
+            assertEquals("Bearer test-service-token", service.get());
+        }
+    }
+
+    @Test
+    void purchaseHistory_withoutScope_doesNotCallCore() throws Exception {
+        historyQuery.set("not-called");
+        try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application),
+                token("catalog:read cart:read cart:write"))) {
+            client.initialize();
+            var result = client.callTool(McpSchema.CallToolRequest.builder().name("get_purchase_history")
+                    .arguments(Map.of()).build());
+            assertTrue(result.isError());
+            assertTrue(result.meta().get("mcp/www_authenticate").toString().contains("purchase:handoff"));
+            assertEquals("not-called", historyQuery.get());
+        }
+    }
+
+    @Test
+    void purchaseHistory_pagesAndNullIds_surviveTransport() throws Exception {
+        historyBody.set("""
+                {"periodStart":"2026-03-22T00:00:00Z","items":[{
+                  "merchantId":"merchant-a","merchantName":"상점","merchantProductId":null,
+                  "merchantVariantId":null,"productName":"양파","optionLabel":"",
+                  "purchaseCount":2,"totalQuantity":3,"lastUnitPriceAmount":1200,
+                  "currency":"KRW","lastPurchasedAt":"2026-09-20T00:00:00Z","privateField":"hidden"
+                }],"nextCursor":"page-two+/="}
+                """);
+        try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application),
+                token("catalog:read cart:read cart:write purchase:handoff"))) {
+            client.initialize();
+            var first = client.callTool(McpSchema.CallToolRequest.builder().name("get_purchase_history")
+                    .arguments(Map.of("pageSize", 1)).build());
+            assertFalse(first.isError());
+            Map<?, ?> data = (Map<?, ?>) ((Map<?, ?>) first.structuredContent()).get("data");
+            Map<?, ?> item = (Map<?, ?>) ((List<?>) data.get("items")).getFirst();
+            assertTrue(item.containsKey("merchantProductId"));
+            assertEquals(null, item.get("merchantProductId"));
+            assertFalse(item.containsKey("privateField"));
+            resetHistoryResponse();
+            var last = client.callTool(McpSchema.CallToolRequest.builder().name("get_purchase_history")
+                    .arguments(Map.of("pageSize", 1, "cursor", data.get("nextCursor"))).build());
+            assertFalse(last.isError());
+            assertTrue(historyQuery.get().contains("cursor=page-two%2B%2F%3D"));
+            Map<?, ?> lastData = (Map<?, ?>) ((Map<?, ?>) last.structuredContent()).get("data");
+            assertEquals(List.of(), lastData.get("items"));
+            assertTrue(lastData.containsKey("nextCursor"));
+            assertEquals(null, lastData.get("nextCursor"));
+        }
+    }
+
+    @Test
+    void purchaseHistory_coreErrors_doNotBecomeEmptyHistoryOrExposeBody() throws Exception {
+        try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application),
+                token("catalog:read cart:read cart:write purchase:handoff"))) {
+            client.initialize();
+            for (var scenario : Map.of(400, "INVALID_ARGUMENT", 403, "ACCESS_DENIED", 503, "CORE_SERVICE_ERROR")
+                    .entrySet()) {
+                historyStatus.set(scenario.getKey());
+                historyBody.set("{\"code\":\"" + scenario.getValue() + "\",\"message\":\"private-debug-data\"}");
+                var result = client.callTool(McpSchema.CallToolRequest.builder().name("get_purchase_history")
+                        .arguments(Map.of("cursor", "invalid-cursor")).build());
+                assertTrue(result.isError());
+                assertTrue(result.structuredContent().toString().contains(scenario.getValue()));
+                assertFalse(result.toString().contains("private-debug-data"));
+                assertFalse(result.structuredContent().toString().contains("purchase.history"));
+            }
+            historyStatus.set(200);
+            historyBody.set("{\"periodStart\":\"bad-date\",\"items\":[],\"nextCursor\":null}");
+            var invalid = client.callTool(McpSchema.CallToolRequest.builder().name("get_purchase_history")
+                    .arguments(Map.of()).build());
+            assertTrue(invalid.isError());
+            assertTrue(invalid.structuredContent().toString().contains("CORE_INVALID_RESPONSE"));
         }
     }
 
@@ -247,10 +364,36 @@ class CoreIntegrationTransportTest {
         }
     }
 
+    @Test
+    void diagnosticSessionCapturesCoreCallThroughTransport() throws Exception {
+        try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application),
+                token("catalog:read cart:read cart:write"))) {
+            client.initialize();
+            var started = client.callTool(new McpSchema.CallToolRequest("start_response_timing", Map.of()));
+            assertFalse(started.isError());
+            Object id = ((Map<?, ?>) started.structuredContent()).get("diagnosticSessionId");
+            var cart = client.callTool(new McpSchema.CallToolRequest("get_cart",
+                    Map.of("diagnosticSessionId", id)));
+            assertFalse(cart.isError());
+            var report = client.callTool(new McpSchema.CallToolRequest("get_response_timing",
+                    Map.of("diagnosticSessionId", id)));
+            assertFalse(report.isError());
+            assertTrue(report.structuredContent().toString().contains("core_http"));
+            assertTrue(report.structuredContent().toString().contains("get_cart"));
+            assertFalse(report.structuredContent().toString().contains("test-service-token"));
+            var stopped = client.callTool(new McpSchema.CallToolRequest("stop_response_timing",
+                    Map.of("diagnosticSessionId", id)));
+            assertFalse(stopped.isError());
+            assertTrue(client.callTool(new McpSchema.CallToolRequest("get_response_timing",
+                    Map.of("diagnosticSessionId", id))).isError());
+        }
+    }
+
     private static String token(String scopes) throws Exception {
         Instant now = Instant.now();
         var jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.ES256).keyID(key.getKeyID()).build(),
-                new JWTClaimsSet.Builder().issuer("https://core.example").audience(RESOURCE).subject("test-user")
+                new JWTClaimsSet.Builder().issuer("https://core.example").audience(RESOURCE)
+                        .subject("00000000-0000-0000-0000-000000000001")
                         .issueTime(Date.from(now)).expirationTime(Date.from(now.plusSeconds(300)))
                         .claim("connection_id", "test-connection").claim("scope", scopes).build());
         jwt.sign(new ECDSASigner(key));
@@ -258,10 +401,14 @@ class CoreIntegrationTransportTest {
     }
 
     private static void reply(HttpExchange exchange, String json) throws java.io.IOException {
+        reply(exchange, 200, json);
+    }
+
+    private static void reply(HttpExchange exchange, int status, String json) throws java.io.IOException {
         exchange.getRequestBody().readAllBytes();
         byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", "application/json");
-        exchange.sendResponseHeaders(200, bytes.length);
+        exchange.sendResponseHeaders(status, bytes.length);
         exchange.getResponseBody().write(bytes);
         exchange.close();
     }

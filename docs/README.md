@@ -7,6 +7,8 @@
 | [ADR](adr/README.md) | 중요한 기술 또는 경계 결정을 기록할 때 |
 | [API](api/README.md) | 공개/내부 API 계약을 문서화할 때 |
 | [MCP](mcp/README.md) | Agent-facing MCP surface를 변경할 때 |
+| [채팅 중심 쇼핑 사용법](api/mcp-chat-shopping-481.md) | 상품 선택·장바구니·구매내역 조회와 재구매 방법을 확인할 때 |
+| [구매내역 MCP 연동](api/mcp-purchase-history-495.md) | 구매내역 도구 계약과 배포 검증을 확인할 때 |
 | [UCP](ucp/README.md) | UCP 계약이나 schema를 변경할 때 |
 | [Payment Handler](payment-handler/README.md) | 결제 handler 계약을 변경할 때 |
 | [Git과 Jira 연동 기록](git-convention/README.md) | 기존 Jira-GitLab 연동 테스트의 의미를 확인할 때 |

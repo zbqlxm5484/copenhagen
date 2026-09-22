@@ -79,6 +79,8 @@ services:
       CORE_MCP_CLIENT_ID: ${CORE_MCP_CLIENT_ID:-copenhagen-mcp}
       CORE_MCP_PRIVATE_JWK_FILE: /run/secrets/mcp/client.jwk
       MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-j15a207.p.ssafy.io,mcp-server:8080,localhost:8080}
+      MCP_DIAGNOSTICS_ADMIN_USER_REFS: ${MCP_DIAGNOSTICS_ADMIN_USER_REFS:-}
+      MCP_DIAGNOSTICS_ENABLED: ${MCP_DIAGNOSTICS_ENABLED:-false}
       MCP_ALLOWED_ORIGINS: ${MCP_ALLOWED_ORIGINS:-https://chatgpt.com}
     volumes:
       # An empty directory is harmless for the default profile; integration requires client.jwk.

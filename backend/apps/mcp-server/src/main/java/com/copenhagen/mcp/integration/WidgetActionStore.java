@@ -18,6 +18,7 @@ import java.util.UUID;
 final class WidgetActionStore {
     private static final Map<String, Map<String, Object>> SCHEMAS = Map.of(
             "search_products", CommerceSchemas.SEARCH, "get_product_detail", CommerceSchemas.DETAIL,
+            "apply_cart_changes", CommerceSchemas.CART_BATCH,
             "get_cart", CommerceSchemas.EMPTY, "add_cart_item", CommerceSchemas.ADD,
             "update_cart_item", CommerceSchemas.UPDATE, "delete_cart_item", CommerceSchemas.DELETE,
             "prepare_purchase_handoff", CommerceSchemas.PURCHASE,
@@ -77,7 +78,7 @@ final class WidgetActionStore {
     private static Set<String> scopes(String tool) {
         return Set.of(switch (tool) {
             case "get_cart" -> "cart:read";
-            case "add_cart_item", "update_cart_item", "delete_cart_item" -> "cart:write";
+            case "add_cart_item", "update_cart_item", "delete_cart_item", "apply_cart_changes" -> "cart:write";
             case "prepare_purchase_handoff", "get_purchase_status", "resend_purchase_notification"
                     -> "purchase:handoff";
             default -> "catalog:read";

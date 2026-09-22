@@ -109,6 +109,19 @@ public class CommerceConfiguration {
     }
 
     @Bean
+    McpToolDefinition coreApplyCartChanges(CoreCommerceService service, JsonSchemaValidator validator) {
+        var batch = new CartBatchService(service, validator);
+        return tool("apply_cart_changes", "장바구니 변경 일괄 적용",
+                "사용자가 선택한 수량 변경·삭제를 순서대로 적용합니다. 변경 없는 항목은 제외하고 동일 항목은 한 번만 넣으세요. "
+                + "cartVersion과 changes의 순서·본문·idempotencyKey를 보존하세요. 원자적 일괄 처리가 아니며 "
+                + "실패 시 후속 항목을 중단합니다. APPLIED 항목은 새 키로 재실행하지 마세요. "
+                + "UNKNOWN은 원래 전체 요청을 같은 키·본문으로만 확인하고, 버전 충돌은 현재 장바구니를 확인해 사용자에게 재선택을 요청하세요. "
+                + "모든 처리가 끝나면 display_cart를 한 번 호출해 최종 수량·금액과 미처리 내용을 알려주세요.",
+                CommerceSchemas.CART_BATCH, "cart:write", false,
+                (identity, request) -> batch.apply(identity, request.arguments()));
+    }
+
+    @Bean
     McpToolDefinition corePreparePurchase(CoreCommerceService service) {
         return tool("prepare_purchase_handoff", "앱 구매 인계", "사용자가 구매 진행을 요청한 경우에만 호출합니다. "
                 + "앱에 배송지 선택 알림을 보내고 사용자가 고른 배송지로 검증한 뒤 승인 알림을 보냅니다. "
@@ -125,8 +138,23 @@ public class CommerceConfiguration {
                 + "수량은 최종 수량이며 옵션과 함께 원자적으로 변경됩니다. idempotencyKey는 UUID입니다. "
                 + "결과 불명 시 같은 키·본문으로 재호출하고 새 키로 중복 변경하지 마세요. APPLIED 이후 조회 실패 시 "
                 + "get_cart만 다시 호출합니다. 여러 변경을 모두 마친 뒤 display_cart를 한 번만 호출하고 "
-                + "중간 UI는 표시하지 마세요.", schema, "cart:write", false,
+                + "중간 UI는 표시하지 마세요. 단일 수량 변경·삭제도 텍스트만으로 종료하지 말고 최종 장바구니를 표시하세요.", schema, "cart:write", false,
                 (identity, request) -> service.mutate(identity, method, request.arguments()));
+    }
+
+    @Bean
+    McpToolDefinition corePurchaseHistory(CoreCommerceService service) {
+        return tool("get_purchase_history", "최근 구매내역 조회", "사용자가 요청한 본인의 최근 6개월 구매내역을 조회합니다. "
+                + "판매처·상품별 구매 횟수와 총수량, 최근 구매 시점의 옵션·단가를 반환합니다. "
+                + "pageSize 기본값은 20, 최대 50입니다. 다음 페이지는 반환된 nextCursor를 그대로 사용합니다. "
+                        + "nextCursor가 있으면 아직 전체 내역이 아니며, 빈 items는 해당 조회 범위의 내역 없음입니다. "
+                        + "단가와 옵션은 과거 구매 기록이며 현재 가격·재고·구매 가능 여부가 아닙니다. "
+                        + "재구매를 요청하면 merchantProductId가 있을 때 get_product_detail로 현재 옵션·가격을 확인합니다. "
+                        + "상품 ID가 null이거나 현재 상품을 찾지 못하면 productName으로 search_products를 호출합니다. "
+                        + "merchantVariantId가 null이면 옵션을 추정하지 말고 현재 옵션을 사용자에게 안내해 선택받습니다. "
+                        + "조회 요청만으로 장바구니를 변경하거나 구매 요청을 만들지 않습니다.",
+                CommerceSchemas.PURCHASE_HISTORY, "purchase:handoff", true,
+                (identity, request) -> service.purchaseHistory(identity, request.arguments()));
     }
 
     @Bean
@@ -158,7 +186,9 @@ public class CommerceConfiguration {
                     McpSchema.CallToolRequest, Map<String, Object>> handler) {
         return new McpToolDefinition(McpSchema.Tool.builder(name, input).title(title).description(description
                         + " 할인은 현재 제공하지 않으므로 할인 및 할인 미확정 문구를 출력하지 마세요. "
-                        + "배송비는 확인된 금액만 안내하고 null을 무료로 해석하지 마세요.")
+                        + "배송비는 확인된 금액만 안내하고 null을 무료로 해석하지 마세요. "
+                        + "내부 UUID·요청번호·상태 코드는 사용자 답변에 나열하지 말고 진행 상태를 자연어로 안내하세요. "
+                        + "도구 호출에 필요한 식별자는 그대로 보존하세요.")
                 .outputSchema(CommerceSchemas.OUTPUT)
                 .meta(views.getIfAvailable() == null || !Set.of("prepare_purchase_handoff", "get_purchase_status",
                         "resend_purchase_notification").contains(name)

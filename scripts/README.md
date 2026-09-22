@@ -1,5 +1,16 @@
 # 공용 스크립트
 
+## `analyze-mcp-timing.py`
+
+기존 MCP timing 로그를 요청별로 묶고 도구·Core 왕복 시간을 집계합니다.
+하위 타이머를 합산해 대기시간을 부풀리지 않으며 병렬 도구는 실행 구간 합집합으로 계산합니다.
+수집 명령, 사용자 측정 항목, 해석 한계는 [지연 QA 절차](../docs/api/mcp-latency-qa-499.md)를 따릅니다.
+
+```bash
+python3 scripts/analyze-mcp-timing.py qa499.log --observed-seconds 80
+python3 -m unittest discover -s scripts/tests -p test_mcp_timing.py
+```
+
 ## `bootstrap-dev-infra.sh`
 
 - 용도: 개발 EC2의 PostgreSQL 3개, Redis 최초 기동

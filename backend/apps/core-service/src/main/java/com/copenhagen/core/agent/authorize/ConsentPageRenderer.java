@@ -16,9 +16,9 @@ final class ConsentPageRenderer {
         StringBuilder html = pageStart("코펜하겐 계정 연결");
         html.append("""
                 <p class="eyebrow">계정 연결</p>
-                <h1>코펜하겐과<br>함께 시작하세요.</h1>
-                <p class="intro">코펜하겐 앱에서 사용하던 계정으로 로그인하고,<br class="desktop-break">
-                아래 서비스에 계정을 연결하세요.</p>
+                <h1>대화에서 쇼핑을 시작하세요.</h1>
+                <p class="intro">코펜하겐 계정으로 로그인하고,<br class="desktop-break">
+                아래 서비스에서 쇼핑을 이어가세요.</p>
                 <div class="client">
                 """);
         if (logoUrl != null && !logoUrl.isBlank()) {
@@ -98,12 +98,12 @@ final class ConsentPageRenderer {
                 <head>
                   <meta charset="utf-8">
                   <meta name="viewport" content="width=device-width,initial-scale=1">
-                  <meta name="color-scheme" content="light">
+                  <meta name="color-scheme" content="light dark">
                   <meta name="referrer" content="no-referrer">
                 """).append("<title>").append(escape(title)).append("</title>")
-                .append("<link rel=\"stylesheet\" href=\"").append(ASSETS).append("consent.css\">")
+                .append("<link rel=\"stylesheet\" href=\"").append(ASSETS).append("consent.css?v=20260922\">")
                 .append("</head><body><div class=\"page\"><header class=\"brand\"><img src=\"")
-                .append(ASSETS).append("copenhagen-logo.png\" alt=\"COPENHAGEN\" width=\"208\">")
+                .append(ASSETS).append("copenhagen-symbol.png\" alt=\"COPENHAGEN\" width=\"64\">")
                 .append("</header><main id=\"main\" class=\"panel\">");
     }
 

@@ -157,6 +157,45 @@ final class CommerceProjection {
         return value;
     }
 
+    static Map<String, Object> purchaseHistory(Map<String, Object> source) {
+        if (!source.containsKey("nextCursor")) {
+            throw invalid();
+        }
+        Map<String, Object> result = pick(source, "periodStart", "nextCursor");
+        timestamp(result.get("periodStart"));
+        if (result.get("nextCursor") != null) {
+            text(result.get("nextCursor"), 4096);
+        }
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (Object value : list(source.get("items"), 50)) {
+            Map<String, Object> row = map(value);
+            if (!row.containsKey("merchantProductId") || !row.containsKey("merchantVariantId")) {
+                throw invalid();
+            }
+            Map<String, Object> item = pick(row, "merchantId", "merchantName", "merchantProductId",
+                    "merchantVariantId", "productName", "optionLabel", "purchaseCount", "totalQuantity",
+                    "lastUnitPriceAmount", "currency", "lastPurchasedAt");
+            id(item.get("merchantId"));
+            text(item.get("merchantName"), 200);
+            text(item.get("productName"), 500);
+            text(item.get("optionLabel"), 2000);
+            for (String key : List.of("merchantProductId", "merchantVariantId")) {
+                if (item.get(key) != null) {
+                    id(item.get(key));
+                }
+            }
+            if (number(item.get("purchaseCount")) < 1 || number(item.get("totalQuantity")) < 1) {
+                throw invalid();
+            }
+            number(item.get("lastUnitPriceAmount"));
+            currency(item.get("currency"));
+            timestamp(item.get("lastPurchasedAt"));
+            items.add(item);
+        }
+        result.put("items", items);
+        return result;
+    }
+
     static Map<String, Object> purchaseStatus(Map<String, Object> source) {
         Map<String, Object> result = pick(source, "purchaseRequestId", "cartId", "cartVersion", "status",
                 "expiresAt", "failureCode", "nextAction");
