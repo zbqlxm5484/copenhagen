@@ -12,6 +12,7 @@ public final class InternalScopes {
     private static final String CART_PATH = PREFIX + "carts/current";
     private static final String CART_ITEMS_PREFIX = CART_PATH + "/items";
     private static final String PURCHASE_REQUESTS_PATH = PREFIX + "purchase-requests";
+    private static final String PURCHASE_HISTORY_PATH = PREFIX + "purchase-history";
 
     private InternalScopes() {
     }
@@ -31,6 +32,11 @@ public final class InternalScopes {
             return AgentScopes.CART_READ;
         }
         if (PURCHASE_REQUESTS_PATH.equals(path) || path.startsWith(PURCHASE_REQUESTS_PATH + "/")) {
+            return AgentScopes.PURCHASE_HANDOFF;
+        }
+        // 구매내역 조회도 같은 scope를 쓴다(순서 43 설계서 D-A). 신규 scope를 만들면 이미 연동한
+        // 사용자가 전부 재동의를 거쳐야 한다.
+        if (PURCHASE_HISTORY_PATH.equals(path)) {
             return AgentScopes.PURCHASE_HANDOFF;
         }
         return null;
