@@ -40,6 +40,7 @@ import com.copenhagen.core.product.ProductService;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -67,6 +68,7 @@ class InternalApiIntegrationTest {
     private static final String PRODUCT_ID = "prod-1001";
     private static final String CART_PATH = "/internal/v1/carts/current";
     private static final String ITEMS_PATH = CART_PATH + "/items";
+    private static final String PURCHASE_HISTORY_PATH = "/internal/v1/purchase-history";
     private static final TypeReference<Map<String, Object>> JSON_OBJECT = new TypeReference<>() { };
 
     @DynamicPropertySource
@@ -439,6 +441,139 @@ class InternalApiIntegrationTest {
         // mcp-server는 405를 CORE_SERVICE_ERROR로 분류하므로 이 단계에서 계약상 위험은 없다.
         perform(write(post(CART_PATH), UUID.randomUUID()).content("{}"))
                 .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    @DisplayName("구매내역이 없어도 200과 빈 페이지를 주고 배송지·결제 정보는 싣지 않는다(순서 43)")
+    void purchaseHistory_returnsEmptyPageWithoutPii() throws Exception {
+        String body = perform(authenticated(get(PURCHASE_HISTORY_PATH)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.periodStart").exists())
+                .andReturn().getResponse().getContentAsString();
+
+        // 마지막 페이지에서도 키는 남기고 값만 null이다 — mcp-server가 키 존재를 검증한다(설계서 §4.2).
+        assertTrue(body.contains("\"nextCursor\":null"));
+        assertFalse(body.contains("recipient"));
+        assertFalse(body.contains("address"));
+        assertFalse(body.contains("paymentLabel"));
+    }
+
+    @Test
+    @DisplayName("pageSize가 범위를 벗어나면 400 INVALID_ARGUMENT다(순서 43)")
+    void purchaseHistory_rejectsPageSizeOutOfRange() throws Exception {
+        perform(authenticated(get(PURCHASE_HISTORY_PATH).param("pageSize", "51")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+    }
+
+    @Test
+    @DisplayName("결제 완료 주문이 있으면 계약에 적힌 필드만 상품 단위로 내려준다(순서 43)")
+    void purchaseHistory_returnsAggregatedItemWithContractFields() throws Exception {
+        seedPaidPurchase("P-1001", "P-1001-BLK-M", 2, 39000L);
+
+        String body = perform(authenticated(get(PURCHASE_HISTORY_PATH)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].merchantId").value(MERCHANT_ID))
+                .andExpect(jsonPath("$.items[0].merchantProductId").value("P-1001"))
+                .andExpect(jsonPath("$.items[0].merchantVariantId").value("P-1001-BLK-M"))
+                .andExpect(jsonPath("$.items[0].productName").value("오버핏 맨투맨"))
+                .andExpect(jsonPath("$.items[0].optionLabel").value("블랙 / M"))
+                .andExpect(jsonPath("$.items[0].purchaseCount").value(1))
+                .andExpect(jsonPath("$.items[0].totalQuantity").value(2))
+                .andExpect(jsonPath("$.items[0].lastUnitPriceAmount").value(39000))
+                .andExpect(jsonPath("$.items[0].currency").value("KRW"))
+                .andReturn().getResponse().getContentAsString();
+
+        Map<String, Object> parsed = objectMapper.readValue(body, JSON_OBJECT);
+        assertEquals(java.util.Set.of("periodStart", "items", "nextCursor"), parsed.keySet());
+        assertEquals(java.util.Set.of("merchantId", "merchantName", "merchantProductId", "merchantVariantId",
+                        "productName", "optionLabel", "purchaseCount", "totalQuantity", "lastUnitPriceAmount",
+                        "currency", "lastPurchasedAt"),
+                ((Map<?, ?>) ((List<?>) parsed.get("items")).getFirst()).keySet());
+        // mcp-server CommerceProjection.timestamp()가 Instant.parse로 검증하는 표기여야 한다.
+        java.time.Instant.parse((String) parsed.get("periodStart"));
+    }
+
+    @Test
+    @DisplayName("pageSize 경계값 1·50은 통과하고 숫자가 아니면 400이다(순서 43)")
+    void purchaseHistory_boundaryPageSizes() throws Exception {
+        perform(authenticated(get(PURCHASE_HISTORY_PATH).param("pageSize", "1"))).andExpect(status().isOk());
+        perform(authenticated(get(PURCHASE_HISTORY_PATH).param("pageSize", "50"))).andExpect(status().isOk());
+        perform(authenticated(get(PURCHASE_HISTORY_PATH).param("pageSize", "0")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+        perform(authenticated(get(PURCHASE_HISTORY_PATH).param("pageSize", "twenty")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+    }
+
+    @Test
+    @DisplayName("해석할 수 없는 cursor는 400 INVALID_ARGUMENT다(순서 43)")
+    void purchaseHistory_rejectsBrokenCursor() throws Exception {
+        perform(authenticated(get(PURCHASE_HISTORY_PATH).param("cursor", "not-a-cursor!!")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+    }
+
+    @Test
+    @DisplayName("구매내역 경로는 조회만 허용한다(순서 43)")
+    void purchaseHistory_postIsMethodNotAllowed() throws Exception {
+        perform(write(post(PURCHASE_HISTORY_PATH), UUID.randomUUID()).content("{}"))
+                .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    @DisplayName("purchase:handoff를 동의하지 않은 연동은 403 ACCESS_DENIED다(순서 43)")
+    void purchaseHistory_withoutHandoffScope_isForbidden() throws Exception {
+        jdbcTemplate.update("UPDATE agent_connections SET granted_scopes = '[\"catalog:read\"]'::jsonb");
+
+        perform(authenticated(get(PURCHASE_HISTORY_PATH)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+    }
+
+    /** 결제 완료 주문 한 건을 스냅샷·항목까지 직접 넣는다 — 구매 흐름 전체를 태우지 않고 계약만 본다. */
+    private void seedPaidPurchase(String productId, String variantId, int quantity, long unitPrice) {
+        long userId = jdbcTemplate.queryForObject(
+                "SELECT user_id FROM local_accounts WHERE login_id = ?", Long.class, "mcpuser1");
+        long cartId = jdbcTemplate.queryForObject("""
+                INSERT INTO carts (public_id, user_id, status) VALUES (?, ?, 'ACTIVE') RETURNING id
+                """, Long.class, UUID.randomUUID(), userId);
+        long purchaseRequestId = jdbcTemplate.queryForObject("""
+                INSERT INTO purchase_requests (public_id, user_id, cart_id, request_channel, status, policy_version)
+                VALUES (?, ?, ?, 'MCP', 'COMPLETED', 'v1') RETURNING id
+                """, Long.class, UUID.randomUUID(), userId, cartId);
+        long merchantCheckoutId = jdbcTemplate.queryForObject("""
+                INSERT INTO merchant_checkouts (purchase_request_id, merchant_id, merchant_checkout_id,
+                                                checkout_digest, status)
+                VALUES (?, 1, ?, repeat('0', 64), 'COMPLETED') RETURNING id
+                """, Long.class, purchaseRequestId, UUID.randomUUID().toString());
+        long snapshotId = jdbcTemplate.queryForObject("""
+                INSERT INTO checkout_snapshots (public_id, merchant_checkout_id, checkout_digest,
+                                                merchant_checkout_payload, currency)
+                VALUES (?, ?, repeat('0', 64), '{}'::jsonb, 'KRW') RETURNING id
+                """, Long.class, UUID.randomUUID(), merchantCheckoutId);
+        jdbcTemplate.update("""
+                INSERT INTO checkout_snapshot_items (checkout_snapshot_id, merchant_product_id, merchant_variant_id,
+                                                     product_name, product_url, selected_options, quantity,
+                                                     unit_price_amount, line_total_amount, currency)
+                VALUES (?, ?, ?, '오버핏 맨투맨', 'http://ucp-merchant-mock:8080/p',
+                        '[{"optionValueId":"v1","name":"색상","label":"블랙"},
+                          {"optionValueId":"v2","name":"사이즈","label":"M"}]'::jsonb, ?, ?, ?, 'KRW')
+                """, snapshotId, productId, variantId, quantity, unitPrice, unitPrice * quantity);
+        long orderId = jdbcTemplate.queryForObject("""
+                INSERT INTO orders (public_id, checkout_snapshot_id, user_id, merchant_order_id, status)
+                VALUES (?, ?, ?, ?, 'CONFIRMED') RETURNING id
+                """, Long.class, UUID.randomUUID(), snapshotId, userId, UUID.randomUUID().toString());
+        jdbcTemplate.update("""
+                INSERT INTO payment_transactions (checkout_snapshot_id, order_id, authorization_session_id,
+                                                  pay_transaction_id, status, payment_amount, currency)
+                VALUES (?, ?, ?, ?, 'PAID', ?, 'KRW')
+                """, snapshotId, orderId, UUID.randomUUID().toString(), UUID.randomUUID().toString(),
+                unitPrice * quantity);
     }
 
     private org.springframework.test.web.servlet.ResultActions perform(

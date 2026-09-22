@@ -116,7 +116,7 @@ final class ConsentPageRenderer {
             case "catalog:read" -> "상품 검색 및 가격·옵션 조회";
             case "cart:read" -> "내 장바구니 조회";
             case "cart:write" -> "장바구니 상품 추가·변경·삭제";
-            case "purchase:handoff" -> "앱에서 구매를 이어가기 위한 요청";
+            case "purchase:handoff" -> "앱에서 구매를 이어가기 위한 요청 및 최근 6개월 구매내역 조회";
             default -> scope;
         };
     }

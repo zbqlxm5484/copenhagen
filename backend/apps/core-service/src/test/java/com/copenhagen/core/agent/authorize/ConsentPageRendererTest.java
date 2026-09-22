@@ -57,7 +57,8 @@ class ConsentPageRendererTest {
         String html = ConsentPageRenderer.renderConsent(REQUEST_ID, "ChatGPT", null,
                 List.of("cart:write", "purchase:handoff", "future:scope"), null);
 
-        assertThat(html).contains("장바구니 상품 추가·변경·삭제", "앱에서 구매를 이어가기 위한 요청", "future:scope");
+        assertThat(html).contains("장바구니 상품 추가·변경·삭제", "future:scope",
+                "앱에서 구매를 이어가기 위한 요청 및 최근 6개월 구매내역 조회");
         assertThat(html).doesNotContain("상품 검색 및 가격·옵션 조회", "내 장바구니 조회");
     }
 
