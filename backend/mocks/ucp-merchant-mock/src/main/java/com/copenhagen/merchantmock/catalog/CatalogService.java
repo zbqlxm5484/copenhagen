@@ -1,9 +1,9 @@
 package com.copenhagen.merchantmock.catalog;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -31,16 +31,24 @@ public class CatalogService {
      */
     private static final int MAX_RESULTS = 100;
 
+    /** MCP 도구 기본 {@code pageSize}. 첫 화면 넷이 곧 결과다. 백오프는 후보가 이보다 적을 때만 건다(ADR 0013 규칙 4). */
+    static final int PAGE = 4;
+
+    /** 머리 명사 가중치에 더하는 여유. 나머지 토큰이 전부 맞아도 머리 명사 하나가 이기게 한다(규칙 7). */
+    private static final double HEAD_MARGIN = 0.5;
+
     private final CatalogStore store;
     private final MerchantProperties merchants;
     private final Map<String, List<String>> synonyms;
     private final MerchantProperties.Catalog.Search tuning;
+    private final QueryRefiner refiner;
 
     public CatalogService(CatalogStore store, MerchantProperties merchants) {
         this.store = store;
         this.merchants = merchants;
         this.synonyms = indexSynonyms(merchants.catalog().synonyms());
         this.tuning = merchants.catalog().search();
+        this.refiner = tuning.nori() ? new QueryRefiner() : null;
     }
 
     /** 낱말 하나에서 자기 묶음으로 가는 색인. 같은 낱말이 두 묶음에 있으면 먼저 온 묶음을 쓴다. */
@@ -55,24 +63,22 @@ public class CatalogService {
     }
 
     /**
-     * 검색어를 낱말로 쪼개 동의어로 넓히고, 하나라도 제목·브랜드·카테고리에 있으면 후보로 삼아 점수로
-     * 줄을 세운다(DESIGN.md 6.7절, ADR 0012).
-     *
-     * <p>470 은 모든 낱말이 맞아야 통과시켰다(AND). 수식어가 하나 붙으면 0건이라 "가벼운 러닝화", "러닝화
-     * 추천해줘" 가 전부 0 이었다. OR 로 바꾸면 결과 수의 책임이 순서로 옮겨 온다 — MCP 도구 기본값이
-     * {@code pageSize} 4 라 첫 화면 넷이 곧 결과다.
+     * 검색어를 정제해 토큰으로 만들고, 하나라도 제목·브랜드·카테고리에 있으면 후보로 삼아 점수로 줄을 세운다
+     * (DESIGN.md 6.7절, ADR 0013 — 3차 S19).
      *
      * <pre>
-     * 점수 = Σ_{맞은 묶음 g} f(g) × t(g)
-     *   f  수식어 감쇠. 검색어 낱말이 fluff-words 에 있으면 fluff-weight(0.2). 전부 수식어면 감쇠하지 않는다
-     *   t  끝 낱말 가중. 검색어의 마지막 낱말이면 tail-boost(1.5). 한국어 명사구는 핵심 명사가 뒤에 온다
-     * 동점은 자리 단계(제목 낱말 4 > 제목 부분 3 > 브랜드 2 > 카테고리 1, 맞은 묶음 중 가장 약한 자리),
-     * 그래도 같으면 풀 순서. 안정 정렬이라 같은 요청에 같은 답이 나온다.
+     * 검색어 → 토큰   nori 어절 정제(서술어·조사 제거, 원문 보존) → 동의어 → 후보가 한 화면 미만이면 조각·퍼지 백오프
+     * 매칭           제목·브랜드·카테고리 부분문자열 OR. 공백 뺀 문자열에도 맞춰 본다
+     * 점수 = Σ 맞은 토큰 가중치
+     *   수식어(fluff-words)·속성(attribute-words)·숫자 든 토큰·한 글자 토큰은 fluff-weight(0.2) 이고 머리 명사가 될 수 없다.
+     *   전부 그런 토큰이면 깎지 않는다 — 그때는 그것이 검색어다
+     *   머리 명사 = 위에 안 걸린 마지막 토큰. 가중치 = max(tail-boost, 나머지 합 + 0.5). 머리만 맞은 상품이 수식어 전부
+     *   맞은 상품보다 항상 위다
+     * 동점은 자리 단계(제목 낱말 4 > 제목 부분 3 > 브랜드 2 > 카테고리 1, 맞은 묶음 중 가장 약한 자리), 그래도 같으면 풀 순서
      * </pre>
      *
-     * <p>흔한 낱말을 가볍게 보는 가중치(역문서빈도)는 넣었다가 뺐다. 1,592건에서는 적중이 +5 였지만 10만 건 풀에서는
-     * -4 였다 — "남자 양말" 에서 양말이 805건으로 흔해 가중치가 0 에 가까워지고 "남자" 만 맞은 한복·스킨이 위로 왔다.
-     * 핵심 명사가 흔한 낱말인 경우가 많아 방향이 틀린 신호였다(DESIGN.md 6.7절 실측).
+     * <p>2차(A10)는 마지막 낱말에 1.5 를 줬다. 실제 호출자(Haiku)가 "우유 대용량"·"가습기 소형" 처럼 속성을 뒤에 붙여 넘기면
+     * 속성이 머리가 되어 대용량 세제가 우유보다 위로 왔다 — 실제 query 251개에서 84%. 3차는 93%(장부 3.10절).
      *
      * <p>두 번 훑는다. 첫 번째로 상품마다 묶음이 어느 자리에서 맞았는지(병렬), 두 번째로 점수. 10만 건 풀에서 요청당
      * 수십 ms 를 목표로 하고 실측은 13절에 적는다.
@@ -81,7 +87,8 @@ public class CatalogService {
         merchants.requireMall(merchantId);
         CatalogMessages.SearchRequest.Filters filters = request == null ? null : request.filters();
         List<Product> products = store.all(merchantId);
-        List<Term> terms = expand(request == null ? null : request.query());
+        List<SearchDoc> docs = store.searchDocs(merchantId);
+        List<Term> terms = terms(request == null ? null : request.query(), docs);
 
         List<CatalogMessages.Item> items = new ArrayList<>();
         if (terms.isEmpty()) {
@@ -97,18 +104,17 @@ public class CatalogService {
             return new CatalogMessages.ItemsResponse(items);
         }
 
-        List<SearchDoc> docs = store.searchDocs(merchantId);
         int width = terms.size();
         byte[] tiers = new byte[products.size() * width];
         // 1차 훑기는 상품마다 독립이라 병렬로 돈다. 10만 건 × 낱말 × 세 필드 contains 가 검색 시간의 대부분이다.
-        // 쓰는 칸이 상품마다 다르므로 배열에 경쟁이 없다. df 는 2차에서 순서대로 센다.
+        // 쓰는 칸이 상품마다 다르므로 배열에 경쟁이 없다.
         IntStream.range(0, products.size()).parallel().forEach(index -> {
             if (!onSale(products.get(index))) {
                 return;
             }
             SearchDoc doc = docs.get(index);
             for (int k = 0; k < width; k++) {
-                tiers[index * width + k] = doc.tier(terms.get(k).group());
+                tiers[index * width + k] = doc.tierOrNoSpace(terms.get(k).group());
             }
         });
         double[] weights = weights(terms);
@@ -177,45 +183,166 @@ public class CatalogService {
         return product.status() == Product.ProductStatus.ACTIVE;
     }
 
-    /** 검색어 낱말 하나와 그 동의어 묶음. 수식어 판정은 원래 낱말로 한다 — 묶음의 다른 낱말이 아니라. */
-    private record Term(String token, List<String> group) {
+    /**
+     * 검색어 토큰 하나. 수식어·속성 판정은 원래 낱말({@code token}·{@code surface})로 한다 — 묶음의 다른 낱말이 아니라.
+     *
+     * @param token   소문자 토큰
+     * @param surface 토큰이 나온 어절 원문(소문자). "추천해줘" 가 "추천" 이 되어도 수식어로 잡기 위해
+     * @param group   동의어 묶음(+ 퍼지 백오프가 더한 낱말)
+     * @param tail    머리 명사 후보인가. 어절 토큰은 참, 조각으로 갈린 것은 마지막 조각만 참
+     * @param light   가볍게 볼 토큰인가(수식어·속성·규격·한 글자). 머리 명사가 될 수 없다
+     */
+    record Term(String token, String surface, List<String> group, boolean tail, boolean light) {
+        Term with(List<String> newGroup) {
+            return new Term(token, surface, newGroup, tail, light);
+        }
+
+        Term lightened() {
+            return new Term(token, surface, group, false, true);
+        }
     }
 
     private record Candidate(int index, double score, int weakestTier) {
     }
 
     /**
-     * 검색어를 낱말로 쪼개고 낱말마다 동의어 묶음으로 넓힌다. 묶음이 없는 낱말은 혼자 있는 묶음이 된다.
-     * 빈 검색어는 빈 목록이고 그때 결과를 막는 것은 {@link #MAX_RESULTS} 하나뿐이다.
+     * 검색어 → 토큰(ADR 0013 규칙 1~4·6). 빈 검색어는 빈 목록이고 그때 결과를 막는 것은 {@link #MAX_RESULTS} 하나뿐이다.
+     * 패키지 공개는 파이썬 벤치와 토큰을 대조하는 테스트를 위해서다.
      */
-    private List<Term> expand(String query) {
+    List<Term> terms(String query, List<SearchDoc> docs) {
         if (query == null || query.isBlank()) {
             return List.of();
         }
-        return Arrays.stream(query.trim().toLowerCase(Locale.ROOT).split("\\s+"))
-                .filter(token -> !token.isEmpty())
-                .map(token -> new Term(token, synonyms.getOrDefault(token, List.of(token))))
-                .toList();
+        List<Draft> drafts = new ArrayList<>();
+        if (refiner != null) {
+            List<QueryRefiner.Token> refined =
+                    refiner.refine(query, surface -> count(docs, List.of(surface), false) > 0);
+            for (QueryRefiner.Token token : refined) {
+                drafts.add(new Draft(token.token(), token.surface(), token.pieces(), true));
+            }
+        }
+        if (drafts.isEmpty()) {
+            // 규칙 5 안전망 — 전부 걸러졌거나 정제를 끈 경우 공백 분리 원문
+            for (String token : query.trim().toLowerCase(Locale.ROOT).split("\\s+")) {
+                if (!token.isEmpty()) {
+                    drafts.add(new Draft(token, token, List.of(), true));
+                }
+            }
+        }
+
+        // 규칙 4a 조각 백오프 — 어절 토큰이 한 화면도 못 채울 때만, 조각이 둘 이상이고 전부 두 글자 이상일 때만
+        List<Term> terms = new ArrayList<>();
+        for (Draft draft : drafts) {
+            List<String> group = synonyms.getOrDefault(draft.token(), List.of(draft.token()));
+            List<String> pieces = draft.pieces();
+            boolean splittable = pieces.size() >= 2 && pieces.stream().allMatch(piece -> piece.length() >= 2);
+            if (splittable && count(docs, group, true) < PAGE) {
+                // 숫자가 든 토큰(500ml·2xl)의 조각은 규격의 조각이다. 무겁게 보면 "ml"·"xl" 이 머리 명사가 된다(단위 테스트가 잡았다)
+                boolean spec = hasDigit(draft.token());
+                for (int i = 0; i < pieces.size(); i++) {
+                    String piece = pieces.get(i);
+                    terms.add(new Term(piece, piece, synonyms.getOrDefault(piece, List.of(piece)),
+                            !spec && draft.tail() && i == pieces.size() - 1, spec || isFluff(piece, piece)));
+                }
+            } else {
+                terms.add(new Term(draft.token(), draft.surface(), group, draft.tail(),
+                        isFluff(draft.token(), draft.surface())));
+            }
+        }
+        // 규칙 4b 퍼지 백오프 — 그래도 한 화면 미만이면 자모가 비슷한 제목 낱말을 동의어로. 수식어에는 안 건다
+        JamoBigrams vocabulary = store.vocabulary();
+        for (int k = 0; k < terms.size(); k++) {
+            Term term = terms.get(k);
+            if (term.light() || count(docs, term.group(), true) >= PAGE) {
+                continue;
+            }
+            List<String> near = vocabulary.similar(term.token());
+            if (!near.isEmpty()) {
+                LinkedHashSet<String> widened = new LinkedHashSet<>(term.group());
+                widened.addAll(near);
+                terms.set(k, term.with(List.copyOf(widened)));
+            }
+        }
+        // 규칙 6 — 토큰이 둘 이상이면 한 글자·속성·규격도 수식어처럼 본다. 전부 그런 토큰이면 깎지 않는다
+        if (terms.size() > 1) {
+            for (int k = 0; k < terms.size(); k++) {
+                if (terms.get(k).token().length() == 1) {
+                    terms.set(k, terms.get(k).lightened());
+                }
+            }
+            boolean allAttribute = terms.stream().allMatch(term -> term.light() || isAttribute(term.token()));
+            if (!allAttribute) {
+                for (int k = 0; k < terms.size(); k++) {
+                    if (isAttribute(terms.get(k).token())) {
+                        terms.set(k, terms.get(k).lightened());
+                    }
+                }
+            }
+        }
+        return List.copyOf(terms);
+    }
+
+    /** 정제 직후의 토큰. 아직 동의어·백오프·가중치 전. */
+    private record Draft(String token, String surface, List<String> pieces, boolean tail) {
+    }
+
+    private boolean isFluff(String token, String surface) {
+        return tuning.isFluff(token) || tuning.isFluff(surface);
+    }
+
+    /** 속성 낱말 또는 숫자가 든 토큰(규격 — 500ml·10kg·2xl·a4). */
+    private boolean isAttribute(String token) {
+        return tuning.isAttribute(token) || hasDigit(token);
+    }
+
+    private static boolean hasDigit(String token) {
+        for (int i = 0; i < token.length(); i++) {
+            if (Character.isDigit(token.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 묶음의 낱말 하나라도 든 상품 수. 백오프 판정용. 한 화면(4)만 넘으면 되므로 전부 세지 않고 멈춘다. */
+    private static int count(List<SearchDoc> docs, List<String> group, boolean noSpace) {
+        int found = 0;
+        for (SearchDoc doc : docs) {
+            if (doc.containsAny(group, noSpace)) {
+                found++;
+                if (found >= PAGE) {
+                    return found;
+                }
+            }
+        }
+        return found;
     }
 
     /**
-     * 묶음마다 가중치. 기본 1, 수식어는 가볍게, 마지막 낱말은 무겁게(6.7절).
+     * 토큰마다 가중치(규칙 6~7). 기본 1, 가벼운 토큰은 fluff-weight, 머리 명사는 max(tail-boost, 나머지 합 + 0.5).
      *
-     * <p>검색어 낱말이 전부 수식어면 감쇠하지 않는다 — 그때는 그것이 검색어다. 낱말이 하나면 끝 낱말 가중도
-     * 뜻이 없어 곱하지 않는다.
+     * <p>토큰이 전부 가벼운 것이면 깎지 않는다 — 그때는 그것이 검색어다. 토큰이 하나면 머리 명사 가중도 뜻이 없다.
      */
     private double[] weights(List<Term> terms) {
-        boolean allFluff = terms.stream().allMatch(term -> tuning.isFluff(term.token()));
+        boolean allLight = terms.stream().allMatch(Term::light);
         double[] weights = new double[terms.size()];
         for (int k = 0; k < terms.size(); k++) {
-            double weight = 1.0;
-            if (!allFluff && tuning.isFluff(terms.get(k).token())) {
-                weight *= tuning.fluffWeight();
+            weights[k] = !allLight && terms.get(k).light() ? tuning.fluffWeight() : 1.0;
+        }
+        int head = -1;
+        for (int k = 0; k < terms.size(); k++) {
+            if (terms.get(k).tail() && !terms.get(k).light()) {
+                head = k;
             }
-            if (terms.size() > 1 && k == terms.size() - 1) {
-                weight *= tuning.tailBoost();
+        }
+        if (head >= 0 && terms.size() > 1) {
+            double others = 0;
+            for (int k = 0; k < weights.length; k++) {
+                if (k != head) {
+                    others += weights[k];
+                }
             }
-            weights[k] = weight;
+            weights[head] = Math.max(tuning.tailBoost(), others + HEAD_MARGIN);
         }
         return weights;
     }

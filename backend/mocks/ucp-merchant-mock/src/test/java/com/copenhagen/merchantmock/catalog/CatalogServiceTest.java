@@ -337,9 +337,9 @@ class CatalogServiceTest {
     }
 
     @Test
-    @DisplayName("수식어 감쇠 — 맛있는 우유는 맛있는 사과보다 우유가 앞이다")
-    void search_fluffWord_isDemoted() {
-        // given: 시드 순서는 사과가 먼저다. 감쇠와 끝 낱말 가중이 없으면 둘의 점수가 같아 사과가 앞이다
+    @DisplayName("형용사 수식어는 검색어에서 빠진다 — 맛있는 우유는 우유만 찾고 맛있는 사과는 후보도 아니다(3차)")
+    void search_adjectiveModifier_isRemovedByRefiner() {
+        // given: 2차는 "맛있는" 을 0.2 로 깎아 사과를 뒤로 보냈다. 3차는 nori 가 형용사 어절을 버려 사과가 후보에서 빠진다
         CatalogService ranked = serviceOf(List.of(
                 CatalogFixture.simple("product-401", "못생겨도 맛있는 사과 1kg", "과일 > 사과"),
                 CatalogFixture.simple("product-402", "서울우유 나 100% 우유 1L", "유제품 > 우유")));
@@ -349,7 +349,7 @@ class CatalogServiceTest {
                 ranked.search("merchant-a", new CatalogMessages.SearchRequest("맛있는 우유", null));
 
         // then
-        assertEquals(List.of("product-402", "product-401"), idsOf(response));
+        assertEquals(List.of("product-402"), idsOf(response));
     }
 
     @Test
@@ -405,15 +405,22 @@ class CatalogServiceTest {
     @Test
     @DisplayName("낱말로 맞은 상품이 부분문자열로만 맞은 상품보다 앞에 온다")
     void search_wordBoundaryMatch_outranksSubstringMatch() {
-        // given: 우유팩 키링이 시드에서 먼저다. 부분문자열만 보면 실제 우유와 구분되지 않는다
-        CatalogService ranked = serviceOf(CatalogFixture.milkAndLookalikes());
+        // given: 우유팩 키링이 시드에서 먼저다. 부분문자열만 보면 실제 우유와 구분되지 않는다.
+        //        우유 상품을 넷 이상 두는 이유 — 후보가 한 화면(4건) 미만이면 3차 퍼지 백오프가 걸려 "우유팩" 이 동의어로 붙는다
+        List<Product> products = new ArrayList<>(CatalogFixture.milkAndLookalikes());
+        for (int i = 0; i < 3; i++) {
+            products.add(CatalogFixture.simple("product-31" + i, "매일 우유 1L 묶음 " + i, "유제품 > 우유"));
+        }
+        CatalogService ranked = serviceOf(products);
 
         // when
         CatalogMessages.ItemsResponse response =
                 ranked.search("merchant-a", new CatalogMessages.SearchRequest("우유", null));
 
-        // then
-        assertEquals(List.of("product-302", "product-301"), idsOf(response));
+        // then: 낱말로 맞은 넷이 앞(풀 순서), 부분문자열로만 맞은 키링이 맨 뒤
+        List<String> ids = idsOf(response);
+        assertEquals("product-302", ids.get(0));
+        assertEquals("product-301", ids.get(ids.size() - 1));
     }
 
     @Test
@@ -431,5 +438,179 @@ class CatalogServiceTest {
         // then
         assertEquals(100, byKeyword.items().size());
         assertEquals(100, byBlank.items().size());
+    }
+
+    // ---------------------------------------------------------------- 3차(S19, ADR 0013)
+
+    @Test
+    @DisplayName("조사와 서술어가 붙은 문장형도 찾는다 — 우유를 찾아줘, 운동화가 필요해")
+    void search_sentenceQuery_isRefinedToNoun() {
+        // given: 2차는 "우유를" 이 어느 제목에도 없어 0건이었다
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-501", "서울우유 나 100% 우유 1L", "유제품 > 우유")));
+
+        // when & then
+        assertEquals(List.of("product-501"),
+                idsOf(ranked.search("merchant-a", new CatalogMessages.SearchRequest("우유를 찾아줘", null))));
+        assertEquals(List.of("product-101"),
+                idsOf(service.search("merchant-a", new CatalogMessages.SearchRequest("운동화가 필요해", null))));
+    }
+
+    @Test
+    @DisplayName("뒤에 붙은 수식어 — 텀블러 큰 거 는 텀블러를 찾고 '거' 가 거치대를 끌어오지 않는다")
+    void search_trailingModifier_doesNotBecomeHead() {
+        // given: 2차는 마지막 낱말 "거" 에 1.5 를 줘서 거치대가 텀블러 위로 왔다(실측 0/4)
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-511", "휴대폰 거치대", "디지털 > 거치대"),
+                CatalogFixture.simple("product-512", "스탠리 텀블러 591ml", "주방 > 텀블러")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("텀블러 큰 거", null));
+
+        // then
+        assertEquals(List.of("product-512"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("속성 낱말이 뒤에 와도 머리 명사는 상품군이다 — 우유 대용량 은 대용량 세제보다 우유가 앞")
+    void search_trailingAttribute_isDemoted() {
+        // given: 실제 호출자(Haiku)가 "우유 대용량" 을 그대로 넘긴다. 2차는 대용량이 끝 낱말이라 1.5 를 받아 세제가 위로 왔다
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-521", "대용량 액체 세제 3L", "생활 > 세제"),
+                CatalogFixture.simple("product-522", "서울우유 나 100% 우유 1L", "유제품 > 우유")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("우유 대용량", null));
+
+        // then: 우유(머리, 1.5) > 대용량만 맞은 세제(0.2)
+        assertEquals(List.of("product-522", "product-521"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("머리 명사 우세 — 수식어가 셋 맞은 상품보다 머리 명사 하나 맞은 상품이 앞이다")
+    void search_headNoun_outranksAllModifiersCombined() {
+        // given: 2차의 끝 낱말 1.5 는 수식어 둘(2.0)에 진다. 3차는 머리 가중치 = 나머지 합 + 0.5
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-531", "아기 신생아 목욕 장난감", "유아 > 목욕놀이"),
+                CatalogFixture.simple("product-532", "극세사 타월 5장", "생활 > 타월")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("아기 신생아 목욕 타월", null));
+
+        // then: 타월(3.5) > 아기+신생아+목욕(3.0)
+        assertEquals(List.of("product-532", "product-531"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("숫자가 든 토큰은 규격이다 — 텀블러 500ml 은 500ml 생수보다 텀블러가 앞")
+    void search_digitToken_isTreatedAsAttribute() {
+        // given
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-541", "삼다수 500ml 20병", "음료 > 생수"),
+                CatalogFixture.simple("product-542", "스탠리 텀블러 스테인리스", "주방 > 텀블러")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("텀블러 500ml", null));
+
+        // then
+        assertEquals(List.of("product-542", "product-541"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("검색어가 전부 속성·수식어면 깎지 않는다 — 대용량 세트 는 그대로 검색어다")
+    void search_onlyAttributes_areNotDemoted() {
+        // given
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-551", "대용량 물티슈 세트", "생활 > 물티슈"),
+                CatalogFixture.simple("product-552", "서울우유 나 100% 우유 1L", "유제품 > 우유")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("대용량 세트", null));
+
+        // then
+        assertEquals(List.of("product-551"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("띄어쓰기 무시 — 무선이어폰 이 '무선 이어폰' 제목에 맞는다")
+    void search_noSpaceQuery_matchesSpacedTitle() {
+        // given: 2차는 부분문자열 "무선이어폰" 이 어느 제목에도 없어 0건이었다
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-561", "소니 무선 이어폰 WF-1000", "디지털 > 이어폰")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("무선이어폰", null));
+
+        // then
+        assertEquals(List.of("product-561"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("조각 백오프 — 남자양말 이 어디에도 없으면 남자·양말 조각으로 찾는다")
+    void search_pieceBackoff_whenWholeWordMatchesNothing() {
+        // given: "남자양말" 은 붙여서도 띄어서도 제목에 없다. 조각 둘이 각각 제목에 있다
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-571", "남자 스포츠 양말 5족", "패션 > 양말")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("남자양말", null));
+
+        // then
+        assertEquals(List.of("product-571"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("퍼지 백오프 — 쵸콜릿 은 자모가 비슷한 제목 낱말 초콜릿 으로 찾는다")
+    void search_fuzzyBackoff_findsSpellingVariant() {
+        // given
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-581", "다크 초콜릿 100g", "과자 > 초콜릿")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("쵸콜릿", null));
+
+        // then
+        assertEquals(List.of("product-581"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("안전망 — 전부 걸러지는 검색어는 공백 분리 원문으로 돌아간다. 서술어 하나만 치면 지금처럼 0건")
+    void search_whenRefinerDropsEverything_fallsBackToRawTokens() {
+        // given
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-591", "봄 달래 나물 200g", "채소 > 나물")));
+
+        // when: "달래" 를 nori 가 동사로 읽어도 원문으로 돌아가 제목에 맞는다
+        CatalogMessages.ItemsResponse found =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("달래", null));
+        CatalogMessages.ItemsResponse none =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("찾아줘", null));
+
+        // then
+        assertEquals(List.of("product-591"), idsOf(found));
+        assertTrue(none.items().isEmpty());
+    }
+
+    @Test
+    @DisplayName("영어 동의어 — milk 로 우유를 찾는다")
+    void search_englishSynonym_mapsToKorean() {
+        // given: 픽스처 동의어에 ["milk", "우유"] 가 있다(application.yml 과 같은 모양)
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-601", "서울우유 나 100% 우유 1L", "유제품 > 우유")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("milk", null));
+
+        // then
+        assertEquals(List.of("product-601"), idsOf(response));
     }
 }

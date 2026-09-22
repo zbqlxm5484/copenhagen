@@ -2,10 +2,12 @@ package com.copenhagen.merchantmock.catalog;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.slf4j.Logger;
@@ -19,6 +21,9 @@ import org.springframework.stereotype.Component;
  *
  * <p>2026-09-21 개정. 풀이 몰당 최대 9만 건이라 검색용 사전 계산({@link SearchDoc})을 여기서 한 번 만든다.
  * 요청마다 소문자 변환과 낱말 분리를 하면 그것이 검색 시간의 대부분이다.
+ *
+ * <p>2026-09-22 개정(ADR 0013). 퍼지 백오프용 제목 낱말 사전({@link JamoBigrams})도 여기서 한 번 만든다. 몰 셋이 같은
+ * 상품 본문을 나눠 쓰므로 사전도 한 벌이다.
  */
 @Component
 public class CatalogStore {
@@ -40,7 +45,8 @@ public class CatalogStore {
         List<Product> products = repository.findAll();
         Snapshot next = Snapshot.of(products);
         snapshot.set(next);
-        LOG.info("카탈로그 로딩 완료. 몰 {}개, 상품 {}건, SKU {}건", next.malls().size(), products.size(), next.skuCount());
+        LOG.info("카탈로그 로딩 완료. 몰 {}개, 상품 {}건, SKU {}건, 제목 낱말 사전 {}개",
+                next.malls().size(), products.size(), next.skuCount(), next.vocabulary().size());
     }
 
     public List<Product> all(String merchantId) {
@@ -50,6 +56,11 @@ public class CatalogStore {
     /** {@link #all} 과 같은 순서·같은 길이. i 번째 상품의 검색 사전 계산이 i 번째다. */
     public List<SearchDoc> searchDocs(String merchantId) {
         return snapshot.get().mall(merchantId).docs();
+    }
+
+    /** 제목 낱말 사전(두 글자 이상). 몰 공용. 퍼지 백오프가 쓴다. */
+    public JamoBigrams vocabulary() {
+        return snapshot.get().vocabulary();
     }
 
     public Optional<Product> byExternalId(String merchantId, String externalId) {
@@ -64,10 +75,10 @@ public class CatalogStore {
         return snapshot.get().malls().values().stream().mapToInt(index -> index.ordered().size()).sum();
     }
 
-    private record Snapshot(Map<String, MallIndex> malls) {
+    private record Snapshot(Map<String, MallIndex> malls, JamoBigrams vocabulary) {
 
         static Snapshot empty() {
-            return new Snapshot(Map.of());
+            return new Snapshot(Map.of(), JamoBigrams.empty());
         }
 
         static Snapshot of(List<Product> products) {
@@ -80,7 +91,11 @@ public class CatalogStore {
             Map<String, SearchDoc> sharedDocs = new HashMap<>();
             Map<String, MallIndex> malls = new LinkedHashMap<>();
             grouped.forEach((merchantId, list) -> malls.put(merchantId, MallIndex.of(list, sharedDocs)));
-            return new Snapshot(Map.copyOf(malls));
+            Set<String> words = new HashSet<>();
+            for (SearchDoc doc : sharedDocs.values()) {
+                words.addAll(doc.titleWords());
+            }
+            return new Snapshot(Map.copyOf(malls), JamoBigrams.of(words));
         }
 
         MallIndex mall(String merchantId) {

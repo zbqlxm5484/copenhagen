@@ -128,26 +128,25 @@ public record MerchantProperties(
         }
 
         /**
-         * 검색 점수 조정값(DESIGN.md 6.7절, ADR 0012). yml 로 뺀 이유는 리허설에서 결과가 어색할 때 배포 없이
-         * 만질 수 있어야 해서다. 둘 다 1.0 이면 A3(흔한 낱말 가중치만), 거기서 더 빼면 A2 다.
+         * 검색 점수 조정값(DESIGN.md 6.7절, ADR 0012·0013). yml 로 뺀 이유는 리허설에서 결과가 어색할 때 배포 없이
+         * 만질 수 있어야 해서다. {@code attribute-words} 를 비우고 {@code tail-boost} 1.5 면 2차(A10)의 점수 규칙이고,
+         * {@code nori} 를 끄면 검색어 정제도 빠져 A10 그 자체다.
          *
-         * @param fluffWords  정보가 없는 수식어. "맛있는·신선한·저렴한·추천해줘·이하" 같은 것. 소문자로 비교한다
-         * @param fluffWeight 수식어 묶음의 가중치 배율. 0 초과 1 이하. 기본 0.2
-         * @param tailBoost   검색어 마지막 낱말의 가중치 배율. 1 이상. 기본 1.5
+         * @param fluffWords     정보가 없는 수식어. "맛있는·신선한·저렴한·추천해줘·이하" 같은 것. 소문자로 비교한다
+         * @param fluffWeight    수식어·속성·규격·한 글자 토큰의 가중치 배율. 0 초과 1 이하. 기본 0.2
+         * @param tailBoost      머리 명사 가중치의 최솟값. 3차부터 머리 명사 가중치는 max(tailBoost, 나머지 합 + 0.5). 1 이상. 기본 1.5
+         * @param attributeWords 속성 낱말(ADR 0013 규칙 6). 대용량·소형·접이식·자동·무선·화이트 처럼 상품군이 아니라 규격·형태·용도·
+         *                       색상을 말하는 낱말. 검색어 뒤에 와도 머리 명사가 되지 않는다. 소문자로 비교한다
+         * @param nori           검색어 정제(nori) 켜기. 기본 true. 끄면 공백 분리만 한다
          */
-        public record Search(List<String> fluffWords, Double fluffWeight, Double tailBoost) {
+        public record Search(List<String> fluffWords, Double fluffWeight, Double tailBoost, List<String> attributeWords,
+                             Boolean nori) {
             public Search {
-                List<String> words = new ArrayList<>();
-                if (fluffWords != null) {
-                    for (String word : fluffWords) {
-                        if (word != null && !word.isBlank()) {
-                            words.add(word.trim().toLowerCase(Locale.ROOT));
-                        }
-                    }
-                }
-                fluffWords = List.copyOf(words);
+                fluffWords = lowerWords(fluffWords);
+                attributeWords = lowerWords(attributeWords);
                 fluffWeight = fluffWeight == null ? 0.2 : fluffWeight;
                 tailBoost = tailBoost == null ? 1.5 : tailBoost;
+                nori = nori == null || nori;
                 if (fluffWeight <= 0 || fluffWeight > 1) {
                     throw new IllegalArgumentException("merchant.catalog.search.fluff-weight 는 0 초과 1 이하: "
                             + fluffWeight);
@@ -157,12 +156,28 @@ public record MerchantProperties(
                 }
             }
 
+            private static List<String> lowerWords(List<String> raw) {
+                List<String> words = new ArrayList<>();
+                if (raw != null) {
+                    for (String word : raw) {
+                        if (word != null && !word.isBlank()) {
+                            words.add(word.trim().toLowerCase(Locale.ROOT));
+                        }
+                    }
+                }
+                return List.copyOf(words);
+            }
+
             public static Search defaults() {
-                return new Search(List.of(), null, null);
+                return new Search(List.of(), null, null, List.of(), null);
             }
 
             public boolean isFluff(String token) {
                 return fluffWords.contains(token);
+            }
+
+            public boolean isAttribute(String token) {
+                return attributeWords.contains(token);
             }
         }
     }
