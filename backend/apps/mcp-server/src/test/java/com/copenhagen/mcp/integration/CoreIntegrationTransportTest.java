@@ -119,6 +119,30 @@ class CoreIntegrationTransportTest {
     }
 
     @Test
+    void invalidReferenceSchemaIsLoggedBeforeResolution() throws Exception {
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(
+                com.copenhagen.mcp.tool.WidgetActionTrace.class);
+        var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
+        try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application),
+                token("catalog:read cart:read cart:write purchase:handoff"))) {
+            client.initialize();
+            var result = client.callTool(McpSchema.CallToolRequest.builder().name("resolve_widget_action")
+                    .arguments(Map.of("reference", "invalid-private-reference")).build());
+            assertTrue(result.isError());
+            String logs = appender.list.stream().map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+                    .collect(java.util.stream.Collectors.joining("\n"));
+            assertTrue(logs.contains("reason=INPUT_SCHEMA_REJECTED"));
+            assertFalse(logs.contains("invalid-private-reference"));
+            assertFalse(logs.contains("reason=REFERENCE_NOT_FOUND"));
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+    }
+
+    @Test
     void authenticatedTransport_exposesOnlyCoreToolsAndDelegatesSignedAgent() throws Exception {
         String token = token("catalog:read cart:read cart:write purchase:handoff");
         try (var client = McpTestSupport.client(McpTestSupport.baseUrl(application), token)) {

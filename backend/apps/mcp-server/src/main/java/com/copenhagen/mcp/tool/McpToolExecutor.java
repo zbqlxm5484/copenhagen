@@ -3,17 +3,18 @@ package com.copenhagen.mcp.tool;
 import com.copenhagen.mcp.auth.McpAuthException;
 import com.copenhagen.mcp.auth.McpAuthResponses;
 import com.copenhagen.mcp.auth.McpIdentity;
-import com.copenhagen.mcp.core.CoreClientException;
 import com.copenhagen.mcp.core.CoreApiException;
+import com.copenhagen.mcp.core.CoreClientException;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.LinkedHashMap;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,6 +80,11 @@ public class McpToolExecutor {
             identity.requireScopes(definition.requiredScopes());
             Map<String, Object> arguments = request.arguments() == null ? Map.of() : request.arguments();
             if (!validator.validate(definition.tool().inputSchema(), arguments).valid()) {
+                if (Set.of("prepare_widget_action", "resolve_widget_action").contains(definition.tool().name())) {
+                    Object reference = arguments.get("reference");
+                    WidgetActionTrace.record("INPUT_SCHEMA_REJECTED",
+                            reference instanceof String value ? value : null, identity, "-", -1);
+                }
                 return error(ToolErrorCode.INVALID_ARGUMENT);
             }
             handlerStarted = true;
