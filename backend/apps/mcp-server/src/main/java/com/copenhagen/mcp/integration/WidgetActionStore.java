@@ -1,8 +1,10 @@
 package com.copenhagen.mcp.integration;
 
+import com.copenhagen.mcp.auth.McpAuthException;
 import com.copenhagen.mcp.auth.McpIdentity;
 import com.copenhagen.mcp.core.CoreClientException;
 import com.copenhagen.mcp.tool.ToolErrorCode;
+import com.copenhagen.mcp.tool.WidgetActionTrace;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;
 import java.io.IOException;
@@ -38,40 +40,74 @@ final class WidgetActionStore {
     synchronized Map<String, Object> prepare(McpIdentity identity, Map<String, Object> input) {
         String tool = (String) input.get("tool");
         Object arguments = input.get("arguments");
-        if (!SCHEMAS.containsKey(tool) || !validator.validate(SCHEMAS.get(tool), arguments).valid()) {
+        if (!SCHEMAS.containsKey(tool)) {
+            WidgetActionTrace.record("UNSUPPORTED_TOOL", null, identity, "-", -1);
             throw new CoreClientException(ToolErrorCode.INVALID_ARGUMENT);
         }
-        identity.requireScopes(scopes(tool));
+        if (!validator.validate(SCHEMAS.get(tool), arguments).valid()) {
+            WidgetActionTrace.record("ARGUMENT_SCHEMA_REJECTED", null, identity, tool, -1);
+            throw new CoreClientException(ToolErrorCode.INVALID_ARGUMENT);
+        }
+        requireScopes(identity, tool, null, -1);
         Instant now = clock.instant();
-        entries.values().removeIf(entry -> !entry.expiresAt().isAfter(now));
+        entries.entrySet().removeIf(item -> {
+            Entry entry = item.getValue();
+            if (entry.expiresAt().isAfter(now)) {
+                return false;
+            }
+            WidgetActionTrace.record("EXPIRED_REMOVED", item.getKey(),
+                    new McpIdentity(entry.owner(), entry.connection(), Set.of(), entry.expiresAt()),
+                    entry.tool(), Duration.between(entry.createdAt(), now).toMillis());
+            return true;
+        });
         // Fail closed instead of evicting another still-valid selection.
         if (entries.size() >= 10000 || entries.values().stream()
                 .filter(entry -> entry.owner().equals(identity.publicUserRef())).count() >= 100) {
+            WidgetActionTrace.record("CAPACITY_LIMIT", null, identity, tool, -1);
             throw new CoreClientException(ToolErrorCode.ACTION_REFERENCE_UNAVAILABLE);
         }
         try {
             String reference = UUID.randomUUID().toString();
             entries.put(reference, new Entry(identity.publicUserRef(), identity.connectionRef(), tool,
-                    mapper.writeValueAsString(arguments), now.plus(Duration.ofMinutes(15))));
+                    mapper.writeValueAsString(arguments), now, now.plus(Duration.ofMinutes(15))));
+            WidgetActionTrace.record("PREPARED", reference, identity, tool, 0);
             return Map.of("kind", "action.reference", "data", Map.of("reference", reference));
         } catch (IOException exception) {
+            WidgetActionTrace.record("SERIALIZATION_ERROR", null, identity, "-", -1);
             throw new CoreClientException(ToolErrorCode.INTERNAL_ERROR);
         }
     }
 
     synchronized Map<String, Object> resolve(McpIdentity identity, String reference) {
         Entry entry = entries.get(reference);
-        if (entry == null || !entry.expiresAt().isAfter(clock.instant())
-                || !entry.owner().equals(identity.publicUserRef())
-                || !entry.connection().equals(identity.connectionRef())) {
+        Instant now = clock.instant();
+        long ageMs = entry == null ? -1 : Duration.between(entry.createdAt(), now).toMillis();
+        String reason = entry == null ? "REFERENCE_NOT_FOUND"
+                : !entry.expiresAt().isAfter(now) ? "REFERENCE_EXPIRED"
+                : !entry.owner().equals(identity.publicUserRef()) ? "OWNER_MISMATCH"
+                : !entry.connection().equals(identity.connectionRef()) ? "CONNECTION_MISMATCH" : null;
+        if (reason != null) {
+            WidgetActionTrace.record(reason, reference, identity, entry == null ? "-" : entry.tool(), ageMs);
             throw new CoreClientException(ToolErrorCode.ACTION_REFERENCE_UNAVAILABLE);
         }
-        identity.requireScopes(scopes(entry.tool()));
+        requireScopes(identity, entry.tool(), reference, ageMs);
         try {
+            Object arguments = mapper.readValue(entry.arguments(), Object.class);
+            WidgetActionTrace.record("RESOLVED", reference, identity, entry.tool(), ageMs);
             return Map.of("kind", "action.resolved", "data", Map.of("tool", entry.tool(),
-                    "arguments", mapper.readValue(entry.arguments(), Object.class)));
+                    "arguments", arguments));
         } catch (IOException exception) {
+            WidgetActionTrace.record("SERIALIZATION_ERROR", null, identity, "-", -1);
             throw new CoreClientException(ToolErrorCode.INTERNAL_ERROR);
+        }
+    }
+
+    private static void requireScopes(McpIdentity identity, String tool, String reference, long ageMs) {
+        try {
+            identity.requireScopes(scopes(tool));
+        } catch (McpAuthException exception) {
+            WidgetActionTrace.record("INSUFFICIENT_SCOPE", reference, identity, tool, ageMs);
+            throw exception;
         }
     }
 
@@ -85,6 +121,7 @@ final class WidgetActionStore {
         });
     }
 
-    private record Entry(String owner, String connection, String tool, String arguments, Instant expiresAt) {
+    private record Entry(String owner, String connection, String tool, String arguments,
+            Instant createdAt, Instant expiresAt) {
     }
 }

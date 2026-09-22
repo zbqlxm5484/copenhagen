@@ -1,6 +1,10 @@
 package com.copenhagen.mcp.integration;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.copenhagen.mcp.auth.McpIdentity;
+import com.copenhagen.mcp.tool.WidgetActionTrace;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import java.time.Clock;
 import java.time.Instant;
@@ -8,9 +12,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -61,5 +68,48 @@ class WidgetActionStoreTest {
                 () -> store.resolve(identity("one", "connection", "cart:read"), reference));
         assertThrows(RuntimeException.class, () -> prepare(owner, "delete_cart_item", Map.of()));
         assertThrows(RuntimeException.class, () -> prepare(owner, "unknown", Map.of()));
+    }
+    @Test
+    void traceSeparatesFailuresWithoutExposingRawValues() {
+        Logger logger = (Logger) LoggerFactory.getLogger(WidgetActionTrace.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            var owner = identity("private-owner", "private-connection", "catalog:read");
+            String reference = prepare(owner, "search_products", Map.of("query", "private-product"));
+            when(clock.instant()).thenReturn(now.plusSeconds(13));
+            store.resolve(owner, reference);
+            assertThrows(RuntimeException.class,
+                    () -> store.resolve(identity("other", "private-connection", "catalog:read"), reference));
+            assertThrows(RuntimeException.class,
+                    () -> store.resolve(identity("private-owner", "other", "catalog:read"), reference));
+            assertThrows(RuntimeException.class, () -> store.resolve(owner, "missing-reference"));
+            when(clock.instant()).thenReturn(now.plusSeconds(900));
+            assertThrows(RuntimeException.class, () -> store.resolve(owner, reference));
+            assertThrows(com.copenhagen.mcp.auth.McpAuthException.class,
+                    () -> store.prepare(owner, Map.of("tool", "get_cart", "arguments", Map.of())));
+            store.prepare(owner, Map.of("tool", "search_products", "arguments", Map.of()));
+            assertThrows(RuntimeException.class, () -> store.resolve(owner, reference));
+            String first = appender.list.get(0).getFormattedMessage();
+            String second = appender.list.get(1).getFormattedMessage();
+            String referenceHash = first.split("referenceHash=")[1].split(",")[0];
+            assertTrue(second.contains("referenceHash=" + referenceHash));
+            assertFalse(first.contains(reference));
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+        String logs = appender.list.stream().map(ILoggingEvent::getFormattedMessage)
+                .collect(java.util.stream.Collectors.joining("\n"));
+        for (String reason : Set.of("PREPARED", "RESOLVED", "OWNER_MISMATCH", "CONNECTION_MISMATCH",
+                "REFERENCE_NOT_FOUND", "REFERENCE_EXPIRED", "INSUFFICIENT_SCOPE", "EXPIRED_REMOVED")) {
+            assertTrue(logs.contains("reason=" + reason), reason);
+        }
+        assertTrue(logs.contains("ageMs=13000"));
+        assertFalse(logs.contains("private-owner"));
+        assertFalse(logs.contains("private-connection"));
+        assertFalse(logs.contains("private-product"));
+        assertFalse(logs.contains("missing-reference"));
     }
 }
