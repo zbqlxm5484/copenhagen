@@ -181,6 +181,13 @@ public final class CoreCommerceService {
         return output("purchase.handoff", data);
     }
 
+    public Map<String, Object> purchaseHistory(McpIdentity identity, Map<String, Object> input) {
+        validate(CommerceSchemas.PURCHASE_HISTORY, input);
+        Map<String, Object> response = client.exchange(identity, "GET", "/internal/v1/purchase-history",
+                input, null, null);
+        return output("purchase.history", CommerceProjection.purchaseHistory(response));
+    }
+
     public Map<String, Object> purchaseStatus(McpIdentity identity, Map<String, Object> input, boolean resend) {
         validate(resend ? CommerceSchemas.PURCHASE_NOTIFY : CommerceSchemas.PURCHASE_STATUS, input);
         String path = "/internal/v1/purchase-requests/" + input.get("purchaseRequestId");

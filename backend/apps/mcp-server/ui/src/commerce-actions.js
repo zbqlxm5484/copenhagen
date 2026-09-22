@@ -1,6 +1,6 @@
-const writes = new Set(['add_cart_item', 'update_cart_item', 'delete_cart_item', 'prepare_purchase_handoff', 'resend_purchase_notification']);
+const writes = new Set(['add_cart_item', 'update_cart_item', 'delete_cart_item', 'apply_cart_changes', 'prepare_purchase_handoff', 'resend_purchase_notification']);
 const tools = new Set([...writes, 'search_products', 'get_product_detail', 'prepare_cart', 'get_cart', 'get_purchase_status']);
-export const isCartWrite = tool => ['add_cart_item', 'update_cart_item', 'delete_cart_item'].includes(tool);
+export const isCartWrite = tool => ['add_cart_item', 'update_cart_item', 'delete_cart_item', 'apply_cart_changes'].includes(tool);
 export function createCartPreparation(read) {
   let prepared, inFlight;
   return {
@@ -35,13 +35,13 @@ export async function sendAction(app, intent, deliver) {
   if (typeof app.updateModelContext !== 'function') throw new Error('선택 정보를 전달할 수 없어요. 채팅에서 상품명과 옵션·수량을 직접 알려주세요.');
   await deliver(() => app.updateModelContext({ structuredContent: {
     copenhagenAction: { reference: value.data.reference, intent: message.content[0].text,
-      instruction: '일치하는 사용자 요청에만 resolve_widget_action으로 조회한 뒤 실행하세요. 참조가 없거나 모호하면 재선택을 요청하세요. 내부 식별자를 답변에 출력하지 마세요.' },
+      instruction: '일치하는 사용자 요청에만 resolve_widget_action으로 조회한 뒤 실행하세요. 참조가 없거나 모호하면 재선택을 요청하세요. 내부 식별자를 답변에 출력하지 마세요. 장바구니 변경을 모두 처리한 뒤 display_cart를 정확히 한 번 호출해 최종 수량·금액을 보여주세요. 중간 카드는 표시하지 마세요.' },
   } }));
   return deliver(() => app.sendMessage(message));
 }
 export function actionLabel(tool) {
   const labels = { get_product_detail: '선택한 상품의 옵션을 보여주세요.', search_products: '선택한 조건으로 상품을 더 보여주세요.',
-    get_cart: '장바구니를 보여주세요.', add_cart_item: '선택한 상품을 장바구니에 담아주세요.',
+    get_cart: '장바구니를 보여주세요.', apply_cart_changes: '선택한 장바구니 변경사항을 한 번에 적용해주세요.', add_cart_item: '선택한 상품을 장바구니에 담아주세요.',
     update_cart_item: '선택한 수량으로 변경해주세요.', delete_cart_item: '선택한 상품을 장바구니에서 삭제해주세요.',
     prepare_purchase_handoff: '장바구니 상품의 결제를 앱으로 요청해주세요.',
     get_purchase_status: '결제 진행 상태를 보여주세요.', resend_purchase_notification: '결제 알림을 다시 요청해주세요.' };

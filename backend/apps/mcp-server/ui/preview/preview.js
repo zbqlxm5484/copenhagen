@@ -27,11 +27,12 @@ function execute(name, args = {}) {
  if(name==='get_cart'||name==='prepare_cart')return result('cart.view',cart());
  if(name==='get_product_detail') {const p=merchantProduct(products.find(p=>p.id===args.merchantProductId)??products[0],args.merchantId);return result('catalog.detail',{
   merchantId:args.merchantId??'merchant-a',merchantName:merchantName(args.merchantId),merchantProductId:p.id,name:p.name,imageUrl:product(p).imageUrl,checkedAt,
-  optionGroups:[{id:'type',name:'옵션',values:[{id:'basic',name:'기본 옵션'}]}],
-  variants:[{merchantVariantId:p.id+'-default',optionValueIds:['basic'],priceAmount:p.price,currency:'KRW',availability:'IN_STOCK',stockQuantity:12,purchasable:true,minQuantity:1,maxQuantity:12}],shipping:{feeAmount:null,status:'UNKNOWN'}});}
+  optionGroups:[{id:'type',name:'옵션',values:[{id:'basic',name:'기본 옵션'},{id:'extra',name:'추가 옵션 (QA 예시)'}]}],
+  variants:[{merchantVariantId:p.id+'-default',optionValueIds:['basic'],priceAmount:p.price,currency:'KRW',availability:'IN_STOCK',stockQuantity:12,purchasable:true,minQuantity:1,maxQuantity:12},...(document.getElementById('scenario').value==='options'?[{merchantVariantId:p.id+'-extra',optionValueIds:['extra'],priceAmount:p.price+1000,currency:'KRW',availability:'IN_STOCK',stockQuantity:5,purchasable:true,minQuantity:1,maxQuantity:5}]:[])],shipping:{feeAmount:null,status:'UNKNOWN'}});}
  if(name==='add_cart_item') {const p=merchantProduct(products.find(p=>p.id===args.merchantProductId),args.merchantId);items.push({cartItemId:'line-'+(++count),merchantId:args.merchantId,merchantProductId:p.id,merchantVariantId:args.merchantVariantId,name:p.name,imageUrl:p.imageUrl,quantity:args.quantity,lineTotalAmount:p.price*args.quantity,unitPriceAmount:p.price,currency:'KRW',selectedOptions:[{name:'옵션',value:'기본 옵션'}]});version++;response=result('cart.mutation',{outcome:'APPLIED',cart:cart()});}
- if(name==='update_cart_item'){const i=items.find(i=>i.cartItemId===args.cartItemId);i.quantity=args.quantity;i.lineTotalAmount=i.unitPriceAmount*i.quantity;version++;response=result('cart.mutation',{outcome:'APPLIED',cart:cart()});}
+ if(name==='update_cart_item'){const i=items.find(i=>i.cartItemId===args.cartItemId);i.quantity=args.quantity;i.merchantVariantId=args.merchantVariantId;const base=merchantProduct(products.find(p=>p.id===i.merchantProductId),i.merchantId);i.unitPriceAmount=base.price+(args.merchantVariantId.endsWith('-extra')?1000:0);i.selectedOptions=[{name:'옵션',value:args.merchantVariantId.endsWith('-extra')?'추가 옵션 (QA 예시)':'기본 옵션'}];i.lineTotalAmount=i.unitPriceAmount*i.quantity;version++;response=result('cart.mutation',{outcome:'APPLIED',cart:cart()});}
  if(name==='delete_cart_item'){items=items.filter(i=>i.cartItemId!==args.cartItemId);version++;response=result('cart.mutation',{outcome:'APPLIED',cart:cart()});}
+ if(name==='apply_cart_changes'){for(const [index,change] of args.changes.entries()){execute(change.operation==='DELETE'?'delete_cart_item':'update_cart_item',{...change,cartVersion:version,idempotencyKey:args.idempotencyKey+':'+index});}response=result('cart.view',cart());}
  if(name==='prepare_purchase_handoff')response=result('purchase.handoff',{purchaseRequestId:'00000000-0000-4000-8000-000000000001',cartId:'preview-cart',cartVersion:version,status:'PENDING_ADDRESS',expiresAt:new Date(Date.now()+1800000).toISOString()});
  if(name==='get_purchase_status'||name==='resend_purchase_notification')response=result('purchase.status',{purchaseRequestId:args.purchaseRequestId,status:'AWAITING_APPROVAL',merchantCheckouts:[],notifications:[],expiresAt:new Date(Date.now()+1800000).toISOString()});
  if(!response)throw Error('미리보기에서 지원하지 않는 도구');if(args.idempotencyKey)mutations.set(args.idempotencyKey,response);return response;
@@ -53,7 +54,7 @@ window.addEventListener('message',event=>{if(event.origin!==location.origin||!ev
  else if(m.method==='size')frame.style.height=Math.ceil(m.params.height+2)+'px';
  else if(m.method==='call')send(execute(m.params.name,m.params.arguments));
  else if(m.method==='context'){stored.context=m.params;send({});}
- else if(m.method==='message'){const text=m.params.content[0].text;const reference=text.match(/코펜하겐 요청번호: ([0-9a-f-]{36})/)?.[1];const intent=actionReferences.get(reference);if(!intent)throw Error('선택 요청을 확인할 수 없어요.');
+ else if(m.method==='message'){const text=m.params.content[0].text;const reference=stored.context?.structuredContent?.copenhagenAction?.reference;const intent=actionReferences.get(reference);if(!intent)throw Error('선택 요청을 확인할 수 없어요.');
  const bubble=document.createElement('p');bubble.className='bubble user';bubble.textContent=m.params.content[0].text;thread.append(bubble);
  const output=execute(intent.tool,intent.arguments);appendCard(intent.tool,intent.arguments,output);send({});}
  }catch(e){send(null,e.message);}

@@ -81,6 +81,7 @@ public class McpConfiguration {
             McpProperties properties,
             McpAuthResponses authResponses,
             List<McpToolDefinition> definitions,
+            com.copenhagen.mcp.diagnostics.DiagnosticSessions diagnostics,
             List<SyncResourceSpecification> resources) {
         McpToolExecutor executor = new McpToolExecutor(mapper, validator, authResponses);
         return McpServer.sync(transport)
@@ -92,7 +93,7 @@ public class McpConfiguration {
                 .jsonSchemaValidator(validator)
                 // 공통 실행기가 입력을 검증하고 검증 상세값의 외부 노출을 방지한다.
                 .validateToolInputs(false)
-                .tools(definitions.stream().map(executor::specification).toList())
+                .tools(definitions.stream().map(diagnostics::instrument).map(executor::specification).toList())
                 .resources(resources)
                 .build();
     }

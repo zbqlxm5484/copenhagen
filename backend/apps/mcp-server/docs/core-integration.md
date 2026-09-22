@@ -82,7 +82,12 @@ discovery와 JWKS URL을 사용한다. `/internal/v1`은 외부에 공개하지 
 | `delete_cart_item` | DELETE `/internal/v1/carts/current/items/{cartItemId}?cartVersion=N` | `cart:write` |
 | `prepare_purchase_handoff` | POST `/internal/v1/purchase-requests` | `purchase:handoff` |
 | `get_purchase_status` | GET `/internal/v1/purchase-requests/{id}` | `purchase:handoff` |
+| `get_purchase_history` | GET `/internal/v1/purchase-history` | `purchase:handoff` |
 | `resend_purchase_notification` | POST `/internal/v1/purchase-requests/{id}/notifications` | `purchase:handoff` |
+
+`get_purchase_history`는 최근 6개월 구매내역을 데이터로만 반환하는 읽기 전용 도구다.
+페이지 이동, nullable 상품 ID, 재구매 안내 및 배포 검증은
+[구매내역 MCP 연동](../../../../docs/api/mcp-purchase-history-495.md)을 따른다.
 
 모든 내부 호출은 Service JWT를 `Authorization`, 현재 요청의 Agent JWT를
 `X-Agent-Authorization`, UUID를 `X-Request-Id`에 넣는다. Agent JWT를 서버 캐시나

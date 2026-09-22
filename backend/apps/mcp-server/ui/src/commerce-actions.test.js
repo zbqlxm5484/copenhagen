@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 import { actionMessage, actionSession, createCartPreparation, isCartWrite, viewAccepts } from './commerce-actions.js';
 
 const key = '00000000-0000-4000-8000-000000000001';
+test('batch intent keeps its ordered changes and key on retry and locks a second submission', () => {
+  let saved;
+  const session = actionSession(null, value => { saved = structuredClone(value); }, () => key);
+  const changes = [{ operation: 'DELETE', cartItemId: 'first' },
+    { operation: 'UPDATE', cartItemId: 'second', merchantVariantId: 'basic', quantity: 3 }];
+  const intent = session.prepare('apply_cart_changes', { cartVersion: 7, changes });
+  assert.equal(isCartWrite(intent.tool), true);
+  assert.deepEqual(actionSession(saved, () => {}).retry(), intent);
+  assert.throws(() => session.prepare(intent.tool, intent.args), /이미 변경/);
+});
 test('write intent persists before delivery and retries preserve exact body and key after restore', () => {
   let stored;
   const session = actionSession(null, value => { stored = structuredClone(value); }, () => key, () => 1000);

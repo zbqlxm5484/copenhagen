@@ -70,7 +70,12 @@ public final class InternalCoreClient {
                 .collect(Collectors.joining("&"));
         URI destination = properties.baseUrl().resolve(path + suffix);
         long tokenStarted = System.nanoTime();
-        String serviceToken = tokens.accessToken();
+        String serviceToken;
+        try {
+            serviceToken = tokens.accessToken();
+        } finally {
+            com.copenhagen.mcp.diagnostics.DiagnosticSessions.stage("service_token", tokenStarted);
+        }
         log.info("MCP timing: requestId={}, stage=service_token, elapsedMs={}",
                 requestId, (System.nanoTime() - tokenStarted) / 1_000_000);
         HttpRequest.Builder builder = HttpRequest.newBuilder(destination).timeout(properties.requestTimeout())
@@ -136,6 +141,7 @@ public final class InternalCoreClient {
             throw new CoreApiException("CORE_UNAVAILABLE", unknown, requestId);
         } finally {
             pending.cancel(true);
+            com.copenhagen.mcp.diagnostics.DiagnosticSessions.stage("core_http", coreStarted);
             log.info("MCP timing: requestId={}, stage=core_http, method={}, elapsedMs={}",
                     requestId, method, (System.nanoTime() - coreStarted) / 1_000_000);
         }

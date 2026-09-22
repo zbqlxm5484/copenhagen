@@ -1,3 +1,5 @@
+import { cardNotice, sameCartVersion, cardContentHeight } from './card-notice.js';
+import { createCartDraft } from './cart-draft.js';
 import { App } from '@modelcontextprotocol/ext-apps';
 import { productImage } from './product-image.js';
 import { amount, payload, variantLabel } from './live-state.js';
@@ -16,6 +18,8 @@ const el = (tag, text, cls) => { const n = document.createElement(tag); if (text
 const view = document.body.dataset.view;
 let app, ready = false, sending = false, internalReads = 0, latest, latestInput = window.openai?.toolInput ?? {};
 let resultTimer, terminal = false;
+let refreshControls = () => {};
+let staleCart = false, noticeReason;
 function collapseResult() {
   clearTimeout(resultTimer); terminal = true; progress.show('idle', '');
   if (!latest) document.body.classList.add('result-collapsed');
@@ -37,6 +41,7 @@ const progress = createCardProgress(({ phase, text }) => {
 const status = text => progress.show(text ? 'notice' : 'idle', text);
 const gate = createActionGate();
 const button = (label, fn, secondary = false) => { const n = el('button', label, secondary ? 'secondary' : ''); n.onclick = async () => {
+  if (n.disabled) return;
   await gate.run(async () => {
     const enabled = [...document.querySelectorAll('button,input,select')].filter(control => !control.disabled);
     enabled.forEach(control => { control.disabled = true; });
@@ -46,11 +51,12 @@ const button = (label, fn, secondary = false) => { const n = el('button', label,
         : e.code === 'UI_TIMEOUT' ? '권한 확인이 지연되고 있어요. 동의 창을 확인해주세요. 선택 정보는 유지됩니다.' : e.message);
     } finally { enabled.forEach(control => { if (control.isConnected) control.disabled = false; }); }
   });
+  refreshControls(); renderCardNotice();
 }; return n; };
 const sizing = createHostSizing({ getApp: () => ready ? app : null,
   getDisplayState: () => ({ mode: 'inline', confirmed: true }),
   measure: () => ({ width: innerWidth, height: document.body.classList.contains('result-collapsed')
-    ? 1 : document.querySelector('main').getBoundingClientRect().height }) });
+    ? 1 : cardContentHeight(document.querySelector('main').getBoundingClientRect().height) }) });
 new ResizeObserver(() => sizing.notify()).observe(document.querySelector('main'));
 async function read(name, args, kind) {
   internalReads++;
@@ -75,13 +81,28 @@ async function deliver(intent) {
   } finally { sending = false; }
 }
 async function next(tool, args = {}, label) {
-  if (isCartWrite(tool)) {
+  if (isCartWrite(tool) || tool === 'prepare_purchase_handoff') {
     progress.begin('authorization', '장바구니 이용 권한을 확인하고 있어요.', '동의 창이 열려 있다면 완료해주세요. 선택한 정보는 유지됩니다.');
-    await cartPreparation.ensure();
+    const current = await cartPreparation.ensure();
+    if (args.cartVersion != null && !sameCartVersion(args.cartVersion, current.version)) {
+      staleCart = true;
+      throw new Error('장바구니가 변경됐어요. 최신 장바구니에서 다시 선택해주세요.');
+    }
   }
   const intent = session.prepare(tool, args, label);
   if (label) intent.label = label;
   await deliver(intent);
+}
+function renderCardNotice() {
+  const notice = cardNotice({ pending: !!session.pending, stale: staleCart });
+  if (noticeReason === notice?.title) return;
+  noticeReason = notice?.title;
+  const panel = $('card-notice'); panel.replaceChildren(); panel.hidden = !notice;
+  if (notice) {
+    panel.append(el('strong', `ⓘ ${notice.title}`), el('p', notice.text),
+      button('최신 장바구니 보기 ↗', () => next('get_cart', {}, '최신 장바구니를 보여주세요.'), true));
+  }
+  sizing.notify();
 }
 function heading(title, subtitle, eyebrow) { $('title').textContent = title; $('subtitle').textContent = subtitle; $('eyebrow').textContent = eyebrow; }
 function productRail(label) {
@@ -177,8 +198,10 @@ function renderDetail(data) {
   const update = () => { const v = data.variants.find(v => v.merchantVariantId === select.value);
     price.textContent = v ? amount(v.priceAmount) : '옵션 선택 후 가격 확인';
     stock.textContent = v ? `${availability(v.availability)}${v.stockQuantity == null ? '' : ` · 재고 ${v.stockQuantity}개`}` : '';
-    quantity.min = v?.minQuantity ?? 1; quantity.max = v?.maxQuantity ?? 99; add.disabled = !v?.purchasable;
-  }; select.onchange = () => { update(); remember(); }; update();
+    quantity.min = v?.minQuantity ?? 1; quantity.max = v?.maxQuantity ?? 99; const count = Number(quantity.value);
+    add.disabled = !!session.pending || staleCart || gate.active || !v?.purchasable || !Number.isInteger(count) || count < quantity.min || count > quantity.max;
+  }; select.onchange = () => { update(); remember(); }; quantity.addEventListener('input', update);
+  refreshControls = update; update();
   const actions = el('div', null, 'cart-add-actions'); actions.append(qty, add);
   const facts = el('div', null, 'detail-facts'); facts.append(stock);
   if (Number.isSafeInteger(data.shipping?.feeAmount)) facts.append(el('p', `배송비 ${amount(data.shipping.feeAmount)}`, 'sub'));
@@ -186,21 +209,72 @@ function renderDetail(data) {
 }
 function renderCart(data) {
   heading(`장바구니 · ${data.items.length}개 상품`, '', '');
-  const { section: list, grid } = productRail('장바구니 상품');
+  const list = el('section', null, 'receipt-list'), grid = el('div', null, 'receipt-items');
+  list.setAttribute('aria-label', '장바구니 상품'); list.append(grid);
   if (!data.items.length) list.append(el('p', '장바구니가 비어 있어요. 채팅에서 원하는 상품을 찾아보세요.', 'empty'));
+  const draft = createCartDraft(data.items);
+  const rowUpdates = [];
   const merchants = new Map(data.merchantSummaries.map(m => [m.merchantId, m.merchantName]));
   for (const item of data.items) if (!merchants.has(item.merchantId)) merchants.set(item.merchantId, '판매처');
   for (const [id, name] of merchants) {
     for (const item of data.items.filter(i => i.merchantId === id)) {
-      const row = el('article', null, 'card'), info = el('div', null, 'card-body');
-      info.append(el('h2', item.name, 'name'), el('p', amount(item.lineTotalAmount), 'price'), el('p', `${item.selectedOptions.map(o => o.value).join(' · ')} · ${item.quantity}개`, 'sub'), el('p', name, 'price-caption'));
-      const actions = el('div', null, 'cart-edit'), quantity = el('input'); quantity.type = 'number'; quantity.min = '1'; quantity.max = '99'; quantity.value = item.quantity;
+      const row = el('article', null, 'receipt-row'), info = el('div', null, 'receipt-info');
+      info.append(el('h2', item.name, 'name'), el('p', name, 'price-caption'));
+      const linePrice = el('p', amount(item.lineTotalAmount), 'receipt-price');
+      const actions = el('div', null, 'receipt-controls'), quantity = el('input'); quantity.type = 'number'; quantity.min = '1'; quantity.max = '99'; quantity.value = item.quantity;
       const label = el('label', '수량'); label.append(quantity);
-      actions.append(label, button('수량 변경 ↗', () => {
-        const count = Number(quantity.value); if (!Number.isInteger(count) || count < 1 || count > 99) throw new Error('수량은 1~99 사이로 입력해주세요.');
-        return next('update_cart_item', { cartVersion: data.version, cartItemId: item.cartItemId, merchantVariantId: item.merchantVariantId, quantity: count }, `${item.name}의 현재 옵션 수량을 ${count}개로 변경해주세요.`);
-      }, true), button('삭제 ↗', () => next('delete_cart_item', { cartVersion: data.version, cartItemId: item.cartItemId }, `${item.name}을 장바구니에서 삭제해주세요.`), true));
-      info.append(actions); row.append(productImage(item.imageUrl), info); grid.append(row);
+      const optionArea = el('div', null, 'receipt-option'), optionSelect = el('select');
+      optionSelect.setAttribute('aria-label', `${item.name} 옵션`); optionSelect.hidden = true;
+      let variants = [], detail, optionsLoaded = false;
+      const loadOptions = button(`${item.selectedOptions.map(o => o.value).join(' · ') || '옵션 확인'} ▾`, async () => {
+        detail = await read('get_product_detail', { merchantId: item.merchantId, merchantProductId: item.merchantProductId }, 'catalog.detail');
+        if (detail.merchantId !== item.merchantId || detail.merchantProductId !== item.merchantProductId) throw new Error('상품 옵션을 확인하지 못했어요.');
+        variants = detail.variants ?? [];
+        optionSelect.replaceChildren();
+        for (const variant of variants) {
+          const option = new Option(`${variantLabel(detail, variant)} · ${amount(variant.priceAmount)}`, variant.merchantVariantId);
+          option.disabled = !variant.purchasable; optionSelect.add(option);
+        }
+        optionSelect.value = draft.get(item.cartItemId).merchantVariantId;
+        if (!optionSelect.value) {
+          const current = new Option('현재 옵션을 판매하지 않아요. 다시 선택해주세요.', '', true, true);
+          current.disabled = true; optionSelect.add(current);
+        }
+        optionsLoaded = true; loadOptions.hidden = true; optionSelect.hidden = false;
+        const selected = variants.find(variant => variant.merchantVariantId === optionSelect.value);
+        if (selected) draft.option(item.cartItemId, selected, variantLabel(detail, selected));
+        else draft.option(item.cartItemId, { merchantVariantId: item.merchantVariantId, priceAmount: item.unitPriceAmount, purchasable: false }, '다시 선택 필요');
+        if (variants.length === 1 && selected) optionHint.textContent = '선택 가능한 옵션이 하나예요.';
+        else if (!variants.some(variant => variant.purchasable)) optionHint.textContent = '현재 선택 가능한 옵션이 없어요.';
+        refreshControls();
+      }, true);
+      loadOptions.disabled = !item.merchantProductId;
+      optionSelect.addEventListener('change', () => {
+        const variant = variants.find(value => value.merchantVariantId === optionSelect.value);
+        if (variant?.purchasable) draft.option(item.cartItemId, variant, variantLabel(detail, variant));
+        refreshControls();
+      });
+      loadOptions.setAttribute('aria-label', `${item.name} 옵션 변경`);
+      const optionHint = el('p', '', 'sub');
+      optionArea.append(loadOptions, optionSelect, optionHint);
+      info.insertBefore(optionArea, info.lastChild);
+      const remove = button('삭제 선택', () => { draft.toggleDelete(item.cartItemId); refreshControls(); }, true);
+      const update = () => {
+        const edit = draft.get(item.cartItemId);
+        quantity.disabled = edit.deleted || !!session.pending || staleCart || gate.active;
+        remove.disabled = !!session.pending || staleCart || gate.active;
+        loadOptions.disabled = remove.disabled || edit.deleted || !item.merchantProductId;
+        optionSelect.disabled = remove.disabled || edit.deleted || (optionsLoaded && variants.length <= 1 && optionSelect.value !== '');
+        quantity.min = edit.minQuantity ?? 1; quantity.max = Math.min(99, edit.maxQuantity ?? 99);
+        remove.textContent = edit.deleted ? '삭제 취소' : '삭제 선택';
+        remove.setAttribute('aria-pressed', String(edit.deleted));
+        row.classList.toggle('draft-deleted', edit.deleted);
+      };
+      rowUpdates.push(update);
+      quantity.setAttribute('aria-label', `${item.name} 수량`);
+      quantity.addEventListener('input', () => { draft.quantity(item.cartItemId, quantity.value); refreshControls(); });
+      actions.append(label, remove);
+      row.append(productImage(item.imageUrl), info, linePrice, actions); grid.append(row);
     }
   }
   const summary = el('div', null, 'summary-panel'), total = el('div', null, 'cart-total');
@@ -210,8 +284,25 @@ function renderCart(data) {
   summary.append(total);
   if (Number.isSafeInteger(data.summary.shippingAmount)) summary.append(el('p', `배송비 ${amount(data.summary.shippingAmount)}`, 'sub'));
   summary.append(el('p', '최종 금액과 배송지는 앱에서 확인합니다. 결제 요청만으로 결제되지는 않아요.', 'sub'));
-  const purchase = button('앱으로 결제 요청 ↗', () => next('prepare_purchase_handoff', { cartId: data.cartId, cartVersion: data.version })); purchase.disabled = !data.items.length;
-  summary.append(purchase); $('content').append(list, summary);
+  const preview = el('p', '', 'draft-notice'); preview.setAttribute('role', 'status');
+  const apply = button('변경사항 적용 ↗', () => {
+    const state = draft.snapshot();
+    if (!state.valid || !state.dirty) return;
+    return next('apply_cart_changes', { cartVersion: data.version, changes: state.changes }, state.label);
+  });
+  const purchase = button('앱으로 결제 요청 ↗', () => next('prepare_purchase_handoff', { cartId: data.cartId, cartVersion: data.version }));
+  refreshControls = () => {
+    rowUpdates.forEach(update => update());
+    const state = draft.snapshot(), locked = !!session.pending || staleCart || gate.active;
+    apply.disabled = locked || !state.valid || !state.dirty;
+    purchase.disabled = locked || state.dirty || !state.valid || !data.items.length;
+    preview.textContent = state.dirty
+      ? !state.valid ? '판매 가능한 옵션과 수량 범위를 확인해주세요. 변경은 한 번에 30개 상품까지 가능합니다.'
+        : `${state.changes.length}개 상품 변경 예정 · 상품 금액 미리보기 ${state.subtotal == null ? '계산 불가' : amount(state.subtotal)}. 아직 반영되지 않았어요. 변경사항을 적용한 후 결제를 요청해주세요.`
+      : '옵션·수량과 삭제할 상품을 선택한 뒤 변경사항을 한 번에 적용하세요.';
+  };
+  refreshControls();
+  summary.append(preview, apply, purchase); $('content').append(list, summary);
 }
 function renderPurchase(data, kind) {
   heading('결제 승인은 앱에서', '휴대폰 알림을 열고 주문 내용과 최종 금액을 확인해주세요.', '04 / APPROVAL');
@@ -219,7 +310,6 @@ function renderPurchase(data, kind) {
   const progress = kind === 'purchase.status' ? purchaseProgress(data) : { text: '구매 요청이 접수됐어요. 현재 진행 상태를 확인해주세요.' };
   panel.append(el('div', '↗', 'purchase-symbol'), el('h2', kind === 'purchase.handoff' ? '구매 요청을 전달했어요' : '구매 진행 상태'), el('p', progress.text));
   const steps = el('div', null, 'purchase-steps'); for (const label of ['주문 확인', '앱 알림', '사용자 승인']) steps.append(el('span', label)); panel.append(steps);
-  panel.append(el('p', `요청 ${data.purchaseRequestId}`, 'receipt-id'));
   if (data.expiresAt) panel.append(el('p', `요청 유효 시각 ${new Date(data.expiresAt).toLocaleString('ko-KR')}`, 'sub'));
   $('content').append(panel);
   $('actions').append(button('현재 결제 상태 보기 ↗', () => next('get_purchase_status', { purchaseRequestId: data.purchaseRequestId })));
@@ -234,6 +324,7 @@ function accept(result) {
   if (resultDisposition(result, view) !== 'render') { collapseResult(); return; }
   if (!viewAccepts(view, value?.kind) || !value.data) return;
   clearTimeout(resultTimer); terminal = true; document.body.classList.remove('result-collapsed');
+  refreshControls = () => {};
   latest = value; $('content').replaceChildren(); $('actions').replaceChildren(); status('');
   try {
     if (view === 'search') renderSearch({ ...value.data, query: value.data.query ?? latestInput });
@@ -244,7 +335,7 @@ function accept(result) {
       else { heading(value.data.outcome === 'APPLIED' ? '장바구니 변경을 처리했어요' : '장바구니 처리 결과를 확인하지 못했어요', '', ''); }
     } else renderPurchase(value.data, value.kind);
     $('checked-at').textContent = value.data.checkedAt ? new Date(value.data.checkedAt).toLocaleTimeString('ko-KR') : '';
-    sizing.notify();
+    renderCardNotice(); sizing.notify();
   } catch { status('표시할 정보를 확인하지 못했어요. 채팅에서 최신 결과를 다시 요청해주세요.'); }
 }
 app = new App({ name: 'Copenhagen Cards', version: '1.0.0' }, { availableDisplayModes: ['inline'] }, { autoResize: false });
