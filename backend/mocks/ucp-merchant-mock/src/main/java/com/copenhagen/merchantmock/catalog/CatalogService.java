@@ -34,6 +34,9 @@ public class CatalogService {
     /** MCP 도구 기본 {@code pageSize}. 첫 화면 넷이 곧 결과다. 백오프는 후보가 이보다 적을 때만 건다(ADR 0013 규칙 4). */
     static final int PAGE = 4;
 
+    /** {@link #count} 가 순차로 보는 앞부분. 흔한 낱말은 여기서 끝난다(전량의 2%). */
+    static final int PREFIX_SCAN = 2_000;
+
     /** 머리 명사 가중치에 더하는 여유. 나머지 토큰이 전부 맞아도 머리 명사 하나가 이기게 한다(규칙 7). */
     private static final double HEAD_MARGIN = 0.5;
 
@@ -304,18 +307,34 @@ public class CatalogService {
         return false;
     }
 
-    /** 묶음의 낱말 하나라도 든 상품 수. 백오프 판정용. 한 화면(4)만 넘으면 되므로 전부 세지 않고 멈춘다. */
+    /**
+     * 묶음의 낱말 하나라도 든 상품 수. 백오프 판정용. 한 화면(4)만 넘으면 되므로 전부 세지 않고 멈춘다.
+     *
+     * <p><b>앞부분만 순차로 보고 모자랄 때만 병렬로 넘어간다(2026-09-23, 472).</b> 흔한 낱말은 앞에서 네 건을
+     * 채우고 끝나므로 병렬 분할 비용을 물면 오히려 손해다 — 그리고 질의 대부분이 그 경우다. 반대로 드문 낱말은
+     * 없다는 것을 알려면 전량을 훑어야 하는데, 본 스캔이 22코어를 쓰는 동안 이 판정만 한 코어로 도는 것이
+     * 느린 질의의 원인이었다(13절 실측: 흔한 낱말 24.6ms 대 드문 낱말 74.8ms). 그 경우에만 병렬이 값을 한다.
+     */
     private static int count(List<SearchDoc> docs, List<String> group, boolean noSpace) {
+        int prefix = Math.min(docs.size(), PREFIX_SCAN);
         int found = 0;
-        for (SearchDoc doc : docs) {
-            if (doc.containsAny(group, noSpace)) {
+        for (int index = 0; index < prefix; index++) {
+            if (docs.get(index).containsAny(group, noSpace)) {
                 found++;
                 if (found >= PAGE) {
                     return found;
                 }
             }
         }
-        return found;
+        if (prefix == docs.size()) {
+            return found;
+        }
+        long rest = docs.subList(prefix, docs.size()).parallelStream()
+                .unordered()
+                .filter(doc -> doc.containsAny(group, noSpace))
+                .limit(PAGE - (long) found)
+                .count();
+        return found + (int) rest;
     }
 
     /**
