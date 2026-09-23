@@ -288,7 +288,6 @@ function renderCart(data) {
   total.append(el('span', totalKnown ? '예상 결제금액' : '상품 금액'), el('strong', amount(totalKnown ? data.summary.totalAmount : subtotal)));
   summary.append(total);
   if (Number.isSafeInteger(data.summary.shippingAmount)) summary.append(el('p', `배송비 ${amount(data.summary.shippingAmount)}`, 'sub'));
-  summary.append(el('p', '최종 금액과 배송지는 앱에서 확인합니다. 결제 요청만으로 결제되지는 않아요.', 'sub'));
   const preview = el('p', '', 'draft-notice'); preview.setAttribute('role', 'status');
   const apply = button('변경사항 적용 ↗', () => {
     const state = draft.snapshot();
@@ -303,8 +302,9 @@ function renderCart(data) {
     purchase.disabled = locked || state.dirty || !state.valid || !data.items.length;
     preview.textContent = state.dirty
       ? !state.valid ? '판매 가능한 옵션과 수량 범위를 확인해주세요. 변경은 한 번에 30개 상품까지 가능합니다.'
-        : `${state.changes.length}개 상품 변경 예정 · 상품 금액 미리보기 ${state.subtotal == null ? '계산 불가' : amount(state.subtotal)}. 아직 반영되지 않았어요. 변경사항을 적용한 후 결제를 요청해주세요.`
-      : '옵션·수량과 삭제할 상품을 선택한 뒤 변경사항을 한 번에 적용하세요.';
+        : `${state.changes.length}개 상품 변경 예정 · 상품 금액 미리보기 ${state.subtotal == null ? '계산 불가' : amount(state.subtotal)}`
+      : '';
+    preview.hidden = !state.dirty;
   };
   refreshControls();
   summary.append(preview, apply, purchase); $('content').append(list, summary);
