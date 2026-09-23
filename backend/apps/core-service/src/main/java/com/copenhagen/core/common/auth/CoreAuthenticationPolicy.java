@@ -13,6 +13,8 @@ package com.copenhagen.core.common.auth;
  * 대상에 넣지 않는다 — 각자 자기 인증 방식(로그인 폼, client 인증)을 스스로 검증한다.
  * {@code /api/core/v1/purchase-requests}(이슈 423)는 앱이 구매 인계를 조회하고 배송지를 골라 재개하는
  * 사용자 소유 경로라 같은 등급으로 보호한다.
+ *
+ * <p>{@code /api/core/v2/orders}는 주문내역 v2다. v1과 같은 자원을 읽으므로 보호 등급도 같다.
  */
 public final class CoreAuthenticationPolicy {
 
@@ -24,6 +26,8 @@ public final class CoreAuthenticationPolicy {
     private static final String CART_PATH_PREFIX = CART_PATH + "/";
     private static final String ORDERS_PATH = "/api/core/v1/orders";
     private static final String ORDERS_PATH_PREFIX = ORDERS_PATH + "/";
+    private static final String ORDERS_V2_PATH = "/api/core/v2/orders";
+    private static final String ORDERS_V2_PATH_PREFIX = ORDERS_V2_PATH + "/";
     private static final String PURCHASE_REQUESTS_PATH = "/api/core/v1/purchase-requests";
     private static final String PURCHASE_REQUESTS_PATH_PREFIX = PURCHASE_REQUESTS_PATH + "/";
     private static final String AGENT_CONNECTIONS_PATH = "/api/core/v1/users/me/agent-connections";
@@ -41,6 +45,8 @@ public final class CoreAuthenticationPolicy {
                 || path.startsWith(CART_PATH_PREFIX)
                 || ORDERS_PATH.equals(path)
                 || path.startsWith(ORDERS_PATH_PREFIX)
+                || ORDERS_V2_PATH.equals(path)
+                || path.startsWith(ORDERS_V2_PATH_PREFIX)
                 || PURCHASE_REQUESTS_PATH.equals(path)
                 || path.startsWith(PURCHASE_REQUESTS_PATH_PREFIX)
                 || AGENT_CONNECTIONS_PATH.equals(path)

@@ -40,9 +40,9 @@ public class JdbcMerchantCheckoutRepository implements MerchantCheckoutRepositor
     private static final String INSERT_SNAPSHOT_ITEM_SQL = """
             INSERT INTO checkout_snapshot_items
                 (checkout_snapshot_id, merchant_product_id, merchant_variant_id, product_name, product_url,
-                    selected_options, quantity, unit_price_amount, discount_amount, line_total_amount,
-                    currency, cart_item_public_id)
-            VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?)
+                    image_url, selected_options, quantity, unit_price_amount, discount_amount,
+                    line_total_amount, currency, cart_item_public_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?)
             """;
 
     private static final String INSERT_FULFILLMENT_OPTION_SQL = """
@@ -323,6 +323,7 @@ public class JdbcMerchantCheckoutRepository implements MerchantCheckoutRepositor
                 item.merchantVariantId(),
                 item.productName(),
                 item.productUrl(),
+                item.imageUrl(),
                 item.selectedOptions(),
                 item.quantity(),
                 item.unitPriceAmount(),
