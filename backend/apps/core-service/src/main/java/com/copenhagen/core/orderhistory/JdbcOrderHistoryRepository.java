@@ -76,17 +76,27 @@ public class JdbcOrderHistoryRepository implements OrderHistoryRepository {
         }
         String placeholders = checkoutSnapshotIds.stream().map(ignored -> "?")
                 .collect(Collectors.joining(", "));
+        // merchant_id는 주문서 단위라 checkout_snapshot_items에 없다. v2 응답이 상품 식별자를 내주려면
+        // merchant_checkouts까지 두 단계를 거슬러야 한다.
         String sql = """
-                SELECT checkout_snapshot_id, product_name, selected_options::text, quantity
-                FROM checkout_snapshot_items
-                WHERE checkout_snapshot_id IN (%s)
-                ORDER BY checkout_snapshot_id ASC, id ASC
+                SELECT csi.checkout_snapshot_id, mc.merchant_id,
+                       csi.merchant_product_id, csi.merchant_variant_id,
+                       csi.product_name, csi.image_url, csi.selected_options::text, csi.quantity
+                FROM checkout_snapshot_items csi
+                JOIN checkout_snapshots cs ON cs.id = csi.checkout_snapshot_id
+                JOIN merchant_checkouts mc ON mc.id = cs.merchant_checkout_id
+                WHERE csi.checkout_snapshot_id IN (%s)
+                ORDER BY csi.checkout_snapshot_id ASC, csi.id ASC
                 """.formatted(placeholders);
         return jdbcTemplate.query(
                 sql,
                 (resultSet, rowNumber) -> new OrderItemRow(
                         resultSet.getLong("checkout_snapshot_id"),
+                        resultSet.getLong("merchant_id"),
+                        resultSet.getString("merchant_product_id"),
+                        resultSet.getString("merchant_variant_id"),
                         resultSet.getString("product_name"),
+                        resultSet.getString("image_url"),
                         resultSet.getString("selected_options"),
                         resultSet.getInt("quantity")),
                 checkoutSnapshotIds.toArray());

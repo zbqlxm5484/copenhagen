@@ -12,6 +12,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
+import com.copenhagen.core.cart.CartMerchants;
 import com.copenhagen.core.common.crypto.PiiEncryptor;
 import com.copenhagen.core.common.error.CoreErrorCode;
 import com.copenhagen.core.common.error.CoreException;
@@ -37,12 +38,15 @@ public class OrderHistoryService {
     private final OrderHistoryRepository repository;
     private final PiiEncryptor piiEncryptor;
     private final ObjectMapper objectMapper;
+    private final CartMerchants cartMerchants;
 
     public OrderHistoryService(
-            OrderHistoryRepository repository, PiiEncryptor piiEncryptor, ObjectMapper objectMapper) {
+            OrderHistoryRepository repository, PiiEncryptor piiEncryptor, ObjectMapper objectMapper,
+            CartMerchants cartMerchants) {
         this.repository = repository;
         this.piiEncryptor = piiEncryptor;
         this.objectMapper = objectMapper;
+        this.cartMerchants = cartMerchants;
     }
 
     public OrderPageResponse list(long userId, Integer requestedSize, String encodedCursor, String requestedStatus) {
@@ -67,6 +71,32 @@ public class OrderHistoryService {
         return toResponse(row, items);
     }
 
+    /**
+     * v2 목록. 조회·페이지네이션은 v1과 같고 항목만 상품 식별자와 이미지를 더 싣는다(v1 응답은 그대로 둔다).
+     */
+    public OrderV2PageResponse listV2(
+            long userId, Integer requestedSize, String encodedCursor, String requestedStatus) {
+        int pageSize = pageSize(requestedSize);
+        String status = status(requestedStatus);
+        OrderCursor cursor = decodeCursor(encodedCursor);
+        List<OrderRow> fetched = repository.findPage(userId, status, cursor, pageSize + 1);
+        boolean hasNext = fetched.size() > pageSize;
+        List<OrderRow> page = hasNext ? fetched.subList(0, pageSize) : fetched;
+        Map<Long, List<OrderItemRow>> itemsBySnapshot = itemsBySnapshot(page);
+        List<OrderV2Response> items = page.stream()
+                .map(row -> toV2Response(row, itemsBySnapshot.getOrDefault(row.checkoutSnapshotId(), List.of())))
+                .toList();
+        String nextCursor = hasNext ? encodeCursor(page.getLast()) : null;
+        return new OrderV2PageResponse(items, nextCursor);
+    }
+
+    public OrderV2Response getV2(long userId, UUID orderId) {
+        OrderRow row = repository.findByPublicIdAndUserId(orderId, userId)
+                .orElseThrow(() -> new CoreException(CoreErrorCode.ORDER_NOT_FOUND));
+        List<OrderItemRow> items = repository.findItemsBySnapshotIds(List.of(row.checkoutSnapshotId()));
+        return toV2Response(row, items);
+    }
+
     private Map<Long, List<OrderItemRow>> itemsBySnapshot(List<OrderRow> orders) {
         List<Long> snapshotIds = orders.stream().map(OrderRow::checkoutSnapshotId).toList();
         Map<Long, List<OrderItemRow>> grouped = new LinkedHashMap<>();
@@ -82,20 +112,51 @@ public class OrderHistoryService {
                 .toList();
         return new OrderResponse(
                 row.publicId(),
-                title(items),
+                title(items.stream().map(ItemSummary::name).toList()),
                 row.status(),
                 row.amountMinor(),
                 row.currency(),
                 row.createdAt(),
                 items,
-                new AddressSnapshot(
-                        emptyIfNull(piiEncryptor.decrypt(row.recipient())),
-                        emptyIfNull(piiEncryptor.decrypt(row.phone())),
-                        emptyIfNull(piiEncryptor.decrypt(row.postalCode())),
-                        emptyIfNull(piiEncryptor.decrypt(row.address())),
-                        emptyIfNull(piiEncryptor.decrypt(row.detail())),
-                        emptyIfNull(piiEncryptor.decrypt(row.memo()))),
+                address(row),
                 emptyIfNull(row.paymentLabel(), PAYMENT_LABEL_FALLBACK));
+    }
+
+    /**
+     * v1과 다른 곳은 {@code items}뿐이다. {@code imageUrl}은 V22 이전 주문서 스냅샷에서 {@code null}이고,
+     * 그 경우 필드를 비운다 — 빈 문자열로 바꾸면 "이미지가 있다"는 오해를 준다.
+     */
+    private OrderV2Response toV2Response(OrderRow row, List<OrderItemRow> itemRows) {
+        List<ItemDetail> items = itemRows.stream()
+                .map(item -> new ItemDetail(
+                        cartMerchants.merchantId(item.merchantRefId()),
+                        item.merchantProductId(),
+                        item.merchantVariantId(),
+                        item.name(),
+                        option(item.selectedOptions()),
+                        item.imageUrl(),
+                        item.quantity()))
+                .toList();
+        return new OrderV2Response(
+                row.publicId(),
+                title(items.stream().map(ItemDetail::name).toList()),
+                row.status(),
+                row.amountMinor(),
+                row.currency(),
+                row.createdAt(),
+                items,
+                address(row),
+                emptyIfNull(row.paymentLabel(), PAYMENT_LABEL_FALLBACK));
+    }
+
+    private AddressSnapshot address(OrderRow row) {
+        return new AddressSnapshot(
+                emptyIfNull(piiEncryptor.decrypt(row.recipient())),
+                emptyIfNull(piiEncryptor.decrypt(row.phone())),
+                emptyIfNull(piiEncryptor.decrypt(row.postalCode())),
+                emptyIfNull(piiEncryptor.decrypt(row.address())),
+                emptyIfNull(piiEncryptor.decrypt(row.detail())),
+                emptyIfNull(piiEncryptor.decrypt(row.memo())));
     }
 
     private String option(String selectedOptions) {
@@ -119,13 +180,13 @@ public class OrderHistoryService {
         }
     }
 
-    private static String title(List<ItemSummary> items) {
-        if (items.isEmpty()) {
+    private static String title(List<String> names) {
+        if (names.isEmpty()) {
             return "주문 상품";
         }
-        return items.size() == 1
-                ? items.getFirst().name()
-                : items.getFirst().name() + " 외 " + (items.size() - 1) + "건";
+        return names.size() == 1
+                ? names.getFirst()
+                : names.getFirst() + " 외 " + (names.size() - 1) + "건";
     }
 
     private static int pageSize(Integer requestedSize) {
@@ -201,6 +262,38 @@ public class OrderHistoryService {
     }
 
     public record ItemSummary(String name, String option, int quantity) {
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record OrderV2PageResponse(List<OrderV2Response> items, String nextCursor) {
+    }
+
+    /** v1의 {@code OrderResponse}와 항목 타입만 다르다. 나머지 필드는 이름·의미가 같다. */
+    public record OrderV2Response(
+            UUID orderId,
+            String title,
+            String status,
+            long amountMinor,
+            String currency,
+            Instant createdAt,
+            List<ItemDetail> items,
+            AddressSnapshot address,
+            String paymentLabel) {
+    }
+
+    /**
+     * v2 주문 항목. {@code merchantId}·{@code merchantProductId}·{@code merchantVariantId}로 상품을
+     * 다시 찾을 수 있고, {@code imageUrl}은 주문 당시 캡처한 이미지 주소다(없으면 {@code null}).
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record ItemDetail(
+            String merchantId,
+            String merchantProductId,
+            String merchantVariantId,
+            String name,
+            String option,
+            String imageUrl,
+            int quantity) {
     }
 
     public record AddressSnapshot(

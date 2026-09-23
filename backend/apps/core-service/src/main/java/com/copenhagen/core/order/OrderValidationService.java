@@ -376,8 +376,8 @@ public class OrderValidationService {
     }
 
     /**
-     * 수량·단가는 merchant가 확정한 값, 상품 url과 선택 옵션 상세는 장바구니에서 온다 — merchant Checkout
-     * 응답에 그 둘이 없다. 상품명은 "주문 당시 상품명"이라 merchant 응답을 쓴다.
+     * 수량·단가는 merchant가 확정한 값, 상품 url·이미지 url·선택 옵션 상세는 장바구니에서 온다 —
+     * merchant Checkout 응답에 그것들이 없다. 상품명은 "주문 당시 상품명"이라 merchant 응답을 쓴다.
      */
     private static List<CheckoutSnapshotItem> toSnapshotItems(List<CartItem> items, Checkout checkout) {
         List<LineItem> lines = checkout.lineItems();
@@ -390,6 +390,7 @@ public class OrderValidationService {
                     item.merchantVariantId(),
                     line.item().title(),
                     item.productUrl(),
+                    item.imageUrl(),
                     item.selectedOptions(),
                     line.quantity(),
                     line.item().price(),
