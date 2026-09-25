@@ -18,7 +18,7 @@ public record CoreProperties(
         Duration connectTimeout,
         Duration requestTimeout) {
 
-    public static final String WEBHOOK_PATH = "/webhooks/ucp/orders";
+    public static final String WEBHOOK_PATH = "/webhooks/v1/ucp/orders";
     public static final Duration DEFAULT_PROFILE_CACHE = Duration.ofMinutes(5);
     public static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(1);
     public static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(3);

@@ -144,9 +144,9 @@ services:
     restart: unless-stopped
 
   # 가상 몰 셋을 컨테이너 하나가 서빙한다(ucp-merchant-mock DESIGN.md 3.3·5.7절, ADR 0008). 몰은 application.yml 의
-  # merchant.malls 목록이고 경로 /api/ucp/v1/{merchantId}/... 의 세그먼트가 어느 몰인지 말한다. 시드 파일 셋이 한 DB 에 들어간다.
-  # Core 는 지금 merchant-a 하나만 등록돼 있다(MERCHANT_SERVICE_URL). b·c 를 Core services.merchants[] 에 몰별 base-url 로,
-  # Pay 토큰 JSON·merchant_accounts 에 등록하는 것은 각 담당의 일이다. 옛 경로 /ucp/v1/** 는 merchant-a 별칭으로 산다.
+  # merchant.malls 목록이고 경로 /api/ucp/v1/{merchantId}/... 의 세그먼트가 어느 몰인지 말한다. 카탈로그 풀 하나가 한 DB 에 들어간다.
+  # Core services.merchants[] 와 Pay merchant_accounts 에 몰 셋이 등록돼 있다. 몰별 결제는 PAY_MERCHANT_TOKENS_JSON 에 토큰 셋이 필요하다.
+  # 옛 경로 /.well-known/ucp·/ucp/v1/** 는 merchant-a 별칭으로 산다. Pay 가 Profile 을 옛 경로로 가져간다.
   ucp-merchant-mock:
     image: ${MERCHANT_MOCK_IMAGE:-copenhagen/ucp-merchant-mock:local}
     build:
@@ -159,8 +159,7 @@ services:
       PAY_SERVICE_URL: http://pay-service:8080
       PAY_MERCHANT_TOKEN: ${PAY_MERCHANT_TOKEN:-}
       PAY_MERCHANT_TOKENS_JSON: ${PAY_MERCHANT_TOKENS_JSON:-}
-      # 시연 카탈로그. 몰 셋의 시드 파일을 쉼표로 이어 한 DB 에 넣는다(몰당 약 1,100건). 비우면 V3 시드 5건만 뜬다.
-      # 카탈로그 풀 하나(DESIGN.md 5.7절 2026-09-21). 몰 셋의 가격·재고 편차는 로더가 계산한다.
+      # 시연 카탈로그. 풀 하나(100,262건)를 몰 셋이 공유하고 몰별 가격·재고 편차는 로더가 계산한다. 비우면 V3 시드 5건만 뜬다.
       # 0 은 전량(약 10만 건 × 몰 셋). EC2 RAM 16GB 확인(2026-09-21). 줄이려면 앞 N 건만 싣는 N 을 준다.
       MERCHANT_CATALOG_POOL_FILE: ${MERCHANT_CATALOG_POOL_FILE:-classpath:catalog/pool.json.gz}
       MERCHANT_CATALOG_POOL_LIMIT: ${MERCHANT_CATALOG_POOL_LIMIT:-0}

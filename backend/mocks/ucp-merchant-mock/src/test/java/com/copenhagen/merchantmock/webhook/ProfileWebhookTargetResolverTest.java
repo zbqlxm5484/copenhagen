@@ -61,13 +61,13 @@ class ProfileWebhookTargetResolverTest {
     }
 
     @Test
-    @DisplayName("Profile 을 못 읽으면 fallback 이다. 기본은 {core}/webhooks/ucp/orders")
+    @DisplayName("Profile 을 못 읽으면 fallback 이다. 기본은 {core}/webhooks/v1/ucp/orders")
     void resolve_profileUnavailable_fallsBack() {
         // given
         server.expect(requestTo(PROFILE_URL)).andRespond(withServerError());
 
         // when & then
-        assertEquals(URI.create("http://core-service:8080/webhooks/ucp/orders"), resolver.resolve());
+        assertEquals(URI.create("http://core-service:8080/webhooks/v1/ucp/orders"), resolver.resolve());
     }
 
     @Test
@@ -78,7 +78,7 @@ class ProfileWebhookTargetResolverTest {
                 .andRespond(withSuccess(PROFILE_WITHOUT_WEBHOOK, MediaType.APPLICATION_JSON));
 
         // when & then
-        assertEquals(URI.create("http://core-service:8080/webhooks/ucp/orders"), resolver.resolve());
+        assertEquals(URI.create("http://core-service:8080/webhooks/v1/ucp/orders"), resolver.resolve());
     }
 
     @Test
@@ -97,7 +97,7 @@ class ProfileWebhookTargetResolverTest {
 
         // then
         assertEquals(first, second, "5분 안에는 같은 값이고 요청도 한 번뿐이다");
-        assertEquals(URI.create("http://core-service:8080/webhooks/ucp/orders"), third,
+        assertEquals(URI.create("http://core-service:8080/webhooks/v1/ucp/orders"), third,
                 "만료 뒤 다시 읽었고 이번엔 실패해 fallback 이다");
         server.verify();
     }
@@ -112,7 +112,7 @@ class ProfileWebhookTargetResolverTest {
         // then
         assertEquals("http://core:8080/.well-known/ucp", custom.profileUrl());
         assertEquals("http://core:8080/webhooks/v1/ucp/orders", custom.webhookUrlFallback());
-        assertEquals("http://core-service:8080/webhooks/ucp/orders", properties.webhookUrlFallback());
+        assertEquals("http://core-service:8080/webhooks/v1/ucp/orders", properties.webhookUrlFallback());
         assertEquals(Duration.ofMinutes(5), custom.profileCache());
     }
 

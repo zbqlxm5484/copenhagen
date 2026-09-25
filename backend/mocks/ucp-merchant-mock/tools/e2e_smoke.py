@@ -44,7 +44,7 @@ SHOPPING_SERVICE = "dev.ucp.shopping"
 AP2_LIKE_NAMESPACE = "com.copenhagen.payment.ap2_like"
 PAYMENT_HANDLER_NAMESPACE = "com.copenhagen.pay"
 PAYMENT_HANDLER_ID = "copenhagen-pay-handler"
-WEBHOOK_PATH = "/webhooks/ucp/orders"
+WEBHOOK_PATH = "/webhooks/v1/ucp/orders"
 SIGNED_COMPONENTS = '"@method" "@authority" "@path" "content-digest" "content-type"'
 SIGNATURE_INPUT_RE = re.compile(
     r'^sig1=\((?P<components>[^)]*)\);created=(?P<created>\d+);keyid="(?P<keyid>[^"]+)"$'

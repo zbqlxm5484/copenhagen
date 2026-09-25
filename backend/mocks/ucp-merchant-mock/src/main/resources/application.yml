@@ -330,7 +330,7 @@ merchant:
 core:
   # Platform Profile 을 가져오는 데만 쓴다. 웹훅 주소는 Profile 의 dev.ucp.shopping.order config.webhook_url 에서 읽는다.
   base-url: ${CORE_SERVICE_URL:http://core-service:8080}
-  # Profile 을 못 읽거나 webhook_url 이 없을 때만. Core 확정본 5.2 와 technical-flow 8절의 경로다(DESIGN.md 8.6절).
+  # Profile 을 못 읽거나 webhook_url 이 없을 때만. Core OrderWebhookController 와 technical-flow 8절의 경로다(ADR 0010, DESIGN.md 8.6절).
   webhook-url-fallback: ${CORE_WEBHOOK_URL:}
   profile-cache: PT5M
   connect-timeout: PT1S
