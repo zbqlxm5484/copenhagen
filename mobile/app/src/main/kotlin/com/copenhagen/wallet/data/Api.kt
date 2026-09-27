@@ -10,6 +10,7 @@ inline fun <reified T> JsonElement.read(): T = json.decodeFromJsonElement(this)
 
 /** 인증 갱신은 여기 한 곳에서만 한다. PG 호출에는 Core 토큰을 붙이지 않는다. */
 class Api(private val store: Store, private val http: Http = Http()) {
+    val decorations = DecorationReads(http, { store.tokens?.accessToken }, { store.core }, { store.pay })
     suspend fun login(loginId: String, password: String) {
         val body = buildJsonObject {
             put("loginId", loginId); put("password", password)
@@ -31,6 +32,15 @@ class Api(private val store: Store, private val http: Http = Http()) {
         method: String, path: String, body: JsonElement? = null,
         query: Map<String, String> = emptyMap()
     ) = authenticated(store.core, method, "/api/core/v1$path", body, query = query)
+
+    suspend fun coreCommand(method: String, path: String, body: JsonElement?, key: String) =
+        authenticated(store.core, method, "/api/core/v1$path", body, key = key)
+
+    /** Order history can negotiate v2 independently of the remaining Core v1 APIs. */
+    suspend fun orderHistory(path: String, query: Map<String, String>): JsonElement {
+        require(path.matches(Regex("/api/core/v[12]/orders(?:/[a-fA-F0-9-]{36})?")))
+        return authenticated(store.core, "GET", path, null, query = query)
+    }
 
     suspend fun pay(
         method: String, path: String, body: JsonElement? = null, key: String? = null,

@@ -12,6 +12,7 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import java.util.concurrent.TimeUnit
+import java.util.UUID
 
 /** 실제 Http 전송 코드와 실제 JSON 빌더를 사용한다. 외부 서버·실카드는 사용하지 않는다. */
 class HttpTest {
@@ -22,26 +23,30 @@ class HttpTest {
     @After fun stop() { server.shutdown() }
 
     @Test fun pgRequestHasNoBearerToken() = runBlocking {
+        val key = newKey()
         server.enqueue(MockResponse().setBody("""{"provider":"mock-pg","providerTokenRef":"opaque","brand":"VISA","last4":"1111","expiryMonth":12,"expiryYear":2099}"""))
         val token = http.request(server.url("/").toString(), "POST", "/api/pg/v1/payment-methods/tokenize",
-            tokenizeBody("4111111111111111", 12, 2099, "123"), key = "tokenize-test").read<TokenizedCard>()
+            tokenizeBody("4111111111111111", 12, 2099, "123"), key = key).read<TokenizedCard>()
         val request = server.takeRequest(2, TimeUnit.SECONDS)!!
         assertEquals("/api/pg/v1/payment-methods/tokenize", request.path)
         assertEquals("POST", request.method)
         assertNull(request.getHeader("Authorization"))
-        assertEquals("tokenize-test", request.getHeader("Idempotency-Key"))
+        assertEquals(key, request.getHeader("Idempotency-Key"))
+        assertEquals(key, UUID.fromString(request.getHeader("Idempotency-Key")).toString())
         assertEquals("mock-pg", token.provider)
     }
     @Test fun payRegistrationRetryKeepsTokenBodyAndKey() = runBlocking {
+        val key = newKey()
         val body = registerCardBody(TokenizedCard("mock-pg", "opaque", "VISA", "1111", 12, 2099))
         repeat(2) {
             server.enqueue(MockResponse().setResponseCode(201).setBody("""{"paymentMethodId":"id","isDefault":true,"status":"ACTIVE"}"""))
             http.request(server.url("/").toString(), "POST", "/api/pay/v1/payment-methods/cards", body,
-                token = "user-access-token", key = "register-card-test")
+                token = "user-access-token", key = key)
         }
         val first = server.takeRequest(2, TimeUnit.SECONDS)!!
         val retry = server.takeRequest(2, TimeUnit.SECONDS)!!
         assertEquals("Bearer user-access-token", first.getHeader("Authorization"))
+        assertEquals(key, UUID.fromString(first.getHeader("Idempotency-Key")).toString())
         assertEquals(first.getHeader("Idempotency-Key"), retry.getHeader("Idempotency-Key"))
         assertEquals(first.body.readUtf8(), retry.body.readUtf8())
     }
@@ -104,10 +109,41 @@ class HttpTest {
         assertEquals(0L, server.takeRequest(2, TimeUnit.SECONDS)!!.bodySize)
         assertFalse(logs.any { it.contains("body=") || it.contains("not-sent") })
     }
+    @Test fun mandateAndPgCardPasswordAreMaskedWithoutChangingPayloads() = runBlocking {
+        val response = """{"approvalId":"approval-id","status":"APPROVED","checkoutMandate":"signed-mandate-secret"}"""
+        server.enqueue(MockResponse().setBody(response))
+        val body = buildJsonObject { put("cardPassword", "pg-password-secret") }
+        val result = http.request(server.url("/").toString(), "POST", "/api/test", body)
+        assertEquals(body, json.parseToJsonElement(server.takeRequest().body.readUtf8()))
+        assertEquals("signed-mandate-secret", result.jsonObject.getValue("checkoutMandate").jsonPrimitive.content)
+        val output = logs.joinToString("\n")
+        assertFalse(output.contains("signed-mandate-secret"))
+        assertFalse(output.contains("pg-password-secret"))
+        assertTrue(output.contains("\"checkoutMandate\":\"***\""))
+        assertTrue(output.contains("\"cardPassword\":\"***\""))
+    }
     @Test fun empty204DoesNotNeedJson() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(204))
         assertEquals(JsonNull, http.request(server.url("/").toString(), "DELETE", "/card"))
         assertTrue(logs.any { it.endsWith("response=<empty>") })
+    }
+    @Test fun biometricRevocationUsesDeviceAndUuidHeadersWithoutABody() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(204))
+        val key = newKey()
+        val result = http.request(server.url("/").toString(), "DELETE",
+            "/api/pay/v1/users/me/biometric-credentials", token = "fixture-access", key = key,
+            headers = mapOf("X-Device-Id" to "fixture-device"))
+        val request = server.takeRequest(2, TimeUnit.SECONDS)!!
+        assertEquals("DELETE", request.method)
+        assertEquals("/api/pay/v1/users/me/biometric-credentials", request.path)
+        assertEquals("Bearer fixture-access", request.getHeader("Authorization"))
+        assertEquals("fixture-device", request.getHeader("X-Device-Id"))
+        assertEquals(key, request.getHeader("Idempotency-Key"))
+        assertEquals(key, java.util.UUID.fromString(key).toString())
+        assertEquals(0L, request.bodySize)
+        assertNull(request.getHeader("Content-Type"))
+        assertEquals(JsonNull, result)
+        assertFalse(logs.any { it.contains("fixture-access") || it.contains("fixture-device") })
     }
     @Test fun notificationDisconnectPreservesFidOnWireButMasksItsPathInLogs() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(204))
@@ -135,14 +171,16 @@ class HttpTest {
     @Test fun nonJsonResponseLoggingDoesNotLeakRawTextOrChangeErrors() = runBlocking {
         for (raw in listOf("<html>private-token-value</html>", "{\"token\":\"private-token-value\"")) {
             for (status in listOf(200, 502)) {
-                server.enqueue(MockResponse().setResponseCode(status).setBody(raw))
+                repeat(if (status == 502) 3 else 1) {
+                    server.enqueue(MockResponse().setResponseCode(status).setBody(raw))
+                }
                 val result = runCatching { http.request(server.url("/").toString(), "GET", "/api/test") }
                 if (status == 502) assertEquals(502, (result.exceptionOrNull() as ApiError).status)
                 else if (raw.startsWith("<")) assertEquals(raw, result.getOrThrow().jsonPrimitive.content)
                 else assertTrue(result.exceptionOrNull() is kotlinx.serialization.SerializationException)
             }
         }
-        assertEquals(4, logs.count { it.contains("response=<unstructured response;") })
+        assertEquals(8, logs.count { it.contains("response=<unstructured response;") })
         assertFalse(logs.any { it.contains("private-token-value") })
     }
     @Test fun longJsonResponseIsLoggedInChunksWithNestedSecretsMasked() = runBlocking {

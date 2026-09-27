@@ -61,7 +61,7 @@ class ConnectionsTest {
         server.enqueue(MockResponse().setBody(rows))
         connections.load()
         server.enqueue(MockResponse().setResponseCode(204))
-        server.enqueue(MockResponse().setResponseCode(503))
+        repeat(3) { server.enqueue(MockResponse().setResponseCode(503)) }
         assertTrue(runCatching { connections.disconnect(id) }.isFailure)
         assertNull(connections.items)
         server.enqueue(MockResponse().setBody("[]"))

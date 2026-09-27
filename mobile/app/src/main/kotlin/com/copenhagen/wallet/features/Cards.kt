@@ -22,7 +22,7 @@ class Cards(private val api: Api) {
         tokenizeBody(number, month, year, cvc) // 같은 입력 검증을 요청 직전에도 사용한다.
         clearDraft()
         this.number = normalizeCardNumber(number); this.month = month; this.year = year; this.cvc = cvc
-        tokenizeKey = newKey("tokenize-"); registerKey = newKey("register-card-")
+        tokenizeKey = newKey(); registerKey = newKey()
     }
     suspend fun register() {
         require(consents.size == 5) { "필수 약관에 동의해 주세요." }

@@ -15,6 +15,11 @@ fun setting(name: String, default: String = "") =
     providers.gradleProperty(name).orNull ?: environment.getProperty(name, default)
 fun quoted(value: String) = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
+// The fixture APK never consumes a production Firebase client or installation.
+tasks.configureEach {
+    if (name == "processPreviewGoogleServices") enabled = false
+}
+
 android {
     namespace = "com.copenhagen.wallet"
     compileSdk = 35
@@ -24,6 +29,7 @@ android {
         targetSdk = 35
         versionCode = 2
         versionName = "1.1.0"
+        buildConfigField("boolean", "ALLOW_SCREEN_CAPTURE", "false")
         for (name in listOf("CORE_BASE_URL", "PAY_BASE_URL", "PG_MOCK_BASE_URL")) {
             buildConfigField("String", name, quoted(setting(name)))
         }
@@ -32,6 +38,25 @@ android {
     }
     buildTypes {
         debug { manifestPlaceholders["cleartextAllowed"] = "true" }
+        // Keep the registered package/Firebase client so demonstrations retain login, links and push.
+        // Only this explicitly named build permits capture in the real app activities.
+        create("demo") {
+            initWith(getByName("debug"))
+            matchingFallbacks += listOf("debug")
+            buildConfigField("boolean", "ALLOW_SCREEN_CAPTURE", "true")
+        }
+        // Isolated, visibly labelled fixture harness. Never shares installed app data or hosts.
+        create("preview") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-fixture"
+            matchingFallbacks += listOf("debug")
+            for (name in listOf("CORE_BASE_URL", "PAY_BASE_URL", "PG_MOCK_BASE_URL")) {
+                buildConfigField("String", name, quoted("http://127.0.0.1:8787"))
+            }
+            buildConfigField("String", "APP_LINK_HOST", quoted("fixture.invalid"))
+            manifestPlaceholders["appLinkHost"] = "fixture.invalid"
+        }
         release {
             manifestPlaceholders["cleartextAllowed"] = "false"
             isMinifyEnabled = false
@@ -55,7 +80,6 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
@@ -66,6 +90,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

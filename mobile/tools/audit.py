@@ -19,7 +19,7 @@ def expect(name, condition):
 app = (src/'ui/App.kt').read_text()
 model = (src/'AppModel.kt').read_text()
 for screen in ['A01','A02','A03','A04','A05','A06','A07','A08','W01','W02','C01','C02','C03',
-               'D01','D02','D03','P01','P02','P03','P04','P05','P06','P07','H01','H02','S01','S02','X01']:
+               'D01','D02','D03','U01','P01','P02','P03','P04','P05','P06','P07','H01','H02','H03','S01','S02','X01']:
     expect('route '+screen, f'Screen.{screen}' in app and re.search(r'\b'+screen+r'\(',model))
 expect('one app module', 'include(":app")' in (root/'settings.gradle.kts').read_text() and not (root/'logic').exists())
 for removed in ['UnavailableTokenizer', 'IntegrationContract', 'FakeAddressRepository', 'interface CardTokenizer', 'WorkManager', 'reauthProof']:
@@ -33,7 +33,7 @@ expect('PG is a network request', 'http.request(store.pg' in pg and '/api/pg/v1/
 expect('PG dev only', 'check(BuildConfig.DEBUG)' in pg)
 expect('PG provider unchanged', 'result.provider == "mock-pg"' in pg)
 cards = (src/'features/Cards.kt').read_text()
-expect('separate operation keys', 'newKey("tokenize-")' in cards and 'newKey("register-card-")' in cards)
+expect('separate UUID operation keys', 'tokenizeKey = newKey(); registerKey = newKey()' in cards)
 expect('reuse existing token', 'token ?: api.tokenize' in cards)
 expect('no tokenization success fixture', 'tok_mock_' not in text)
 expect('Pay nested token', 'registerCardBody(tokenized), registerKey' in cards)

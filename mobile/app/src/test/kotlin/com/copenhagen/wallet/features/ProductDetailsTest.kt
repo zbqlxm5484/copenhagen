@@ -101,7 +101,7 @@ class ProductDetailsTest {
         server.enqueue(MockResponse().setBody(response(status = "NOT_FOUND"))); details.load(selected)
         assertEquals("NOT_FOUND", details.result!!.status)
         assertNull(details.result!!.product)
-        server.enqueue(MockResponse().setResponseCode(503))
+        repeat(3) { server.enqueue(MockResponse().setResponseCode(503)) }
         assertTrue(runCatching { details.reload() }.isFailure)
         assertNull(details.result)
         server.enqueue(MockResponse().setBody(response())); details.reload()

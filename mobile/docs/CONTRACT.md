@@ -1,7 +1,8 @@
 # 계약과 실제 연결 경계
 
-기준: [사용자가 지정한 Pay API v1.7 및 PG Mock 레퍼런스](https://app.notion.com/p/Pay-api-30285e9160e683dd942181966ae50da3#30285e9160e683dd942181966ae50da3), 2026-09-17 조회.
-문서의 배포 상태와 앱을 실제 서버에 연결해 검증했다는 뜻은 다르다. 전달 환경에서는 서버를 호출하지 않았다.
+기준: 2026-09-27 `Copenhagen Reimagined`에서 이전한 현재 클라이언트 코드.
+초기 구현은 [Pay API v1.7 및 PG Mock 레퍼런스](https://app.notion.com/p/Pay-api-30285e9160e683dd942181966ae50da3#30285e9160e683dd942181966ae50da3)를 따랐고, 이후 복수 판매처 승인·구매 기록·주문 v2 계약이 반영되었다.
+이번 이전에서는 서버 호출·빌드·테스트를 실행하지 않았다. 변경 단위는 [이전 내역](REIMAGINED.md)에 정리했다.
 
 ## PG
 
@@ -9,14 +10,14 @@
 
 - 요청: `cardNumber`, `expiryMonth`, `expiryYear`, `cvc` 네 필드만 전송한다.
 - 카드번호 공백·하이픈 제거, 13~19자리 Luhn, 유효 월/연도, CVC 3~4자리 검증.
-- Bearer 없음. `Idempotency-Key: tokenize-{uuid}`.
+- Bearer 없음. `Idempotency-Key`는 접두사 없는 UUID다.
 - 응답의 `provider`, `providerTokenRef`, `brand`, `last4`, `expiryMonth`, `expiryYear`를 `TokenizedCard`로 읽는다.
 - `provider`를 포함한 토큰화 결과는 실제 PG 응답값 그대로 Pay에 전달한다.
-- Pay 등록은 `POST /api/pay/v1/payment-methods/cards`, Bearer와 별도 `register-card-{uuid}` 키, 본문은 `{ "tokenizationResult": <PG 응답> }`.
+- Pay 등록은 `POST /api/pay/v1/payment-methods/cards`, Bearer와 토큰화와 다른 UUID 키, 본문은 `{ "tokenizationResult": <PG 응답> }`.
 - 토큰화 실패 시 Pay를 호출하지 않는다. Pay 등록만 실패한 경우 이미 받은 토큰과 Pay 키를 유지한다.
 - 명시적으로 흐름을 취소하거나 백그라운드로 나가면 입력·토큰·재시도 본문을 메모리에서 해제한다. 프로세스 종료 후 재시도 키를 복구하는 디스크 저널은 없다.
 - Pay 응답을 받지 못한 상태에서 뒤로 가면 카드 목록을 확인한다. 새 작업을 시작하기 전에 등록 결과를 확인해야 한다.
-- UI, 오류 문구, 로그, 저장소에 PAN·CVC·PG 토큰을 출력/저장하지 않는다. 앱의 네트워크 본문 로그 기능은 없다.
+- 카드 번호는 입력 화면에서 부분 마스킹하고 복사·잘라내기를 막는다. PAN·CVC·PG 토큰은 디스크에 저장하지 않는다. debug HTTP 본문 로그는 민감 필드를 마스킹한다.
 - 앱은 `/internal/v1/charges`, `/merchant/v1/payments`를 호출하지 않는다.
 
 Notion은 PG Mock API를 **구현 예정**, **운영 사용 금지**로 표시하며 앱용 외부 포트도 미설정이라고 설명한다.
@@ -35,18 +36,53 @@ Notion은 PG Mock API를 **구현 예정**, **운영 사용 금지**로 표시�
 | 카드 선택 | 승인 전 `PATCH /payment-approvals/{id}/payment-method`에 `paymentMethodId`. |
 | 승인 | 본문에 `authentication`만 넣는다. PIN은 `method/pin`, 생체는 `method/challengeId/assertion`. |
 | 승인 결과 | `APPROVED`와 `COMPLETED`를 구분한다. Mandate·Credential은 앱이 사용하지 않으므로 DTO에 저장하지 않는다. |
-| 실시간 | FCM `data.approvalId`로 승인 알림을 표시한다. 알림을 누르면 인증 후 상세를 조회한다. 목록 새로고침도 유지한다. |
+| 실시간 | data-only FCM의 `PURCHASE_HANDOFF`는 구매 ID, `APPROVAL_REQUESTED`는 승인 ID, `PAYMENT_RESULT`는 승인·결제 ID로 진입한다. 알림 전용 Activity에서 인증 후 서버 상태를 조회한다. |
 
 PIN·카드 등록·변경·삭제·기본 지정·생체 등록·승인·거절·선택에 멱등성 키를 보낸다.
 승인 응답이 유실되면 현재 흐름이 살아 있는 동안 동일 본문·동일 키로만 명시적 재시도가 가능하다.
-서버가 확정적으로 거부한 4xx는 미확정 성공으로 취급하지 않는다.
-호스트 변경/로그아웃 시 토큰과 사용자별 화면 상태 및 로컬 생체 키를 비운다. 기기에서 생체 인증을 끄는 동작은 로컬 키 삭제이며 서버 자격증명 해지 API가 아니다.
+408·409·425·429 등 불확실한 응답과 확정적인 인증·검증 거절을 구분한다. 이미 유실된 요청의 재전송이 거절되어도 최초 요청의 성공 가능성을 임의로 지우지 않는다.
+미확정 승인 ID는 암호화해 복원하고 서버 상태를 조회한다. PIN·생체 assertion과 재전송 인증 본문은 디스크에 저장하지 않는다.
+호스트 변경/로그아웃 시 토큰과 사용자별 화면 상태 및 로컬 생체 키를 비운다.
 
-## Core: 미확정 JSON 필드
+### 복수 판매처 승인과 실제 결제 결과
 
-첨부된 `api-contracts.json`의 경로·인증 계약을 사용했다. 최신 [배송지 등록 문서](https://app.notion.com/p/ea885e9160e6838398518100290cd835)도 개념적 필드명과 `addressId` 반환만 기술한다.
-상세 응답 필드가 정의되지 않은 부분은 실제 서버 계약이라고 주장하지 않는다. 아래는 **이 클라이언트가 현재 기대하는 명시적 구조**다.
-범용 JSON 경로 설정이나 여러 형식의 자동 추측 대신 `data/Models.kt`, `features/Account.kt`만 고친다.
+- 목록은 `totalAmountMinor`, `merchantName`, `merchantCount`를 읽으며 목록에 `checkoutId`를 요구하지 않는다. 이전 `amountMinor` 및 평면 상세 응답도 읽는다.
+- 상세의 `merchants[]`에서 판매처·checkout ID/hash·상품·소계 전체를 읽는다. 중복 판매처, 음수, 정수 오버플로, 총액 불일치를 거부한다.
+- 승인 직전 카드·통화·상품·판매처별 조건을 다시 비교한다. 선택적 이미지 보완은 승인 조건을 변경하지 않는다.
+- 공동 승인 ID는 한 번만 처리한다. Pay `APPROVED`는 승인 전달이며, Core 구매의 checkout 결과로 완료·부분 완료·실패를 표시한다. Pay 상태를 클라이언트에서 완료로 덮어쓰지 않는다.
+
+### 생체 인증 등록·해제
+
+`GET /api/pay/v1/users/me/biometric-credentials`에 `X-Device-Id`를 보내 서버 등록과 로컬 credential·Keystore 키를 비교한다.
+해제는 같은 경로의 DELETE에 UUID 멱등키와 기기 헤더를 보낸다. 서버 확인 후 로컬 키·credential을 지운다.
+해제 키는 복원할 수 있게 보관하며 서버 해제가 실패하면 재등록을 진행하지 않는다. 사용자가 시스템 인증을 취소하면 PIN 입력으로 이어간다.
+
+## Core: 구매 요청·배송지 선택
+
+MR !181의 구매 인계 계약과 저장소 `PurchaseWorkflowController`·`PurchaseWorkflowService.View`를 사용한다.
+기본 배송지 자동 선택 제거는 서버 MR의 변경이며 모바일은 같은 구매 ID를 조회·재개한다.
+
+| API | 계약 |
+|---|---|
+| GET `/api/core/v1/purchase-requests` | 최근 구매 요청의 래퍼 없는 배열 |
+| GET `/api/core/v1/purchase-requests/{id}` | `purchaseRequestId,status,cartId,cartVersion,expiresAt,failureCode?,nextAction,merchantCheckouts[]` |
+| POST `/api/core/v1/purchase-requests/{id}/resume` | 사용자 Bearer와 UUID `Idempotency-Key`, 본문 `{addressId,cartVersion}`, 응답은 현재 구매 객체 |
+
+판매처별 항목은 `merchantId,approvalId?,status,totalAmount,currency`다. 승인 생성 전 `approvalId=null`을 허용한다.
+금액은 Long으로 읽는다. 배송지 선택은 구매 요청 단위이며 여러 판매처가 같은 승인 ID를 공유할 수 있다. 결제 결과는 판매처별로 읽는다.
+상품 요약과 판매처 이름은 정확한 승인 참조·통화·판매처별 금액을 검증한 뒤 보완한다. 조회 실패 시 임의의 상품·금액을 만들지 않는다.
+
+- `PENDING_ADDRESS`에서만 주소 선택을 허용한다. 새 주소 등록은 기존 주소 API를 재사용하고 자동 resume하지 않는다.
+- resume의 버전은 해당 구매 조회 응답에서 가져온다. `CART_VERSION_CONFLICT`면 기존 구매의 재전송을 막고 장바구니 확인을 제공한다.
+- 전송 결과가 불분명하면 주소 변경을 잠그고 본문·키를 유지한다. 재시도는 먼저 GET하고 여전히 배송지 대기일 때만 같은 본문·키로 POST한다. 확정적인 4xx는 새 상태 조회를 요구한다.
+- 프로세스 재생성 시 알림 Activity의 Bundle에서 진입 대상을 복원한다. 배송지 확정 명령은 구매 ID·주소 ID·원래 장바구니 버전·멱등키만 암호화해 보관한다. 주소 원문·인증정보는 보관하지 않는다. 로그아웃·서버 변경 시 복구 정보도 지운다.
+- `CREATING_CHECKOUTS`는 준비 중, `COMPLETING`은 처리 중이며 `COMPLETED`만 전체 완료다. `PARTIALLY_COMPLETED`는 판매처별 결과를 표시한다. Pay `APPROVED`를 구매 완료로 바꾸지 않는다.
+- 알림을 지우거나 권한을 거부해도 홈/구매 요청에서 진입할 수 있다. 푸시의 `nextAction`을 현재 상태로 간주하지 않는다.
+
+## Core: 프로필·배송지·주문 응답
+
+아래는 `data/Models.kt`, `features/Account.kt`, `data/OrderHistoryReads.kt`가 읽는 구조다.
+프로필·배송지는 Core v1, 주문 조회는 Core v2를 우선 사용한다. 이번 이전에서 운영 서버의 배포 상태를 다시 확인하지는 않았다.
 
 | API | 클라이언트 기대 구조 |
 |---|---|
@@ -56,11 +92,27 @@ PIN·카드 등록·변경·삭제·기본 지정·생체 등록·승인·거절
 | POST `/addresses` | 요청 `{recipient,phone,postalCode,address,detail,memo}`, 응답 `{addressId}` |
 | PUT `/addresses/{id}` | POST와 같은 요청, 응답 본문 미사용 |
 | PATCH `/addresses/{id}/default`, DELETE `/addresses/{id}` | 응답 본문 미사용, 이후 목록 재조회 |
-| GET `/orders` | `{items:[{orderId,title,status,amountMinor,currency,createdAt,...}],nextCursor?}` |
-| GET `/orders/{id}` | 위 주문 객체에 `items:[{name,option,quantity}]`, `address`, `paymentLabel` 선택 필드 |
+| GET `/api/core/v2/orders` | `{items:[{orderId,title,status,amountMinor,currency,createdAt,...}],nextCursor?}` |
+| GET `/api/core/v2/orders/{id}` | 위 주문 객체에 `items:[{name,option?,quantity,amountMinor?,imageUrl?,merchantId?,merchantProductId?,merchantVariantId?}]`, 구조화된 `address?`, `paymentLabel` |
 
 주문 조회는 `size=20`, `cursor`, `status`를 사용한다. 승인 검색어는 로컬 필터이며 정의되지 않은 검색 파라미터를 보내지 않는다.
 Core 응답이 기대 구조와 다르면 오류로 표시하며 가짜 프로필/배송지/주문으로 채우지 않는다.
+
+주문 배송지는 `{recipient,phone,postalCode,address,detail,memo}`다. v2가 오류 코드 없는 경로 404를 반환할 때만 60초간 v1으로 전환한 뒤 v2를 다시 탐색한다.
+`ORDER_NOT_FOUND`, 인증 실패, 5xx·통신·파싱 오류는 버전 전환 근거가 아니다. v2 이미지가 없는 품목은 판매처·상품·옵션 ID로 조회하고 일치하는 이미지 URL만 보완한다.
+
+### 구매 기록과 표시 정보
+
+구매 기록은 최근 Core 구매 요청 목록을 먼저 표시한다. 화면에 보이는 카드만 승인 메타데이터와 대표 이미지를 보완한다.
+결제 금액·상태는 Core checkout을 기준으로 통화별 계산하며 상품명·금액·시간만으로 서로 다른 구매나 주문을 연결하지 않는다.
+주문 v2는 완료된 주문 조회이며 구매 요청 목록을 대체하지 않는다. 구매 목록의 커서·기간 검색과 구매-주문 연결 ID를 임의로 만들지 않는다.
+승인 메타데이터와 이미지 요청을 각각 최대 2개·4개로 제한하고 진행 중 요청을 공유한다. 표시용 조회는 현재 access token을 사용하되 토큰 갱신을 수행하지 않는다.
+로그아웃 시 관련 작업·캐시를 지우며 늦은 응답이 다른 세션이나 새 목록을 덮어쓰지 않도록 조회 세대를 확인한다.
+
+### HTTP 읽기 재시도
+
+GET·HEAD 및 상품 검색 POST에만 최대 2회 재시도를 허용한다. 모든 시도·대기는 최대 35초의 전체 제한을 공유하고 Retry-After를 따른다.
+PIN·등록·승인·배송지 확정 등의 변경 요청은 HTTP 계층에서 자동 재전송하지 않는다. 기능별 명시적 재시도는 기존 요청 상태와 멱등키를 확인한다.
 
 ## Core: AI 서비스 연결
 
@@ -124,7 +176,7 @@ nullable 가격·재고·배송비·구매 허용을 0/무료/구매 가능으�
 네이티브 JavaScript 인터페이스 없이 선택된 우편번호·주소만 내부 URL로 반환받는다. WebView에 사용자 토큰을 넣지 않는다.
 서드파티 검색의 실제 기기/WebView 동작은 별도 검증이 필요하다. 원본에 특정 검색 공급자 계약이 없어서 현재 사용 가능한 공개 API 하나를 직접 연결했다.
 
-`APP_LINK_HOST`에 `/approvals/{UUID}` HTTPS 링크를 설정한다. 해당 도메인의 `assetlinks.json`은 실제 서명 인증서로 서버에서 배포해야 한다.
+`APP_LINK_HOST`에 `/approvals/{UUID}`와 `/purchases/{UUID}` HTTPS 링크를 설정한다. 해당 도메인의 `assetlinks.json`은 실제 서명 인증서로 서버에서 배포해야 한다.
 앱은 링크에서 받은 상점·금액을 믿지 않고 사용자 인증 후 승인 ID로 서버를 조회한다. 임의 외부 복귀 URL을 실행하지 않는다.
 
 ## FCM FID 등록과 승인 알림
@@ -137,11 +189,19 @@ Firebase FID 모드를 활성화하고 FCM `register()` 완료 후 Installations
 등록 실패는 설정 화면에 표시하며 로그인은 계속할 수 있다. 설정에서 재등록할 수 있다.
 FID가 이후 변경되면 다음 로그인·로그인 복원·재연결 시 동기화한다. 별도 백그라운드 갱신 작업은 없다.
 
-메시지에서 `data.approvalId` UUID만 사용한다. 전경 및 data-only 배경 수신은 앱이 알림을 만들고,
-notification+data 배경 수신은 Firebase가 알림을 표시한 뒤 launcher Intent의 extra를 앱에 전달한다.
-알림 클릭은 기존 승인 진입 로직을 사용하며 금액·상점·승인 가능 여부는 Pay에서 다시 조회한다.
-서버 payload는 `approvalId`를 포함하고 별도 `click_action`을 지정하지 않아야 한다.
-알림 권한이 거부되면 알림이 표시되지 않는다. 승인 목록 조회는 계속 사용할 수 있다.
+현재 수신 경로는 `PayPush.fromPayload`가 검증하는 data-only 계약이다. 모든 메시지에
+`eventId,pushId,type,approvalId,purchaseRequestId,paymentId,status,nextAction`을 포함하며 미사용 ID·status는 빈 문자열이다. `eventId`와 `pushId`는 같아야 한다.
+
+| 종류 | 식별자 | nextAction |
+|---|---|---|
+| PURCHASE_HANDOFF | purchaseRequestId | OPEN_PURCHASE |
+| APPROVAL_REQUESTED | approvalId | OPEN_APPROVAL |
+| PAYMENT_RESULT | approvalId, paymentId | SHOW_PAYMENT_RESULT 또는 WAIT_FOR_PAYMENT_STATUS |
+
+승인·배송지·결제 결과 채널을 구분하며 중복 event와 이미 확정된 결제 결과의 후속 알림을 억제한다. 알림 권한·채널이 막혀 표시하지 못한 event는 소비하지 않는다.
+`ApprovalActivity`는 ID만 받고 인증된 서버 상태를 조회한다. WAIT는 payload의 성공 문구와 무관하게 확인 중으로 처리한다.
+푸시 수신·알림 열기·타이머는 승인 POST를 실행하지 않는다. 알림 전용 화면을 닫으면 이전 앱/홈으로 복귀하며 미확정 금융 작업은 유지한다.
+MainActivity의 이전 승인 ID 진입 호환과 목록 새로고침은 남아 있지만, 단순 `approvalId` 메시지는 새 data-only FCM 계약을 대신하지 않는다.
 
 등록 API 문서의 상태는 조회 시점에 `시작 전`이다. 실제 배포 여부와 FID 대상 발송은 확인하지 않았다.
 v5 및 저장소 NotificationInstallationController의 계약으로 `DELETE /api/pay/v1/notification-installations/{fid}`를 연결했다.

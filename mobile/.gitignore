@@ -13,7 +13,16 @@ gradle/wrapper/bootstrap.lock
 .externalNativeBuild/
 captures/
 .DS_Store
+AGENTS.md
 
 # Keep Android data packages tracked despite the repository runtime data/ rule.
 !app/src/**/data/
 !app/src/**/data/**
+
+# Local fixture tools
+__pycache__/
+*.pyc
+
+# Generated local APKs and visual verification evidence
+/artifacts/
+/docs/redesign/evidence/

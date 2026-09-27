@@ -25,12 +25,79 @@ class Store(context: Context) {
     var credentialId: String?
         get() = prefs.getString("credentialId", null)
         set(value) { prefs.edit().putString("credentialId", value).apply() }
+    var biometricRevocationKey: String?
+        get() = prefs.getString("biometricRevocationKey", null)
+        set(value) {
+            check(prefs.edit().putString("biometricRevocationKey", value).commit()) {
+                "생체 인증 해제 요청을 저장하지 못했어요. 다시 시도해 주세요."
+            }
+        }
     var tokens: Tokens? = readTokens(); private set
+
+    fun clearBiometricCredential() {
+        check(prefs.edit().remove("credentialId").remove("biometricRevocationKey").commit()) {
+            "생체 인증 해제 결과를 저장하지 못했어요. 다시 시도해 주세요."
+        }
+    }
+
+    /** Only the unresolved operation reference survives process death; never PINs or assertions. */
+    var unresolvedApprovalId: String?
+        get() {
+            if (tokens == null) return null
+            val stored = prefs.getString("unresolvedApproval", null) ?: return null
+            return runCatching {
+                val bytes = Base64.getDecoder().decode(stored)
+                val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
+                    init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, bytes.copyOfRange(0, 12)))
+                }
+                val raw = cipher.doFinal(bytes.copyOfRange(12, bytes.size))
+                try { raw.toString(Charsets.UTF_8).also { require(validId(it)) } }
+                finally { raw.fill(0) }
+            }.getOrElse { prefs.edit().remove("unresolvedApproval").commit(); null }
+        }
+        set(value) {
+            if (value == null) {
+                // A stale reference is harmless: its next read reconciles the known server result.
+                // Cleanup must never interrupt logout's other security-state clearing.
+                prefs.edit().remove("unresolvedApproval").commit()
+                return
+            }
+            require(validId(value)) { "승인 요청 정보를 확인해 주세요." }
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
+            val raw = value.toByteArray(Charsets.UTF_8)
+            val encrypted = try { cipher.iv + cipher.doFinal(raw) } finally { raw.fill(0) }
+            check(prefs.edit().putString("unresolvedApproval", Base64.getEncoder().encodeToString(encrypted)).commit()) {
+                "승인 상태를 저장하지 못했어요."
+            }
+        }
 
     fun saveHosts(core: String, pay: String, pg: String) {
         this.core = core; this.pay = pay; this.pg = pg
         prefs.edit().putString("core", core).putString("pay", pay).putString("pg", pg).apply()
     }
+    var unresolvedPurchase: PurchaseResume?
+        get() {
+            if (tokens == null) return null
+            val stored = prefs.getString("unresolvedPurchase", null) ?: return null
+            return runCatching {
+                val bytes = Base64.getDecoder().decode(stored)
+                val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
+                    init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, bytes.copyOfRange(0, 12)))
+                }
+                val raw = cipher.doFinal(bytes.copyOfRange(12, bytes.size))
+                try { json.decodeFromString(PurchaseResume.serializer(), raw.toString(Charsets.UTF_8)) }
+                finally { raw.fill(0) }
+            }.getOrElse { prefs.edit().remove("unresolvedPurchase").commit(); null }
+        }
+        set(value) {
+            val encrypted = value?.let {
+                val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
+                val raw = json.encodeToString(PurchaseResume.serializer(), it).toByteArray(Charsets.UTF_8)
+                try { Base64.getEncoder().encodeToString(cipher.iv + cipher.doFinal(raw)) }
+                finally { raw.fill(0) }
+            }
+            check(prefs.edit().putString("unresolvedPurchase", encrypted).commit()) { "배송지 선택 상태를 저장하지 못했어요." }
+        }
     fun saveTokens(value: Tokens, loginId: String = this.loginId) {
         require(value.accessToken.isNotBlank() && value.refreshToken.isNotBlank()) { "인증 응답을 확인할 수 없어요." }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
@@ -42,7 +109,8 @@ class Store(context: Context) {
     }
     fun clearSession() {
         tokens = null
-        prefs.edit().remove("tokens").remove("credentialId").commit()
+        prefs.edit().remove("tokens").remove("credentialId").remove("biometricRevocationKey")
+            .remove("unresolvedApproval").remove("unresolvedPurchase").commit()
     }
     private fun readTokens(): Tokens? {
         val stored = prefs.getString("tokens", null) ?: return null
