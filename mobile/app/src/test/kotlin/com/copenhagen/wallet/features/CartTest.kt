@@ -121,12 +121,12 @@ class CartTest {
         server.enqueue(MockResponse().setBody(response()))
         cart.load()
         server.enqueue(MockResponse().setResponseCode(404).setBody("""{"code":"CART_ITEM_NOT_FOUND"}"""))
-        server.enqueue(MockResponse().setResponseCode(503))
+        repeat(3) { server.enqueue(MockResponse().setResponseCode(503)) }
         assertTrue(runCatching { cart.remove(itemId) }.isFailure)
         assertNull(cart.view)
         assertNotNull(cart.notice)
         assertTrue(runCatching { cart.updateQuantity(itemId, 3) }.isFailure)
-        assertEquals(3, server.requestCount)
+        assertEquals(5, server.requestCount) // One read, one DELETE, and three failed reload attempts.
         server.enqueue(MockResponse().setBody(emptyCart))
         cart.load()
         assertTrue(cart.view!!.items.isEmpty())

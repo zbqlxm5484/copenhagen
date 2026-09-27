@@ -7,6 +7,7 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.Lifecycle
 import com.copenhagen.wallet.data.*
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.*
@@ -16,6 +17,12 @@ import java.util.Base64
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
+/** A dismissed system prompt is a switch to PIN, not a failed payment. */
+class BiometricPromptFailure(val code: Int) : IllegalStateException("생체 인증을 완료하지 못했어요.") {
+    val cancelled get() = code in setOf(BiometricPrompt.ERROR_NEGATIVE_BUTTON,
+        BiometricPrompt.ERROR_USER_CANCELED, BiometricPrompt.ERROR_CANCELED)
+}
+
 class Biometrics {
     private val alias = "copenhagen.biometric.p256"
     private var registrationKey = newKey()
@@ -23,9 +30,17 @@ class Biometrics {
     fun available(activity: FragmentActivity) = BiometricManager.from(activity)
         .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
     fun clear() { keystore().deleteEntry(alias); registrationKey = newKey() }
+    fun hasKey() = runCatching { keystore().getKey(alias, null) is PrivateKey }.getOrDefault(false)
 
-    suspend fun enroll(activity: FragmentActivity, api: Api, store: Store) {
+    suspend fun status(api: Api) = api.pay("GET", "/users/me/biometric-credentials", deviceHeader = true)
+        .read<BiometricStatus>().also { it.requireValid() }
+
+    suspend fun enroll(activity: FragmentActivity, api: Api, store: Store, revoke: suspend () -> Unit) {
         prompt(activity)
+        // Enrollment is explicit. Remove an orphaned server credential before replacing its key.
+        val needsRegistration = prepareBiometricEnrollment({ status(api) }, store.credentialId, hasKey(),
+            store.biometricRevocationKey != null, revoke) { clear(); store.clearBiometricCredential() }
+        if (!needsRegistration) return
         val publicKey = keystore().getCertificate(alias)?.publicKey ?: createKey()
         val response = api.pay("POST", "/users/me/biometric-credentials", buildJsonObject {
             put("deviceId", store.deviceId)
@@ -54,6 +69,11 @@ class Biometrics {
         return KeyPairGenerator.getInstance("EC", "AndroidKeyStore").apply { initialize(spec.build()) }.generateKeyPair().public
     }
     private suspend fun prompt(activity: FragmentActivity, signature: Signature? = null): Signature? {
+        // AndroidX silently skips authenticate() after state saving and sends no callback.
+        // Release the in-flight action if a read finished after this host left or rotated.
+        if (activity.isFinishing || activity.isDestroyed || activity.supportFragmentManager.isStateSaved ||
+            !activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+            throw BiometricPromptFailure(BiometricPrompt.ERROR_CANCELED)
         check(available(activity)) { "기기에 생체 인증을 등록해 주세요." }
         return suspendCancellableCoroutine { continuation ->
             val prompt = BiometricPrompt(activity, ContextCompat.getMainExecutor(activity), object : BiometricPrompt.AuthenticationCallback() {
@@ -64,12 +84,13 @@ class Biometrics {
                     else continuation.resume(result.cryptoObject?.signature)
                 }
                 override fun onAuthenticationError(code: Int, message: CharSequence) {
-                    if (continuation.isActive) continuation.resumeWithException(IllegalStateException("생체 인증을 완료하지 못했어요."))
+                    if (continuation.isActive) continuation.resumeWithException(BiometricPromptFailure(code))
                 }
             })
             continuation.invokeOnCancellation { prompt.cancelAuthentication() }
             val info = BiometricPrompt.PromptInfo.Builder().setTitle("Copenhagen")
-                .setSubtitle("본인 인증").setNegativeButtonText("취소")
+                .setSubtitle(if (signature == null) "본인 인증" else "결제 승인")
+                .setNegativeButtonText(if (signature == null) "취소" else "PIN으로 결제하기")
                 .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG).build()
             if (signature == null) prompt.authenticate(info)
             else prompt.authenticate(info, BiometricPrompt.CryptoObject(signature))

@@ -6,7 +6,8 @@ import java.time.YearMonth
 import java.util.Locale
 import java.util.UUID
 
-fun newKey(prefix: String = "") = prefix + UUID.randomUUID().toString()
+// PG and Pay accept a canonical UUID only; operation names must not enter the header.
+fun newKey() = UUID.randomUUID().toString()
 fun validId(value: String) = value.matches(Regex("[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}"))
 fun validPin(value: String) = value.matches(Regex("[0-9]{6}"))
 fun validLoginId(value: String) = value.matches(Regex("[a-z0-9_-]{5,20}"))
@@ -48,15 +49,42 @@ fun money(value: Long, currency: String) = if (currency == "KRW") money(value)
 val approvalStatuses = listOf("PAYMENT_METHOD_REQUIRED", "PENDING", "APPROVED", "COMPLETED", "REJECTED", "EXPIRED", "INVALIDATED")
 fun statusLabel(status: String): String = when (status) {
     "PAYMENT_METHOD_REQUIRED" -> "카드 선택 필요"
-    "PENDING" -> "승인 대기"
-    "APPROVED" -> "승인 전달"
+    "PENDING" -> "승인 대기 중"
+    "APPROVED" -> "승인 전달됨"
     "COMPLETED" -> "결제 완료"
-    "REJECTED" -> "거절"
-    "EXPIRED" -> "만료"
+    "REJECTED" -> "요청 거절됨"
+    "EXPIRED" -> "기간 만료"
     "INVALIDATED" -> "취소됨"
     "LOCKED" -> "잠김"
     "ACTIVE" -> "사용 중"
-    "NOT_REGISTERED" -> "미등록"
-    "REVOKED" -> "재인증 필요"
-    else -> status
+    "NOT_REGISTERED" -> "등록 필요"
+    "REVOKED" -> "다시 인증 필요"
+    else -> "상태 확인 필요"
+}
+
+/** Display labels only: request filters and financial state retain the original backend values. */
+val orderStatuses = listOf("CREATED", "CONFIRMED", "FULFILLING", "SHIPPED", "DELIVERED", "CANCELLED", "FAILED")
+fun orderStatusLabel(status: String): String = when (status) {
+    "CREATED" -> "주문 등록됨"
+    "CONFIRMED" -> "주문 확정"
+    "FULFILLING" -> "배송 준비 중"
+    "SHIPPED" -> "배송 중"
+    "DELIVERED" -> "배송 완료"
+    "CANCELLED" -> "주문 취소됨"
+    "FAILED" -> "주문 실패"
+    else -> "상태 확인 필요"
+}
+
+fun cardStatusLabel(status: String): String = when (status) {
+    "ACTIVE" -> "사용 중"
+    "REVOKED" -> "사용 중지됨"
+    else -> "상태 확인 필요"
+}
+
+fun connectionScopeLabel(scope: String): String = when (scope) {
+    "catalog:read" -> "상품 검색·가격·옵션 조회"
+    "cart:read" -> "장바구니 조회"
+    "cart:write" -> "장바구니 추가·변경·삭제"
+    "purchase:handoff" -> "결제 승인 요청·상태 조회"
+    else -> "권한 확인 필요"
 }

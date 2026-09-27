@@ -77,7 +77,7 @@ class CatalogTest {
     }
 
     @Test fun failedPageRemembersRequestedPageForExplicitRetry() = runBlocking {
-        server.enqueue(MockResponse().setResponseCode(503))
+        repeat(3) { server.enqueue(MockResponse().setResponseCode(503)) }
         assertTrue(runCatching { catalog.search(2) }.isFailure)
         assertNull(catalog.result)
         assertEquals(2, catalog.page)
