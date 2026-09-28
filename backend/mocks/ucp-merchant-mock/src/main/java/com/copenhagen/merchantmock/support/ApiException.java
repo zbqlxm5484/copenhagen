@@ -103,6 +103,21 @@ public class ApiException extends RuntimeException {
         return new ApiException("INVALID_REQUEST", HttpStatus.BAD_REQUEST, message, null, null);
     }
 
+    /**
+     * 연관 상품 색인을 기동 뒤 백그라운드에서 만드는 중이다(DESIGN.md 6.8.1절). 잠시 뒤 다시 부르면 된다. {@code nextAction} 은 null —
+     * 다시 부를지는 사용자가 아니라 부르는 코드가 정한다.
+     */
+    public static ApiException relatedWarmingUp() {
+        return new ApiException("RELATED_WARMING_UP", HttpStatus.SERVICE_UNAVAILABLE,
+                "연관 상품을 준비하는 중이다. 잠시 뒤 다시 부른다", null, null);
+    }
+
+    /** 연관 상품 요청을 처리하다 예상하지 못한 오류가 났다. 이 요청만 실패하고 다른 API 는 그대로다(6.8.1절). */
+    public static ApiException relatedUnavailable() {
+        return new ApiException("RELATED_UNAVAILABLE", HttpStatus.SERVICE_UNAVAILABLE,
+                "연관 상품을 지금 줄 수 없다", null, null);
+    }
+
     public String errorCode() {
         return errorCode;
     }

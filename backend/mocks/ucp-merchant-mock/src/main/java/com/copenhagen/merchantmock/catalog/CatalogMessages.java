@@ -25,6 +25,13 @@ public final class CatalogMessages {
     public record ProductRequest(String productId) {
     }
 
+    /**
+     * 연관 상품 요청(DESIGN.md 6.8절, ADR 0014). 사용자 식별자는 받지 않는다 — 개인화는 부르는 쪽이 구매이력의 상품 id 를 넣어 조립한다.
+     * 앞쪽 id 가 우선이고 여러 개면 번갈아 꺼낸다.
+     */
+    public record RelatedRequest(List<String> productIds, Integer limit) {
+    }
+
     /** 검색과 일괄 조회가 같이 쓴다. 결과가 없으면 빈 배열이고 404 를 내지 않는다. */
     public record ItemsResponse(List<Item> items) {
     }

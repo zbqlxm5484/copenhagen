@@ -91,9 +91,12 @@ class SearchParityTest {
         assertEquals(0, tokenMismatches.size() + topMismatches.size(), report);
     }
 
-    /** application.yml 원문의 merchant.catalog 에서 동의어·검색 조정값을 읽는다. 풀 경로는 비운다(로더 없이 직접 싣는다). */
+    /**
+     * application.yml 원문의 merchant.catalog 에서 동의어·검색 조정값을 읽는다. 풀 경로는 비운다(로더 없이 직접 싣는다).
+     * RelatedParityTest 도 쓴다.
+     */
     @SuppressWarnings("unchecked")
-    private static MerchantProperties.Catalog catalogFromYml() throws IOException {
+    static MerchantProperties.Catalog catalogFromYml() throws IOException {
         try (InputStream in = new ClassPathResource("application.yml").getInputStream()) {
             Map<String, Object> root = new Yaml().load(in);
             Map<String, Object> merchant = (Map<String, Object>) root.get("merchant");

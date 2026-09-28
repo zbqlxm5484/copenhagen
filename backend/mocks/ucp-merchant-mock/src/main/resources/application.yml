@@ -49,6 +49,13 @@ merchant:
     # 풀의 앞 N 건만 싣는다. 0 이면 전량. 앞 1,592건이 시연 필수라 N 은 그 이상이어야 한다.
     # compose 기본은 30000 이고 EC2 RAM 이 확인되면 0 으로 올린다(13절).
     pool-limit: ${MERCHANT_CATALOG_POOL_LIMIT:0}
+    # 연관 상품(DESIGN.md 6.8·6.8.1절, ADR 0014, Jira 511). 기본은 꺼짐 — 꺼져 있으면 빈을 만들지 않아 색인·이웃 파일을 읽지 않고
+    # 엔드포인트도 없다(머지 전과 같다). 켜는 것은 이 기본값을 바꾸는 후속 MR 이다. 롤백 사다리: enabled=false → mode 한 단계씩
+    # (rrf3 → rrf2 → search) → git revert.
+    related:
+      enabled: ${MERCHANT_CATALOG_RELATED_ENABLED:false}
+      mode: ${MERCHANT_CATALOG_RELATED_MODE:rrf3}
+      neighbors-file: ${MERCHANT_CATALOG_RELATED_NEIGHBORS_FILE:classpath:catalog/related-e5nb.bin.gz}
     # 검색 점수 조정값(DESIGN.md 6.7절, ADR 0012·0013). attribute-words 를 비우고 tail-boost 1.5 면 2차(A10) 점수 규칙,
     # nori 를 끄면 검색어 정제도 빠져 A10 그 자체다. 3차(S19)의 여덟 규칙은 ADR 0013.
     search:
