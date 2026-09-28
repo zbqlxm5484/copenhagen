@@ -37,6 +37,11 @@ public class CatalogService {
     /** {@link #count} 가 순차로 보는 앞부분. 흔한 낱말은 여기서 끝난다(전량의 2%). */
     static final int PREFIX_SCAN = 2_000;
 
+    private static final int PET_FLAG = 1;
+    private static final int CATEGORY_FLAG = 2;
+    private static final int ACCESSORY_FLAG = 4;
+    private static final int WEAK_HEAD_FLAG = 8;
+
     /** 머리 명사 가중치에 더하는 여유. 나머지 토큰이 전부 맞아도 머리 명사 하나가 이기게 한다(규칙 7). */
     private static final double HEAD_MARGIN = 0.5;
 
@@ -77,8 +82,14 @@ public class CatalogService {
      *   전부 그런 토큰이면 깎지 않는다 — 그때는 그것이 검색어다
      *   머리 명사 = 위에 안 걸린 마지막 토큰. 가중치 = max(tail-boost, 나머지 합 + 0.5). 머리만 맞은 상품이 수식어 전부
      *   맞은 상품보다 항상 위다
-     * 동점은 자리 단계(제목 낱말 4 > 제목 부분 3 > 브랜드 2 > 카테고리 1, 맞은 묶음 중 가장 약한 자리), 그래도 같으면 풀 순서
+     * 동점은 펫 아님 먼저 → 카테고리 일치 먼저 → 자리 단계(제목 낱말 4 > 제목 부분 3 > 브랜드 2 > 카테고리 1, 맞은 묶음 중
+     * 가장 약한 자리) → 풀 순서
      * </pre>
+     *
+     * <p>4차(525)는 동점 처리만 바꿨다. 설문 검색어의 절반 넘게가 명사 하나라 후보 전부가 같은 점수이고, 그러면 풀 순서
+     * (external_id — 다이소가 먼저)가 순위를 정해 딸기 스푼·계란 틀·펫 치즈 간식이 위로 왔다. 카테고리 조각이 머리 명사로
+     * 끝나는 상품("과일/견과 > 딸기")을 먼저 두고, 반려동물 검색이 아니면 펫 상품을 뒤로 보낸다. 화면 상위 10개를 한 건씩
+     * 판정한 자로 튜닝셋 55 → 80%, 검증셋 61 → 79%(장부 8절).
      *
      * <p>2차(A10)는 마지막 낱말에 1.5 를 줬다. 실제 호출자(Haiku)가 "우유 대용량"·"가습기 소형" 처럼 속성을 뒤에 붙여 넘기면
      * 속성이 머리가 되어 대용량 세제가 우유보다 위로 왔다 — 실제 query 251개에서 84%. 3차는 93%(장부 3.10절).
@@ -109,6 +120,16 @@ public class CatalogService {
 
         int width = terms.size();
         byte[] tiers = new byte[products.size() * width];
+        double[] weights = weights(terms);
+        int headIndex = headIndex(weights);
+        List<String> head = terms.get(headIndex).group();
+        String query = request.query().toLowerCase(Locale.ROOT);
+        boolean petQuery = tuning.isPetQuery(query);
+        List<String> titleAccessories = accessoryWords(head, tuning.accessoryTitleWords());
+        List<String> leafAccessories = accessoryWords(head, tuning.accessoryCategoryWords());
+        // 4·5차 동점 키(펫·부속품·카테고리 일치·섞인 칸 감점)도 여기서 같이 잰다. 순차인 두 번째 훑기에 두면 후보가 수만 건인
+        // 질의에서 p95 가 86 → 100~114ms 로 늘었다(13절 실측). 첫 번째 훑기는 병렬이라 거기 얹는다
+        byte[] tieFlags = new byte[products.size()];
         // 1차 훑기는 상품마다 독립이라 병렬로 돈다. 10만 건 × 낱말 × 세 필드 contains 가 검색 시간의 대부분이다.
         // 쓰는 칸이 상품마다 다르므로 배열에 경쟁이 없다.
         IntStream.range(0, products.size()).parallel().forEach(index -> {
@@ -116,11 +137,20 @@ public class CatalogService {
                 return;
             }
             SearchDoc doc = docs.get(index);
+            boolean matched = false;
             for (int k = 0; k < width; k++) {
-                tiers[index * width + k] = doc.tierOrNoSpace(terms.get(k).group());
+                byte tier = doc.tierOrNoSpace(terms.get(k).group());
+                tiers[index * width + k] = tier;
+                matched |= tier > 0;
+            }
+            if (matched) {
+                boolean pet = !petQuery && tuning.isPetProduct(doc.title(), doc.category());
+                boolean accessory = doc.accessory(head, query, titleAccessories, leafAccessories);
+                boolean weakHead = tiers[index * width + headIndex] == 1 && doc.weakCategoryHead(head);
+                tieFlags[index] = (byte) ((pet ? PET_FLAG : 0) | (doc.categoryMatch(head) ? CATEGORY_FLAG : 0)
+                        | (accessory ? ACCESSORY_FLAG : 0) | (weakHead ? WEAK_HEAD_FLAG : 0));
             }
         });
-        double[] weights = weights(terms);
 
         List<Candidate> candidates = new ArrayList<>();
         for (int index = 0; index < products.size(); index++) {
@@ -141,11 +171,15 @@ public class CatalogService {
                     || !matchesPrice(product, filters) || !matchesCurrency(product, filters)) {
                 continue;
             }
-            candidates.add(new Candidate(index, score, weakest));
+            byte flags = tieFlags[index];
+            if ((flags & WEAK_HEAD_FLAG) != 0) {
+                // 규칙 16 — 머리 명사가 섞인 칸으로만 맞았다. 머리 명사 가중치를 주지 않는다
+                score -= weights[headIndex];
+            }
+            candidates.add(new Candidate(index, score, weakest, tiers[index * width + headIndex],
+                    (flags & PET_FLAG) != 0, (flags & ACCESSORY_FLAG) != 0, (flags & CATEGORY_FLAG) != 0));
         }
-        candidates.sort(Comparator.comparingDouble(Candidate::score).reversed()
-                .thenComparing(Comparator.comparingInt(Candidate::weakestTier).reversed())
-                .thenComparingInt(Candidate::index));
+        candidates.sort(Candidate.ORDER);
         for (Candidate candidate : candidates) {
             if (items.size() == MAX_RESULTS) {
                 break;
@@ -194,18 +228,91 @@ public class CatalogService {
      * @param group   동의어 묶음(+ 퍼지 백오프가 더한 낱말)
      * @param tail    머리 명사 후보인가. 어절 토큰은 참, 조각으로 갈린 것은 마지막 조각만 참
      * @param light   가볍게 볼 토큰인가(수식어·속성·규격·한 글자). 머리 명사가 될 수 없다
+     * @param blocked 머리 명사 불가 사전(규칙 13)으로 가벼워졌다. 그래서 머리 후보가 없어지면 가볍지 않은 마지막 토큰이 머리다
      */
-    record Term(String token, String surface, List<String> group, boolean tail, boolean light) {
+    record Term(String token, String surface, List<String> group, boolean tail, boolean light, boolean blocked) {
+        Term(String token, String surface, List<String> group, boolean tail, boolean light) {
+            this(token, surface, group, tail, light, false);
+        }
+
         Term with(List<String> newGroup) {
-            return new Term(token, surface, newGroup, tail, light);
+            return new Term(token, surface, newGroup, tail, light, blocked);
         }
 
         Term lightened() {
-            return new Term(token, surface, group, false, true);
+            return new Term(token, surface, group, false, true, blocked);
+        }
+
+        Term blockedAsHead() {
+            return new Term(token, surface, group, false, true, true);
         }
     }
 
-    private record Candidate(int index, double score, int weakestTier) {
+    /**
+     * @param headTier      머리 명사가 맞은 자리. 동점에서 최소 자리보다 먼저 본다(규칙 17)
+     * @param pet           펫 상품이고 반려동물 검색이 아니다. 같은 점수 안에서 뒤로 간다(규칙 10)
+     * @param accessory     부속품이다. 같은 점수 안에서 펫 다음으로 뒤로 간다(규칙 14)
+     * @param categoryMatch 카테고리 조각이 머리 명사로 끝난다(섞인 칸이면 제목 뒷받침). 같은 점수 안에서 앞으로 온다(규칙 9·15)
+     */
+    private record Candidate(int index, double score, int weakestTier, int headTier, boolean pet, boolean accessory,
+                             boolean categoryMatch) {
+        /** 점수 내림 → 펫 아님 → 부속품 아님 → 카테고리 일치 → 머리 자리 내림 → 최소 자리 내림 → 풀 순서. 박싱 없이 비교한다. */
+        static final Comparator<Candidate> ORDER = (a, b) -> {
+            int c = Double.compare(b.score, a.score);
+            if (c != 0) {
+                return c;
+            }
+            if (a.pet != b.pet) {
+                return a.pet ? 1 : -1;
+            }
+            if (a.accessory != b.accessory) {
+                return a.accessory ? 1 : -1;
+            }
+            if (a.categoryMatch != b.categoryMatch) {
+                return a.categoryMatch ? -1 : 1;
+            }
+            c = Integer.compare(b.headTier, a.headTier);
+            if (c != 0) {
+                return c;
+            }
+            c = Integer.compare(b.weakestTier, a.weakestTier);
+            return c != 0 ? c : Integer.compare(a.index, b.index);
+        };
+    }
+
+    /**
+     * 이 검색에서 볼 부속품 낱말(규칙 14). 공통 목록에 자리별 추가 낱말을 붙이고, 머리 명사가 가방 종류면 가방 낱말을 뺀다 —
+     * 다이소 백팩의 말단 칸이 "가방" 이라 진짜 백팩이 부속품으로 뒤로 갔다(장부 10절).
+     */
+    private List<String> accessoryWords(List<String> head, List<String> extra) {
+        boolean bagHead = false;
+        for (String word : head) {
+            for (String bag : tuning.bagHeads()) {
+                if (word.endsWith(bag)) {
+                    bagHead = true;
+                    break;
+                }
+            }
+        }
+        List<String> out = new ArrayList<>(tuning.accessoryWords().size() + extra.size());
+        for (String word : tuning.accessoryWords()) {
+            if (!(bagHead && word.equals(tuning.bagWord()))) {
+                out.add(word);
+            }
+        }
+        out.addAll(extra);
+        return out;
+    }
+
+    /** 가중치가 가장 큰 토큰. 같으면 앞 토큰 — 머리 명사가 있으면 그것이고, 전부 가벼우면 첫 토큰이다. */
+    private static int headIndex(double[] weights) {
+        int best = 0;
+        for (int k = 1; k < weights.length; k++) {
+            if (weights[k] > weights[best]) {
+                best = k;
+            }
+        }
+        return best;
     }
 
     /**
@@ -281,6 +388,17 @@ public class CatalogService {
                     }
                 }
             }
+            // 규칙 13 — 머리 명사 불가 사전(신체 부위·대상 사람·성능 명사·"~용"). 규칙 6 뒤에 따로 본다. 합치면 "전부 가볍다"
+            // 판정이 달라진다("아기 소형" 은 규칙 6 에서 소형만 깎이고 여기서는 전부 가벼워 안 건다 — 머리는 아기)
+            boolean allBlocked = terms.stream().allMatch(term -> term.light() || tuning.isHeadBlocked(term.token()));
+            if (!allBlocked) {
+                for (int k = 0; k < terms.size(); k++) {
+                    Term term = terms.get(k);
+                    if (!term.light() && tuning.isHeadBlocked(term.token())) {
+                        terms.set(k, term.blockedAsHead());
+                    }
+                }
+            }
         }
         return List.copyOf(terms);
     }
@@ -352,6 +470,14 @@ public class CatalogService {
         for (int k = 0; k < terms.size(); k++) {
             if (terms.get(k).tail() && !terms.get(k).light()) {
                 head = k;
+            }
+        }
+        if (head < 0 && terms.stream().anyMatch(Term::blocked)) {
+            // 규칙 13 이 머리 후보를 다 가져갔다(핸드크림 손톱 의 손톱). 가볍지 않은 마지막 토큰이 머리다
+            for (int k = 0; k < terms.size(); k++) {
+                if (!terms.get(k).light()) {
+                    head = k;
+                }
             }
         }
         if (head >= 0 && terms.size() > 1) {

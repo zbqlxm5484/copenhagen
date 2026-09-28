@@ -613,4 +613,140 @@ class CatalogServiceTest {
         // then
         assertEquals(List.of("product-601"), idsOf(response));
     }
+
+    @Test
+    @DisplayName("4차 — 점수가 같으면 카테고리가 머리 명사로 끝나는 상품이 먼저다")
+    void search_tie_prefersCategoryEndingWithHead() {
+        // given: 풀 순서로는 딸기 스푼이 먼저다(실서비스에서 다이소가 컬리보다 앞선다)
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-701", "퓨어 딸기 스푼 3개입", "주방용품 > 수저/커트러리 > 숟가락"),
+                CatalogFixture.simple("product-702", "국산 냉동 딸기 1kg", "과일/견과 > 딸기")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("딸기", null));
+
+        // then
+        assertEquals(List.of("product-702", "product-701"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("4차 — 카테고리에 머리 명사가 앞에 붙기만 한 부속품은 일치가 아니다")
+    void search_tie_categoryPrefixIsNotMatch() {
+        // given: "칫솔걸이/꽂이" 는 칫솔로 시작하지만 걸이다. 부분 일치로 보면 칫솔 캡이 칫솔보다 먼저 온다(장부 8절 라운드 1)
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-711", "튤립 모양 칫솔 캡 2P", "청소/욕실 > 욕실용품 > 칫솔걸이/꽂이"),
+                CatalogFixture.simple("product-712", "토끼모양 어린이 칫솔 3개입", "뷰티/위생 > 구강용품 > 칫솔")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("칫솔", null));
+
+        // then
+        assertEquals(List.of("product-712", "product-711"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("4차 — 반려동물 검색이 아니면 같은 점수 안에서 펫 상품이 뒤로 간다")
+    void search_tie_demotesPetProductsForNonPetQuery() {
+        // given: 두 상품 모두 카테고리가 치즈로 끝나지 않아 카테고리 규칙이 가르지 못한다
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-721", "[펫] 강아지용 치즈 버거 120g", "반려동물 > 간식"),
+                CatalogFixture.simple("product-722", "더블 치즈 버거 2입", "식품 > 간편식")));
+
+        // when
+        CatalogMessages.ItemsResponse plain =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("치즈", null));
+        CatalogMessages.ItemsResponse forPet =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("고양이 치즈", null));
+
+        // then 반려동물 검색이면 뒤로 보내지 않는다 — 풀 순서 그대로
+        assertEquals(List.of("product-722", "product-721"), idsOf(plain));
+        assertEquals(List.of("product-721", "product-722"), idsOf(forPet));
+    }
+
+    @Test
+    @DisplayName("4차 — 계란으로 달걀을 찾는다")
+    void search_eggSynonym_findsDalgyal() {
+        // given: 컬리는 달걀로 쓴다. 풀 1,146건 중 제목에 계란이 든 것은 8건이었다
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-731", "손잡이가 접히는 계란 틀", "주방용품 > 조리도구 > 조리소도구"),
+                CatalogFixture.simple("product-732", "무항생제 달걀 L(대란) 20구", "정육·가공육·달걀 > 달걀·가공란")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("계란", null));
+
+        // then 달걀이 동의어로 걸리고, 카테고리가 달걀로 끝나 계란 틀보다 먼저 온다
+        assertEquals(List.of("product-732", "product-731"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("5차 — 같은 점수면 부속품(운동화 끈)이 진짜 상품(러닝화) 뒤로 간다")
+    void search_tie_demotesAccessories() {
+        // given: 다이소가 운동화 끈을 "신발" 칸에 넣어 카테고리 일치로도 가르지 못한다. 풀 순서로는 끈이 먼저다
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-741", "대각 운동화 끈 10 mm 2개입", "패션/잡화 > 잡화 > 신발"),
+                CatalogFixture.simple("product-742", "나이키 윈플로 12 남성 러닝화", "스포츠/레저 > 스포츠화")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("운동화", null));
+
+        // then
+        assertEquals(List.of("product-742", "product-741"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("5차 — 섞인 칸(스탠드/무드등)으로만 맞은 머리 명사는 점수를 받지 못한다")
+    void search_mixedCategoryOnlyHead_losesHeadWeight() {
+        // given: 무드등은 "스탠드/무드등" 칸 이름으로만 스탠드에 맞는다. 4차는 이 칸을 카테고리 일치로 쳐 무드등을 올렸다
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-751", "촛불 모양 LED 무드등 3개입", "공구/디지털 > 조명/전구 > 스탠드/무드등"),
+                CatalogFixture.simple("product-752", "루메나 LED 스탠드 DESK ON", "가전제품 > 생활가전")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("스탠드", null));
+
+        // then
+        assertEquals(List.of("product-752", "product-751"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("5차 — 신체 부위 낱말(손톱)은 끝에 와도 머리 명사가 아니다")
+    void search_headBlockedWord_isNotHead() {
+        // given: "핸드크림 손톱" 에서 손톱이 머리가 되면 손톱깎이가 핸드크림보다 위다
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-761", "스테인리스 손톱깎이", "뷰티/위생 > 뷰티소품 > 네일/패디소품"),
+                CatalogFixture.simple("product-762", "퍼퓸 핸드크림 30mL", "헤어·바디·구강 > 핸드·립·데오")));
+
+        // when
+        CatalogMessages.ItemsResponse response =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("핸드크림 손톱", null));
+
+        // then
+        assertEquals(List.of("product-762", "product-761"), idsOf(response));
+    }
+
+    @Test
+    @DisplayName("5차 — 가방 칸은 부속품 칸이지만 머리 명사가 가방 종류면 예외다")
+    void search_bagCategory_isAccessoryUnlessBagHead() {
+        // given: 다이소 백팩과 패딩 크로스백의 말단 칸이 둘 다 "가방" 이다
+        CatalogService ranked = serviceOf(List.of(
+                CatalogFixture.simple("product-771", "나일론 경량 앞포켓 백팩", "패션/잡화 > 잡화 > 가방"),
+                CatalogFixture.simple("product-772", "행운 백팩 꾸미기 카드 5세트", "문구/팬시 > 카드/편지/봉투 > 카드/엽서/연하장"),
+                CatalogFixture.simple("product-773", "볼륨 패딩 미니 크로스백", "패션/잡화 > 잡화 > 가방"),
+                CatalogFixture.simple("product-774", "덕다운 크롭 패딩 블랙", "패션의류 > 아우터")));
+
+        // when
+        CatalogMessages.ItemsResponse backpack =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("백팩", null));
+        CatalogMessages.ItemsResponse padding =
+                ranked.search("merchant-a", new CatalogMessages.SearchRequest("패딩", null));
+
+        // then 백팩 검색에서는 백팩이 꾸미기 카드 뒤로 밀리지 않고, 패딩 검색에서는 크로스백이 패딩 뒤로 간다
+        assertEquals(List.of("product-771", "product-772"), idsOf(backpack));
+        assertEquals(List.of("product-774", "product-773"), idsOf(padding));
+    }
 }
