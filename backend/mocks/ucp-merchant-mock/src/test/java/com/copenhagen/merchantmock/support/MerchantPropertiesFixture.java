@@ -24,7 +24,8 @@ public final class MerchantPropertiesFixture {
     public static final List<List<String>> SYNONYMS = List.of(
             List.of("신발", "운동화", "러닝화", "스니커즈", "워킹화", "스포츠화"),
             List.of("올리브유", "올리브오일"),
-            List.of("milk", "우유"));
+            List.of("milk", "우유"),
+            List.of("계란", "달걀"));
 
     /**
      * 도서산간 추가금 구간(427). 판정 규칙은 application.yml 과 같은 모양이고 낱말 목록만 줄였다.
@@ -42,7 +43,10 @@ public final class MerchantPropertiesFixture {
     /** 검색 수식어 목록(6.7절). application.yml 과 같은 모양이고 낱말만 줄였다. */
     public static final MerchantProperties.Catalog.Search SEARCH = new MerchantProperties.Catalog.Search(
             List.of("맛있는", "신선한", "저렴한", "가벼운", "추천해줘", "이하", "만원"), 0.2, 1.5,
-            List.of("대용량", "소형", "대형", "무선", "세트", "4인용", "화이트"), true);
+            List.of("대용량", "소형", "대형", "무선", "세트", "4인용", "화이트"), true,
+            List.of("펫", "강아지", "고양이", "사료"), List.of("개"), List.of("[펫]", "강아지", "고양이"),
+            List.of("손톱", "아기", "색상"), List.of("끈", "캡", "정리대", "가방"), List.of("건조대"), List.of("소품"),
+            List.of("가방", "백팩"), "가방");
 
     public static final String PUBLIC_JWK = """
             {"kty":"EC","crv":"P-256",\

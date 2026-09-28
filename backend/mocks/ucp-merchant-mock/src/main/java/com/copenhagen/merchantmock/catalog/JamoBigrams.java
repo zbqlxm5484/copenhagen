@@ -64,7 +64,10 @@ public final class JamoBigrams {
 
     /**
      * {@code token} 과 자모 바이그램 자카드가 {@code minJaccard} 이상이고 음절 길이 차가 {@code maxLengthDiff} 이하인
-     * 사전 낱말을 자카드 높은 순으로 {@code top} 개. 같은 낱말은 뺀다. 한 글자 토큰은 빈 목록.
+     * 사전 낱말 {@code top} 개. 같은 낱말은 뺀다. 한 글자 토큰은 빈 목록.
+     *
+     * <p>순서는 음절 길이 차 오름 → 자카드 내림 → 낱말 사전순 오름(4차 규칙 12). 3차는 자카드만 봐서 "케이불" 이 "이불" 로 갔다 —
+     * 이불의 바이그램이 케이불 안에 통째로 들어 있어 자카드가 케이블보다 높다. 오타는 대개 음절 수를 바꾸지 않는다.
      */
     public List<String> similar(String token, double minJaccard, int maxLengthDiff, int top) {
         if (token == null || token.length() < 2) {
@@ -86,9 +89,11 @@ public final class JamoBigrams {
                 ranked.add(entry);
             }
         }
-        // 파이썬 벤치와 같은 순서 — 자카드 내림차순, 같으면 낱말 사전순 내림차순(sorted 뒤 reversed)
-        ranked.sort(Comparator.<Map.Entry<String, Double>>comparingDouble(Map.Entry::getValue).reversed()
-                .thenComparing(Map.Entry::getKey, Comparator.reverseOrder()));
+        // 파이썬 벤치(search-bench4.py W)와 같은 순서 — sorted((길이 차, -자카드, 낱말))
+        int length = token.length();
+        ranked.sort(Comparator.<Map.Entry<String, Double>>comparingInt(e -> Math.abs(e.getKey().length() - length))
+                .thenComparing(Comparator.<Map.Entry<String, Double>>comparingDouble(Map.Entry::getValue).reversed())
+                .thenComparing(Map.Entry::getKey));
         List<String> result = new ArrayList<>();
         for (Map.Entry<String, Double> entry : ranked) {
             if (result.size() == top) {

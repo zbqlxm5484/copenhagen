@@ -138,12 +138,36 @@ public record MerchantProperties(
          * @param attributeWords 속성 낱말(ADR 0013 규칙 6). 대용량·소형·접이식·자동·무선·화이트 처럼 상품군이 아니라 규격·형태·용도·
          *                       색상을 말하는 낱말. 검색어 뒤에 와도 머리 명사가 되지 않는다. 소문자로 비교한다
          * @param nori           검색어 정제(nori) 켜기. 기본 true. 끄면 공백 분리만 한다
+         * @param petQueryWords     검색어에 이 중 하나가 부분문자열로 있으면 반려동물 검색이다(4차 규칙 10). 소문자로 비교한다
+         * @param petQueryTokens    검색어를 공백으로 가른 낱말 하나가 이 중 하나와 같으면 반려동물 검색이다. "개" 처럼 부분문자열로
+         *                          보면 "10개" 에도 걸리는 낱말
+         * @param petProductMarkers 제목이나 카테고리에 이 중 하나가 있으면 펫 상품이다. 반려동물 검색이 아니면 같은 점수 안에서 뒤로
+         *                          간다. 세 목록이 다 비면 규칙이 꺼진다
+         * @param headBlockedWords  머리 명사가 될 수 없는 낱말(5차 규칙 13). 신체 부위·대상 사람·성능·효과 명사. attribute-words 와 따로
+         *                          판정한다. 세 글자 이상이고 "용" 으로 끝나는 토큰도 같은 취급이다(코드)
+         * @param accessoryWords    부속품 낱말(5차 규칙 14). 제목 낱말이나 카테고리 말단 조각이 이 낱말로 끝나면 부속품 후보다
+         * @param accessoryTitleWords    제목에서만 더 보는 부속품 낱말(건조대)
+         * @param accessoryCategoryWords 카테고리 말단에서만 더 보는 낱말(소품)
+         * @param bagHeads          머리 명사가 이 중 하나로 끝나면 {@code bagWord} 를 부속품 낱말에서 뺀다
+         * @param bagWord           가방 종류 검색에서 부속품으로 보지 않을 낱말. 비면 예외가 없다
          */
         public record Search(List<String> fluffWords, Double fluffWeight, Double tailBoost, List<String> attributeWords,
-                             Boolean nori) {
+                             Boolean nori, List<String> petQueryWords, List<String> petQueryTokens,
+                             List<String> petProductMarkers, List<String> headBlockedWords, List<String> accessoryWords,
+                             List<String> accessoryTitleWords, List<String> accessoryCategoryWords,
+                             List<String> bagHeads, String bagWord) {
             public Search {
                 fluffWords = lowerWords(fluffWords);
                 attributeWords = lowerWords(attributeWords);
+                petQueryWords = lowerWords(petQueryWords);
+                petQueryTokens = lowerWords(petQueryTokens);
+                petProductMarkers = lowerWords(petProductMarkers);
+                headBlockedWords = lowerWords(headBlockedWords);
+                accessoryWords = lowerWords(accessoryWords);
+                accessoryTitleWords = lowerWords(accessoryTitleWords);
+                accessoryCategoryWords = lowerWords(accessoryCategoryWords);
+                bagHeads = lowerWords(bagHeads);
+                bagWord = bagWord == null ? "" : bagWord.trim().toLowerCase(Locale.ROOT);
                 fluffWeight = fluffWeight == null ? 0.2 : fluffWeight;
                 tailBoost = tailBoost == null ? 1.5 : tailBoost;
                 nori = nori == null || nori;
@@ -169,7 +193,8 @@ public record MerchantProperties(
             }
 
             public static Search defaults() {
-                return new Search(List.of(), null, null, List.of(), null);
+                return new Search(List.of(), null, null, List.of(), null, List.of(), List.of(), List.of(), List.of(),
+                        List.of(), List.of(), List.of(), List.of(), null);
             }
 
             public boolean isFluff(String token) {
@@ -178,6 +203,38 @@ public record MerchantProperties(
 
             public boolean isAttribute(String token) {
                 return attributeWords.contains(token);
+            }
+
+            /** 머리 명사가 될 수 없는 토큰인가(5차 규칙 13). 사전 낱말이거나 세 글자 이상이고 "용" 으로 끝난다(캠핑용·피부용). */
+            public boolean isHeadBlocked(String token) {
+                return headBlockedWords.contains(token) || (token.length() >= 3 && token.endsWith("용"));
+            }
+
+            /** 반려동물 검색인가. {@code query} 는 소문자 검색어 원문이다. */
+            public boolean isPetQuery(String query) {
+                for (String word : petQueryWords) {
+                    if (query.contains(word)) {
+                        return true;
+                    }
+                }
+                if (!petQueryTokens.isEmpty()) {
+                    for (String token : query.trim().split("\\s+")) {
+                        if (petQueryTokens.contains(token)) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            /** 펫 상품인가. {@code title}·{@code category} 는 소문자다. */
+            public boolean isPetProduct(String title, String category) {
+                for (String marker : petProductMarkers) {
+                    if (title.contains(marker) || category.contains(marker)) {
+                        return true;
+                    }
+                }
+                return false;
             }
         }
     }

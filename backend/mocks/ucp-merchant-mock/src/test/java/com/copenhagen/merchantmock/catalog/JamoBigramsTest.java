@@ -64,4 +64,14 @@ class JamoBigramsTest {
         assertEquals(3, near.size());
         assertTrue(near.stream().allMatch(word -> word.endsWith("인용") && !word.equals("2인용")));
     }
+
+    @Test
+    @DisplayName("4차 — 음절 길이가 같은 낱말을 먼저 고른다(케이불 → 케이블)")
+    void similar_prefersSameLength() {
+        // given: 이불의 바이그램은 케이불 안에 통째로 들어 있어 자카드는 이불이 높다. 3차는 이불을 먼저 골랐다
+        JamoBigrams index = JamoBigrams.of(List.of("이불", "케이블"));
+
+        // when & then
+        assertEquals(List.of("케이블", "이불"), index.similar("케이불"));
+    }
 }

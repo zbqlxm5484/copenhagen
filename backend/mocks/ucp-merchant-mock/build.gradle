@@ -34,7 +34,7 @@ tasks.named('test') {
 }
 
 // 파이썬 벤치와 자바 검색이 같은 답을 내는지 전량 풀 100,262건에서 대조한다(ADR 0013). 30초쯤 걸리고 대조 자료
-// docs/s19-parity.json 이 개인 문서라 CI 에는 없다. 그래서 기본 test 에서 빼고 따로 돈다.
+// docs/search-r7b-parity.json(4·5차, 525) 이 개인 문서라 CI 에는 없다. 그래서 기본 test 에서 빼고 따로 돈다.
 tasks.register('parityTest', Test) {
     description = 'Compares the Java search against the Python bench dump on the full catalog pool.'
     group = 'verification'
