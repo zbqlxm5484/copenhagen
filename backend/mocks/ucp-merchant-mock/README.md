@@ -81,6 +81,8 @@ SERVER_PORT                             기본 8080
 MERCHANT_PUBLIC_BASE_URL                Profile 의 endpoint 앞부분. 기본 http://ucp-merchant-mock:8080
 MERCHANT_CATALOG_POOL_FILE              카탈로그 풀. 비우면 V3 fixture 5건만 뜬다(테스트·CI 가 이 상태)
 MERCHANT_CATALOG_POOL_LIMIT             풀 앞 N 건만 싣는다. 0 이 전량. 줄이더라도 1592 이상
+MERCHANT_CATALOG_RELATED_ENABLED        연관 상품 켜기. 기본 false — 꺼져 있으면 색인·이웃 파일을 읽지 않고 경로도 없다
+MERCHANT_CATALOG_RELATED_MODE           rrf3(기본) · rrf2 · search. 문제가 생기면 한 단계씩 내린다
 PAY_SERVICE_URL                         Pay 청구·재조회 주소
 PAY_MERCHANT_TOKENS_JSON                몰별 Pay Bearer 토큰. {"merchant-a":"...","merchant-b":"..."}
 PAY_MERCHANT_TOKEN                      위 JSON 에 몰이 없을 때 쓰는 토큰 하나
@@ -151,6 +153,7 @@ Pay 청구 1회, 재조회 0회, 웹훅 1건
 ```
 GET   /api/ucp/v1/{merchantId}/.well-known/ucp
 POST  /api/ucp/v1/{merchantId}/catalog/search | lookup | product
+POST  /api/ucp/v1/{merchantId}/catalog/related              연관 상품. 기본 꺼짐(아래)
 POST  /api/ucp/v1/{merchantId}/checkout-sessions            GET · PUT · /complete · /cancel
 GET   /api/ucp/v1/{merchantId}/orders/{orderId}
 GET   /internal/v1/scenarios                                POST 로 바꾼다
@@ -282,6 +285,23 @@ python tools/mall_variation_golden.py --pool src/main/resources/catalog/pool.jso
 ```
 
 몰 셋은 Core `services.merchants[]` 와 Pay `merchant_accounts` 에 같은 id 로 등록돼 있습니다. 몰마다 결제까지 가려면 이 모듈의 `PAY_MERCHANT_TOKENS_JSON` 에 몰 셋의 토큰이 있고, 그 토큰이 Pay 쪽 설정과 같아야 합니다. Pay 는 토큰 하나를 몰 하나로 읽습니다.
+
+## 연관 상품 (기본 꺼짐)
+
+상품 id 를 주면 비슷한 상품(대체재)을 돌려줍니다. 사용자 식별자는 받지 않습니다. 구매이력으로 개인화하는 것은 부르는 쪽(Core·Agent)이 상품 id 를 넣어 조립합니다. UCP 표준이 아닌 벤더 확장 `com.copenhagen.catalog.related` 이고 Profile 에는 광고하지 않습니다. 설계와 실험은 `DESIGN.md` 6.8절, 결정은 ADR 0014.
+
+```
+POST /api/ucp/v1/merchant-a/catalog/related
+{ "productIds": ["kurly:5044571"], "limit": 4 }       →  { "items": [ ... search 와 같은 Item ... ] }
+```
+
+순위는 셋을 섞습니다 — 씨앗 제목으로 돌린 기존 검색, 제목·카테고리 낱말 TF-IDF, 그리고 빌드 때 미리 계산한 e5-large 이웃 파일(`src/main/resources/catalog/related-e5nb.bin.gz`). 같은 상품의 다른 용량과 품절·단종은 빠지고, id 가 여럿이면 번갈아 꺼냅니다. 실행 중에는 모델을 돌리지 않습니다.
+
+켜려면 `MERCHANT_CATALOG_RELATED_ENABLED=true`. 색인은 기동 뒤 백그라운드에서 만들어 1~2초 걸리고 그동안은 `503 RELATED_WARMING_UP` 입니다. 이웃 파일이 풀과 맞지 않으면 로그 한 줄을 남기고 이웃 없이(rrf2) 돕니다. 풀을 바꾸면 이웃 파일도 다시 만듭니다.
+
+```
+C:/Users/SSAFY/.venvs/related-gpu/Scripts/python.exe tools/build_related.py --embed --cuda     # GPU 로 약 10분
+```
 
 ## 로그로 구매 하나 추적하기
 

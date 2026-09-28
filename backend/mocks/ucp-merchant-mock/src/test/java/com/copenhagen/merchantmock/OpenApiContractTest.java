@@ -22,6 +22,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.core.env.MapPropertySource;
+import org.springframework.core.env.StandardEnvironment;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -80,7 +82,13 @@ class OpenApiContractTest {
     }
 
     private static Set<String> controllerEndpoints() {
-        ClassPathScanningCandidateComponentProvider scanner = new ClassPathScanningCandidateComponentProvider(false);
+        // 기본값으로 꺼져 있는 조건부 컨트롤러(연관 상품, DESIGN.md 6.8.1절)도 명세에는 있어야 한다. 스캐너는 @Conditional 을
+        // 평가하므로 스위치를 켠 환경을 준다
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(
+                new MapPropertySource("conditional-controllers", Map.of("merchant.catalog.related.enabled", "true")));
+        ClassPathScanningCandidateComponentProvider scanner =
+                new ClassPathScanningCandidateComponentProvider(false, environment);
         scanner.addIncludeFilter(new AnnotationTypeFilter(RestController.class));
         Set<String> endpoints = new TreeSet<>();
         for (BeanDefinition candidate : scanner.findCandidateComponents("com.copenhagen.merchantmock")) {
